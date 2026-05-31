@@ -20,7 +20,7 @@ import { decidePrivateManifestCacheUse } from "./private_stack_cache";
 import {
   buildPackageManifestFingerprint,
   type GitHubTreeNode,
-  selectPackageJsonPaths,
+  selectDependencyManifestPaths,
 } from "./tree_scanner";
 
 const PER_PAGE = 100;
@@ -246,7 +246,7 @@ async function fetchPrivateRepos(token: string): Promise<GitHubRepo[]> {
 
 /**
  * Fetches the git tree for a single repo and extracts packages from all
- * discovered package.json manifests.
+ * discovered dependency manifests.
  *
  * Returns `null` if the repo should be skipped (404/409/403).
  */
@@ -285,7 +285,7 @@ async function scanRepoManifests(
 
   const treeData = (await treeResponse.json()) as { tree?: GitHubTreeNode[] };
   const tree = treeData.tree ?? [];
-  const manifestPaths = selectPackageJsonPaths(tree, STACK_MANIFEST_MAX_FILES);
+  const manifestPaths = selectDependencyManifestPaths(tree, STACK_MANIFEST_MAX_FILES);
   const manifestFingerprint = buildPackageManifestFingerprint(tree, STACK_MANIFEST_MAX_FILES);
   const cacheDecision = decidePrivateManifestCacheUse(manifestFingerprint, cacheEntry);
 

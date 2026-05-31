@@ -105,8 +105,14 @@ function ReasonList({ reasons }: { reasons: string[] }) {
   );
 }
 
-function formatPercent(value: number): string {
-  return `${Math.max(PERCENT_MIN, Math.min(PERCENT_MAX, Math.round(value)))}%`;
+function formatMatchPercent(value: number, sharedCount: number): string {
+  const roundedPercent = Math.max(PERCENT_MIN, Math.min(PERCENT_MAX, Math.round(value)));
+
+  if (sharedCount > PERCENT_MIN && roundedPercent === PERCENT_MIN) {
+    return "<1%";
+  }
+
+  return `${roundedPercent}%`;
 }
 
 function buildStrongSignals(
@@ -223,11 +229,22 @@ function SharedStackCard({
 }
 
 function VisitorComparison({ comparison }: { comparison: CompatibilityComparison | undefined }) {
+  const hasZeroOverlap = comparison?.sharedCount === PERCENT_MIN;
+
   return (
     <div className="space-y-3">
       <div className="flex items-end gap-2">
-        <span className="text-4xl font-black text-foreground dark:text-white">
-          {comparison ? formatPercent(comparison.matchPercent) : "--"}
+        <span
+          className={cn(
+            "font-black text-foreground dark:text-white",
+            hasZeroOverlap ? "text-2xl leading-tight" : "text-4xl"
+          )}
+        >
+          {comparison
+            ? hasZeroOverlap
+              ? "No overlap yet"
+              : formatMatchPercent(comparison.matchPercent, comparison.sharedCount)
+            : "--"}
         </span>
         <span className="pb-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
           Match
@@ -235,12 +252,14 @@ function VisitorComparison({ comparison }: { comparison: CompatibilityComparison
       </div>
       <p className="text-sm font-medium text-muted-foreground dark:text-neutral-400">
         {comparison
-          ? `${comparison.sharedCount.toLocaleString("en-US")} shared public package${
-              comparison.sharedCount === 1 ? "" : "s"
-            }`
+          ? hasZeroOverlap
+            ? "No shared public packages"
+            : `${comparison.sharedCount.toLocaleString("en-US")} shared public package${
+                comparison.sharedCount === 1 ? "" : "s"
+              }`
           : "Comparing public dependency graphs..."}
       </p>
-      {comparison && comparison.sharedPackages.length > 0 && (
+      {comparison && !hasZeroOverlap && comparison.sharedPackages.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {comparison.sharedPackages.slice(0, SIGNAL_PREVIEW_LIMIT).map((pkg) => (
             <SignalPill key={pkg}>{pkg}</SignalPill>

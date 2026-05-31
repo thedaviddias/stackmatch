@@ -19,11 +19,11 @@ export const STACK_PACKAGE_STALE_MAX_REPOS_PER_RUN = 25;
 /** Delay between scheduled stale package repo scans to avoid API bursts. */
 export const STACK_PACKAGE_STALE_SCAN_STAGGER_MS = MINUTE_MS / 2;
 
-/** Maximum package.json manifests scanned per repository tree traversal. */
+/** Maximum dependency manifests scanned per repository tree traversal. */
 export const STACK_MANIFEST_MAX_FILES = 200;
 
 /** Bump to invalidate previously stored manifest fingerprints. */
-export const STACK_MANIFEST_FINGERPRINT_VERSION = "stack-manifest-v1";
+export const STACK_MANIFEST_FINGERPRINT_VERSION = "stack-manifest-v2";
 
 /** Batch size for private manifest cache upserts during chunked sync. */
 export const STACK_PRIVATE_CACHE_UPSERT_BATCH_SIZE = 5;

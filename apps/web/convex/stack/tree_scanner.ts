@@ -10,6 +10,8 @@ export interface GitHubTreeNode {
 }
 
 export const PACKAGE_JSON_FILE = "package.json";
+export const REQUIREMENTS_TXT_FILE = "requirements.txt";
+const DEPENDENCY_MANIFEST_FILES = new Set<string>([PACKAGE_JSON_FILE, REQUIREMENTS_TXT_FILE]);
 
 function normalizePath(path: string): string {
   if (path.startsWith("./")) return path.slice(2);
@@ -21,21 +23,25 @@ function pathDepth(path: string): number {
   return path.split("/").length;
 }
 
-interface PackageJsonBlob {
+interface DependencyManifestBlob {
   path: string;
   sha?: string;
 }
 
-function selectPackageJsonBlobs(
+function getBasename(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+function selectDependencyManifestBlobs(
   tree: GitHubTreeNode[],
   maxManifests = STACK_MANIFEST_MAX_FILES
-): PackageJsonBlob[] {
+): DependencyManifestBlob[] {
   const candidates = new Map<string, string | undefined>();
 
   for (const node of tree) {
     if (node.type !== "blob") continue;
     const normalizedPath = normalizePath(node.path);
-    if (normalizedPath === PACKAGE_JSON_FILE || normalizedPath.endsWith(`/${PACKAGE_JSON_FILE}`)) {
+    if (DEPENDENCY_MANIFEST_FILES.has(getBasename(normalizedPath))) {
       candidates.set(normalizedPath, node.sha);
     }
   }
@@ -50,11 +56,18 @@ function selectPackageJsonBlobs(
     .slice(0, maxManifests);
 }
 
-export function selectPackageJsonPaths(
+export function selectDependencyManifestPaths(
   tree: GitHubTreeNode[],
   maxManifests = STACK_MANIFEST_MAX_FILES
 ): string[] {
-  return selectPackageJsonBlobs(tree, maxManifests).map((entry) => entry.path);
+  return selectDependencyManifestBlobs(tree, maxManifests).map((entry) => entry.path);
+}
+
+export function isCurrentPackageManifestFingerprint(fingerprint?: string): boolean {
+  return (
+    typeof fingerprint === "string" &&
+    fingerprint.startsWith(`${STACK_MANIFEST_FINGERPRINT_VERSION}:`)
+  );
 }
 
 /**
@@ -65,7 +78,7 @@ export function buildPackageManifestFingerprint(
   tree: GitHubTreeNode[],
   maxManifests = STACK_MANIFEST_MAX_FILES
 ): string | null {
-  const manifests = selectPackageJsonBlobs(tree, maxManifests);
+  const manifests = selectDependencyManifestBlobs(tree, maxManifests);
   if (manifests.some((entry) => !entry.sha)) {
     return null;
   }

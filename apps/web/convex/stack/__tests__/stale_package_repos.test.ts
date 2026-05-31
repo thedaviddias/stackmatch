@@ -1,3 +1,4 @@
+import { STACK_MANIFEST_FINGERPRINT_VERSION } from "@stackmatch/constants/sync";
 import { describe, expect, it } from "vitest";
 import {
   isEligibleForStackPackageFreshnessCheck,
@@ -17,6 +18,7 @@ function repo(overrides: Partial<StackPackageRepoFreshness> = {}): StackPackageR
     pushedAt: PUSHED_AT,
     scannedPackageCount: 12,
     scannedManifestCount: 2,
+    packageManifestFingerprint: `${STACK_MANIFEST_FINGERPRINT_VERSION}:abc123`,
     packageManifestFingerprintComputedAt: FRESH_SCAN_TIME,
     ...overrides,
   };
@@ -33,6 +35,20 @@ describe("stale package repo selection", () => {
         repo({ packageManifestFingerprintComputedAt: undefined }),
         STALE_BEFORE
       )
+    ).toBe(true);
+  });
+
+  it("includes repos with old manifest fingerprint versions", () => {
+    const oldFingerprintRepo = repo({
+      packageManifestFingerprint: "stack-manifest-v1:abc123",
+    });
+
+    expect(isEligibleForStackPackageFreshnessCheck(oldFingerprintRepo, STALE_BEFORE)).toBe(true);
+    expect(
+      shouldScheduleStackPackageRefresh({
+        ...oldFingerprintRepo,
+        remotePushedAt: PUSHED_AT,
+      })
     ).toBe(true);
   });
 

@@ -34,6 +34,7 @@ import {
   resolveOwnerPageRenderedData,
   resolveOwnerPageUrlState,
   shouldFetchClientOwnerPageData,
+  shouldShowClaimProfileBanner,
 } from "./owner-page-utils";
 import { CompatibilitySnapshotSection } from "./sections/compatibility-snapshot/compatibility-snapshot-section";
 import { NotableProjectsSection } from "./sections/notable-projects-section";
@@ -396,7 +397,6 @@ function OwnerPageLoadedContent({
     hasLanguagesOrTopics,
     isOwnershipPending,
     isOwnerViewer,
-    isVisitorViewer,
     ownerIsOnline,
   } = resolveOwnerIdentityPresentation({ owner, data, ownershipStatus, presenceByOwner });
   const { isStarredByViewer, viewerStackScore, viewerLogin } = resolveOwnerPageViewerPresentation({
@@ -404,6 +404,11 @@ function OwnerPageLoadedContent({
     viewerState,
   });
   const showZeroPublicProjects = hasNoPublicRepos(data.syncCounts);
+  const showClaimProfileBanner = shouldShowClaimProfileBanner({
+    isAuthenticated,
+    isClaimed: Boolean(data.isClaimed),
+    ownershipStatus,
+  });
 
   return (
     <div className="relative min-h-screen overflow-hidden selection:bg-[var(--theme-selection-bg)]">
@@ -437,8 +442,8 @@ function OwnerPageLoadedContent({
           </ErrorBoundary>
         )}
 
-        {/* Claim Profile Banner for unclaimed profiles */}
-        {isVisitorViewer && !data.isClaimed && (
+        {/* Claim Profile Banner for anonymous visitors on unclaimed profiles */}
+        {showClaimProfileBanner && (
           <ErrorBoundary level="widget">
             <ClaimProfileBanner owner={owner} />
           </ErrorBoundary>

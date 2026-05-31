@@ -10,7 +10,7 @@ import { type ParsedPackageEntry, parsePackageManifest } from "./package_manifes
 import {
   buildPackageManifestFingerprint,
   type GitHubTreeNode,
-  selectPackageJsonPaths,
+  selectDependencyManifestPaths,
 } from "./tree_scanner";
 
 function requireModule<T>(value: T | undefined, name: string): T {
@@ -96,7 +96,7 @@ export const scanRepoPackages = internalAction({
 
       const treeData = (await treeResponse.json()) as { tree?: GitHubTreeNode[] };
       const tree = treeData.tree ?? [];
-      const manifestPaths = selectPackageJsonPaths(tree, STACK_MANIFEST_MAX_FILES);
+      const manifestPaths = selectDependencyManifestPaths(tree, STACK_MANIFEST_MAX_FILES);
       const manifestFingerprint = buildPackageManifestFingerprint(tree, STACK_MANIFEST_MAX_FILES);
 
       const hasPreviousScanMetadata =

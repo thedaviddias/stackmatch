@@ -1,3 +1,4 @@
+import { STACK_MANIFEST_FINGERPRINT_VERSION } from "@stackmatch/constants/sync";
 import { describe, expect, it } from "vitest";
 import { buildStackRepoMetadataHeaders, canShortCircuitNotModified } from "../fetch_repo_cache";
 
@@ -7,7 +8,7 @@ describe("canShortCircuitNotModified", () => {
       canShortCircuitNotModified({
         scannedPackageCount: 42,
         scannedManifestCount: 6,
-        packageManifestFingerprint: "abc123",
+        packageManifestFingerprint: `${STACK_MANIFEST_FINGERPRINT_VERSION}:abc123`,
       })
     ).toBe(true);
   });
@@ -16,7 +17,17 @@ describe("canShortCircuitNotModified", () => {
     expect(
       canShortCircuitNotModified({
         scannedPackageCount: 42,
-        packageManifestFingerprint: "abc123",
+        packageManifestFingerprint: `${STACK_MANIFEST_FINGERPRINT_VERSION}:abc123`,
+      })
+    ).toBe(false);
+  });
+
+  it("returns false for old manifest fingerprint versions", () => {
+    expect(
+      canShortCircuitNotModified({
+        scannedPackageCount: 42,
+        scannedManifestCount: 6,
+        packageManifestFingerprint: "stack-manifest-v1:abc123",
       })
     ).toBe(false);
   });

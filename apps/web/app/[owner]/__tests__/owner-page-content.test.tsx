@@ -16,6 +16,7 @@ import {
   resolveOwnerPageRenderedData,
   resolveOwnerPageUrlState,
   shouldFetchClientOwnerPageData,
+  shouldShowClaimProfileBanner,
 } from "../owner-page-utils";
 import { NotableProjectsSection } from "../sections/notable-projects-section";
 import { getNotableProjects, type NotableProjectRepo } from "../sections/notable-projects-utils";
@@ -270,6 +271,40 @@ describe("owner page data hydration", () => {
         viewAs: "public",
       })
     ).toBe("visitor");
+  });
+
+  it("shows the claim banner only to anonymous visitors on unclaimed profiles", () => {
+    expect(
+      shouldShowClaimProfileBanner({
+        isAuthenticated: false,
+        isClaimed: false,
+        ownershipStatus: "visitor",
+      })
+    ).toBe(true);
+
+    expect(
+      shouldShowClaimProfileBanner({
+        isAuthenticated: true,
+        isClaimed: false,
+        ownershipStatus: "visitor",
+      })
+    ).toBe(false);
+
+    expect(
+      shouldShowClaimProfileBanner({
+        isAuthenticated: true,
+        isClaimed: false,
+        ownershipStatus: "owner",
+      })
+    ).toBe(false);
+
+    expect(
+      shouldShowClaimProfileBanner({
+        isAuthenticated: false,
+        isClaimed: true,
+        ownershipStatus: "visitor",
+      })
+    ).toBe(false);
   });
 });
 

@@ -1,3 +1,5 @@
+import { isCurrentPackageManifestFingerprint } from "./tree_scanner";
+
 export type StackPackageRepoStatus = "pending" | "syncing" | "synced" | "error" | "queued";
 
 export interface StackPackageRepoFreshness {
@@ -5,6 +7,7 @@ export interface StackPackageRepoFreshness {
   pushedAt?: number;
   scannedPackageCount?: number;
   scannedManifestCount?: number;
+  packageManifestFingerprint?: string;
   packageManifestFingerprintComputedAt?: number;
 }
 
@@ -36,11 +39,13 @@ export function isEligibleForStackPackageFreshnessCheck(
 ): boolean {
   if (IN_FLIGHT_STATUSES.has(repo.syncStatus)) return false;
   if (!hasPackageScanMetadata(repo)) return true;
+  if (!isCurrentPackageManifestFingerprint(repo.packageManifestFingerprint)) return true;
   return repo.packageManifestFingerprintComputedAt < staleBefore;
 }
 
 export function shouldScheduleStackPackageRefresh(repo: StackPackageRepoPrecheckInput): boolean {
   if (!hasPackageScanMetadata(repo)) return true;
+  if (!isCurrentPackageManifestFingerprint(repo.packageManifestFingerprint)) return true;
   if (repo.remotePushedAt === null) return true;
   if (repo.pushedAt === undefined) return true;
   return repo.remotePushedAt > repo.pushedAt;

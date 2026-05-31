@@ -40,6 +40,18 @@ export function shouldFetchClientOwnerPageData({
   return serverDataIsNull || viewerOwnsProfile === true;
 }
 
+export function shouldShowClaimProfileBanner({
+  isAuthenticated,
+  isClaimed,
+  ownershipStatus,
+}: {
+  isAuthenticated: boolean;
+  isClaimed: boolean;
+  ownershipStatus: OwnerPageOwnershipStatus;
+}): boolean {
+  return ownershipStatus === "visitor" && !isAuthenticated && !isClaimed;
+}
+
 export function resolveOwnerPageOwnershipStatus({
   sessionPending,
   hasSessionUser,

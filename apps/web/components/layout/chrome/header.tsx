@@ -4,6 +4,7 @@ import { ROUTES } from "@stackmatch/config";
 import { cn } from "@stackmatch/utils/cn";
 import type { FocusEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { GitHubRepoStarLink } from "@/components/layout/chrome/github-repo-star-link";
 import { UserMenu } from "@/components/layout/chrome/user-menu";
 import { SearchTrigger } from "@/components/search/search-trigger";
 import { InboxIndicator } from "@/components/social/inbox-indicator";
@@ -150,6 +151,7 @@ export function Header() {
           </div>
 
           <div className="flex shrink-0 items-center justify-end gap-2">
+            <GitHubRepoStarLink />
             <SearchTrigger variant="icon" />
             <div className="hidden h-8 w-px bg-border md:block dark:bg-white/10" />
             <InboxIndicator />

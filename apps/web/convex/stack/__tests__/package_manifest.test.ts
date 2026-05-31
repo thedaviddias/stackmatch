@@ -145,4 +145,88 @@ describe("parsePackageManifest", () => {
 
     expect(parsePackageManifest(raw, "package.json")).toEqual([]);
   });
+
+  it("parses pinned and ranged Python requirements", () => {
+    const raw = ["Flask==3.0.0", "google-api-python-client>=2", "requests", "NumPy~=1.26"].join(
+      "\n"
+    );
+
+    expect(parsePackageManifest(raw, "requirements.txt")).toEqual([
+      {
+        packageName: "flask",
+        section: "dependencies",
+        sourcePath: "requirements.txt",
+        versionRange: "==3.0.0",
+      },
+      {
+        packageName: "google-api-python-client",
+        section: "dependencies",
+        sourcePath: "requirements.txt",
+        versionRange: ">=2",
+      },
+      {
+        packageName: "numpy",
+        section: "dependencies",
+        sourcePath: "requirements.txt",
+        versionRange: "~=1.26",
+      },
+      {
+        packageName: "requests",
+        section: "dependencies",
+        sourcePath: "requirements.txt",
+        versionRange: "*",
+      },
+    ]);
+  });
+
+  it("normalizes Python requirement names and strips extras", () => {
+    const raw = ["pandas[excel]>=2; python_version >= '3.11'", "Google.Auth_OAuthLib>=1.2"].join(
+      "\n"
+    );
+
+    expect(parsePackageManifest(raw, "apps/api/requirements.txt")).toEqual([
+      {
+        packageName: "google-auth-oauthlib",
+        section: "dependencies",
+        sourcePath: "apps/api/requirements.txt",
+        versionRange: ">=1.2",
+      },
+      {
+        packageName: "pandas",
+        section: "dependencies",
+        sourcePath: "apps/api/requirements.txt",
+        versionRange: ">=2; python_version >= '3.11'",
+      },
+    ]);
+  });
+
+  it("ignores comments, pip options, editables, urls, and local paths in requirements", () => {
+    const raw = [
+      "# comment",
+      "",
+      "flask>=3 # web framework",
+      "-r base.txt",
+      "--index-url https://example.com/simple",
+      "-e git+https://github.com/example/project.git#egg=project",
+      "git+https://github.com/example/other.git",
+      "https://example.com/archive.zip",
+      "./local-package",
+      "../parent-package",
+      "/opt/package",
+      "local-pkg @ file:///opt/local-pkg",
+    ].join("\n");
+
+    expect(parsePackageManifest(raw, "requirements.txt")).toEqual([
+      {
+        packageName: "flask",
+        section: "dependencies",
+        sourcePath: "requirements.txt",
+        versionRange: ">=3",
+      },
+    ]);
+  });
+
+  it("returns empty array for unsupported manifest files", () => {
+    expect(parsePackageManifest("flask==3", "requirements-dev.txt")).toEqual([]);
+  });
 });

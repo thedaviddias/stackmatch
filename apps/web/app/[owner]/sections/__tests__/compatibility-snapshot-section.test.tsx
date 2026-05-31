@@ -92,6 +92,43 @@ describe("CompatibilitySnapshotSection", () => {
     expect(screen.getByText(/why this profile matters/i)).not.toBeNull();
   });
 
+  it("renders a friendly zero-overlap state instead of a zero percent score", () => {
+    useQueryMock.mockReturnValue({
+      matchPercent: 0,
+      jaccard: 0,
+      sharedCount: 0,
+      sharedPackages: [],
+      uniqueToA: ["vitest"],
+      uniqueToB: ["convex"],
+      totalA: 10,
+      totalB: 12,
+    });
+
+    render(<CompatibilitySnapshotSection {...baseProps} viewerLogin="viewer" isAuthenticated />);
+
+    expect(screen.getByText("No overlap yet")).not.toBeNull();
+    expect(screen.getByText("No shared public packages")).not.toBeNull();
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  it("renders sub-percent matches as less than one percent when packages overlap", () => {
+    useQueryMock.mockReturnValue({
+      matchPercent: 0,
+      jaccard: 0.004,
+      sharedCount: 1,
+      sharedPackages: ["react"],
+      uniqueToA: ["vitest"],
+      uniqueToB: ["convex"],
+      totalA: 100,
+      totalB: 150,
+    });
+
+    render(<CompatibilitySnapshotSection {...baseProps} viewerLogin="viewer" isAuthenticated />);
+
+    expect(screen.getByText("<1%")).not.toBeNull();
+    expect(screen.getByText(/1 shared public package/i)).not.toBeNull();
+  });
+
   it("handles page data from older deployments without public package signals", () => {
     useQueryMock.mockReturnValue(undefined);
 

@@ -1,4 +1,5 @@
 import { getGitHubHeaders } from "../github/github_api";
+import { isCurrentPackageManifestFingerprint } from "./tree_scanner";
 
 export interface StackRepoCacheSnapshot {
   scannedPackageCount?: number;
@@ -25,7 +26,7 @@ export function buildStackRepoMetadataHeaders(
 
 /**
  * A 304 can only short-circuit when we already have package scan output
- * and a persisted manifest fingerprint for future cache comparisons.
+ * and a current manifest fingerprint for future cache comparisons.
  */
 export function canShortCircuitNotModified(
   repo: StackRepoCacheSnapshot | null | undefined
@@ -33,8 +34,5 @@ export function canShortCircuitNotModified(
   if (!repo) return false;
   if (repo.scannedPackageCount === undefined) return false;
   if (repo.scannedManifestCount === undefined) return false;
-  return (
-    typeof repo.packageManifestFingerprint === "string" &&
-    repo.packageManifestFingerprint.length > 0
-  );
+  return isCurrentPackageManifestFingerprint(repo.packageManifestFingerprint);
 }

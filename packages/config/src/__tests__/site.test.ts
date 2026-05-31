@@ -26,4 +26,11 @@ describe("siteConfig", () => {
     expect(siteConfig.contactEmail).toBe("hello@stackmatch.dev");
     expect(siteConfig.copyrightYear).toBe(2026);
   });
+
+  it("has source repository metadata", () => {
+    expect(siteConfig.sourceRepository).toEqual({
+      owner: "thedaviddias",
+      name: "stackmatch",
+    });
+  });
 });

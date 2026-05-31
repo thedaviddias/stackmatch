@@ -27,6 +27,7 @@ import { RecentlyJoinedCards } from "@/components/pages/home/recently-joined-car
 import { OwnerLookupForm } from "@/components/stackmatch/owner-lookup-form";
 import { LinkCustom } from "@/components/ui/link";
 import {
+  listDevelopersDirectoryRows,
   listGlobalStackLeaderboard,
   listIndexedUsersWithProfiles,
   listWeeklyTopStackers,
@@ -303,6 +304,12 @@ const getCachedHomeRecentUsers = unstable_cache(
   { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
 );
 
+const getCachedHomeDirectoryUsers = unstable_cache(
+  () => safeFetchQuery("developers directory", () => listDevelopersDirectoryRows(), []),
+  ["home-developers-directory-users-v1"],
+  { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
+);
+
 const getCachedHomeTopStackers = unstable_cache(
   () =>
     safeFetchQuery("weekly top stackers", () => listWeeklyTopStackers(HOME_TOP_STACKERS_LIMIT), []),
@@ -310,16 +317,26 @@ const getCachedHomeTopStackers = unstable_cache(
   { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
 );
 
+function filterUsersInDevelopersDirectory(
+  users: DiscoveryIndexedUser[],
+  directoryUsers: Pick<DiscoveryIndexedUser, "owner">[]
+) {
+  const directoryOwners = new Set(directoryUsers.map((user) => user.owner.toLowerCase()));
+  return users.filter((user) => directoryOwners.has(user.owner.toLowerCase()));
+}
+
 export default async function HomePage() {
-  const [leaderboard, recentUsers, topStackers] = await Promise.all([
+  const [leaderboard, recentUsers, directoryUsers, topStackers] = await Promise.all([
     getCachedHomeLeaderboard(),
     getCachedHomeRecentUsers(),
+    getCachedHomeDirectoryUsers(),
     getCachedHomeTopStackers(),
   ]);
 
+  const directoryRecentUsers = filterUsersInDevelopersDirectory(recentUsers, directoryUsers);
   // Slice to first 8 for the recently indexed graph section
-  const newToGraph = recentUsers.slice(0, HOME_RECENTLY_JOINED_LIMIT);
-  const recentUserHandles = recentUsers.map((user) => user.owner);
+  const newToGraph = directoryRecentUsers.slice(0, HOME_RECENTLY_JOINED_LIMIT);
+  const recentUserHandles = directoryRecentUsers.map((user) => user.owner);
   const graphHandles = recentUserHandles.slice(0, HOME_GRAPH_HANDLES_LIMIT);
   const shouldShowAvatarMarquee = recentUserHandles.length >= HOME_AVATAR_MARQUEE_MIN_HANDLES;
   const homeStackCards = buildHomeStackCards(leaderboard);

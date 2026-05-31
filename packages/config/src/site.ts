@@ -9,4 +9,8 @@ export const siteConfig = {
   founderUrl: "https://thedaviddias.com",
   contactEmail: "hello@stackmatch.dev",
   copyrightYear: 2026,
+  sourceRepository: {
+    owner: "thedaviddias",
+    name: "stackmatch",
+  },
 };

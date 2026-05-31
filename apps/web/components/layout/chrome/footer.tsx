@@ -16,7 +16,13 @@ const FOOTER_LINK_GROUPS = [
   {
     title: "Community",
     links: [
-      { label: "Source code", href: ROUTES.external.github("thedaviddias", "stackmatch") },
+      {
+        label: "Source code",
+        href: ROUTES.external.github(
+          siteConfig.sourceRepository.owner,
+          siteConfig.sourceRepository.name
+        ),
+      },
       { label: "Sponsor", href: ROUTES.external.sponsor },
     ],
   },

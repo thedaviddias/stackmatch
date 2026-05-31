@@ -48,6 +48,7 @@ import type * as lib_package_metrics from "../lib/package_metrics.js";
 import type * as lib_presence from "../lib/presence.js";
 import type * as lib_resync_throttle from "../lib/resync_throttle.js";
 import type * as lib_stack_score from "../lib/stack_score.js";
+import type * as lib_stackmatch_follow_counts from "../lib/stackmatch_follow_counts.js";
 import type * as lib_users from "../lib/users.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as mutations_admin from "../mutations/admin.js";
@@ -179,6 +180,7 @@ declare const fullApi: ApiFromModules<{
   "lib/presence": typeof lib_presence;
   "lib/resync_throttle": typeof lib_resync_throttle;
   "lib/stack_score": typeof lib_stack_score;
+  "lib/stackmatch_follow_counts": typeof lib_stackmatch_follow_counts;
   "lib/users": typeof lib_users;
   "lib/validators": typeof lib_validators;
   "mutations/admin": typeof mutations_admin;

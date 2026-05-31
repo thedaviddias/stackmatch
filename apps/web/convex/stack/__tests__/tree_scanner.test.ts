@@ -1,19 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { buildPackageManifestFingerprint, selectPackageJsonPaths } from "../tree_scanner";
+import { buildPackageManifestFingerprint, selectDependencyManifestPaths } from "../tree_scanner";
 
-describe("selectPackageJsonPaths", () => {
-  it("selects root and nested package.json files sorted by depth", () => {
+describe("selectDependencyManifestPaths", () => {
+  it("selects root and nested package.json and requirements.txt files sorted by depth", () => {
     const tree = [
       { path: "packages/z/package.json", type: "blob" },
       { path: "apps/web/package.json", type: "blob" },
+      { path: "services/api/requirements.txt", type: "blob" },
       { path: "package.json", type: "blob" },
+      { path: "requirements.txt", type: "blob" },
       { path: "README.md", type: "blob" },
     ];
 
-    expect(selectPackageJsonPaths(tree)).toEqual([
+    expect(selectDependencyManifestPaths(tree)).toEqual([
       "package.json",
+      "requirements.txt",
       "apps/web/package.json",
       "packages/z/package.json",
+      "services/api/requirements.txt",
     ]);
   });
 
@@ -22,19 +26,21 @@ describe("selectPackageJsonPaths", () => {
       { path: "apps/web", type: "tree" },
       { path: "pnpm-workspace.yaml", type: "blob" },
       { path: "apps/web/package.json", type: "blob" },
+      { path: "apps/web/requirements-dev.txt", type: "blob" },
     ];
 
-    expect(selectPackageJsonPaths(tree)).toEqual(["apps/web/package.json"]);
+    expect(selectDependencyManifestPaths(tree)).toEqual(["apps/web/package.json"]);
   });
 
   it("respects max manifest limit", () => {
     const tree = [
       { path: "package.json", type: "blob" },
+      { path: "requirements.txt", type: "blob" },
       { path: "a/package.json", type: "blob" },
       { path: "b/package.json", type: "blob" },
     ];
 
-    expect(selectPackageJsonPaths(tree, 2)).toEqual(["package.json", "a/package.json"]);
+    expect(selectDependencyManifestPaths(tree, 2)).toEqual(["package.json", "requirements.txt"]);
   });
 });
 
@@ -58,14 +64,24 @@ describe("buildPackageManifestFingerprint", () => {
     const base = [
       { path: "package.json", type: "blob", sha: "000" },
       { path: "apps/web/package.json", type: "blob", sha: "111" },
+      { path: "requirements.txt", type: "blob", sha: "222" },
     ];
     const changed = [
       { path: "package.json", type: "blob", sha: "000" },
       { path: "apps/web/package.json", type: "blob", sha: "222" },
+      { path: "requirements.txt", type: "blob", sha: "222" },
+    ];
+    const changedRequirements = [
+      { path: "package.json", type: "blob", sha: "000" },
+      { path: "apps/web/package.json", type: "blob", sha: "111" },
+      { path: "requirements.txt", type: "blob", sha: "333" },
     ];
 
     expect(buildPackageManifestFingerprint(base)).not.toBe(
       buildPackageManifestFingerprint(changed)
+    );
+    expect(buildPackageManifestFingerprint(base)).not.toBe(
+      buildPackageManifestFingerprint(changedRequirements)
     );
   });
 
@@ -78,7 +94,7 @@ describe("buildPackageManifestFingerprint", () => {
     expect(buildPackageManifestFingerprint(tree)).toBeNull();
   });
 
-  it("ignores non-package files", () => {
+  it("ignores non-manifest files", () => {
     const tree = [
       { path: "package.json", type: "blob", sha: "000" },
       { path: "README.md", type: "blob", sha: "abc" },
