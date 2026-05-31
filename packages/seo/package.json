@@ -1,0 +1,23 @@
+{
+  "name": "@stackmatch/seo",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@stackmatch/config": "workspace:*",
+    "@stackmatch/constants": "workspace:*",
+    "@stackmatch/localization": "workspace:*",
+    "@stackmatch/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": ">=16"
+  },
+  "devDependencies": {
+    "next": "16.2.6"
+  },
+  "description": "SEO metadata generation: Open Graph, JSON-LD, and canonical URL helpers"
+}

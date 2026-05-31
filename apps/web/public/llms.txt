@@ -1,0 +1,18 @@
+# Stackmatch
+
+Stackmatch helps developers discover stackmates through shared packages, languages, topics, and public dependency fingerprints.
+
+## Canonical Pages
+
+- [Stackmatch](https://stackmatch.dev)
+- [Developers](https://stackmatch.dev/developers)
+- [Stacks](https://stackmatch.dev/stacks)
+- [Topics](https://stackmatch.dev/topics)
+- [Top Stackers](https://stackmatch.dev/top-stackers)
+- [Stack Leaderboard](https://stackmatch.dev/leaderboard/stacks)
+- [Manual](https://stackmatch.dev/docs)
+- [Rank Documentation](https://stackmatch.dev/docs/ranks)
+
+## Crawling Guidance
+
+Public directory, documentation, owner, repository, package, language, and topic pages are intended for indexing. Authenticated app surfaces, admin pages, redirects, API endpoints, and missing-data states are not intended for indexing.

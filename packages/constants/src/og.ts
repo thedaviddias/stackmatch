@@ -1,0 +1,54 @@
+export const HEATMAP_COLORS_HUMAN = [
+  "#064e3b",
+  "#065f46",
+  "#059669",
+  "#10b981",
+  "#34d399",
+] as const;
+
+export const HEATMAP_COLORS_AI = ["#4c1d95", "#5b21b6", "#7c3aed", "#8b5cf6", "#a78bfa"] as const;
+
+export const HEATMAP_COLORS_AUTOMATION = [
+  "#78350f",
+  "#92400e",
+  "#b45309",
+  "#d97706",
+  "#f59e0b",
+] as const;
+
+export const HEATMAP_COLOR_LEVELS = 5;
+export const HEATMAP_MAX_COLOR_INDEX = HEATMAP_COLOR_LEVELS - 1;
+
+export const OG_IMAGE_WIDTH = 1200;
+export const OG_IMAGE_HEIGHT = 630;
+export const OG_PUBLIC_CACHE_MAX_AGE_SECONDS = 300;
+export const OG_PUBLIC_CACHE_S_MAXAGE_SECONDS = 3600;
+export const OG_PUBLIC_CACHE_STALE_WHILE_REVALIDATE_SECONDS = 86_400;
+export const OG_PUBLIC_CACHE_CONTROL = `public, max-age=${OG_PUBLIC_CACHE_MAX_AGE_SECONDS}, s-maxage=${OG_PUBLIC_CACHE_S_MAXAGE_SECONDS}, stale-while-revalidate=${OG_PUBLIC_CACHE_STALE_WHILE_REVALIDATE_SECONDS}`;
+export const OG_PUBLIC_USER_PRIVATE_DATA_CACHE_MAX_AGE_SECONDS = 30;
+export const OG_PUBLIC_USER_PRIVATE_DATA_CACHE_S_MAXAGE_SECONDS = 60;
+export const OG_PUBLIC_USER_PRIVATE_DATA_CACHE_CONTROL = `public, max-age=${OG_PUBLIC_USER_PRIVATE_DATA_CACHE_MAX_AGE_SECONDS}, s-maxage=${OG_PUBLIC_USER_PRIVATE_DATA_CACHE_S_MAXAGE_SECONDS}`;
+export const OG_PRIVATE_CACHE_CONTROL = "private, no-store";
+
+export const OG_HEATMAP_CELL_SIZE = 16;
+export const OG_HEATMAP_CELL_GAP = 3;
+export const OG_HEATMAP_WEEKS_TO_SHOW = 52;
+export const OG_HEATMAP_DAYS_PER_WEEK = 7;
+export const OG_HEATMAP_MONDAY_INDEX_OFFSET = 6;
+export const OG_HEATMAP_INCLUDE_TODAY_DAYS = 1;
+
+export const OG_NUMBER_ABBREVIATION_THOUSAND = 1_000;
+export const OG_NUMBER_ABBREVIATION_MILLION = 1_000_000;
+export const OG_NUMBER_FIXED_DECIMALS = 1;
+
+export const OG_PERCENT_TINY_THRESHOLD = 0.1;
+export const OG_PERCENT_DEFAULT_DECIMALS = 1;
+export const OG_PERCENT_TINY_DECIMALS = 2;
+
+export const CHART_HEATMAP_CELL_SIZE = 11;
+export const CHART_HEATMAP_CELL_GAP = 3;
+export const CHART_HEATMAP_ROWS = 7;
+export const CHART_HEATMAP_LABEL_LEFT = 30;
+export const CHART_HEATMAP_LABEL_TOP = 18;
+export const CHART_HEATMAP_MAX_WEEKS = 53;
+export const CHART_HEATMAP_MIN_WEEKS = 10;

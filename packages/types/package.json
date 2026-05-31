@@ -1,0 +1,20 @@
+{
+  "name": "@stackmatch/types",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./feature-gates": "./src/feature-gates.ts",
+    "./localization": "./src/localization.ts",
+    "./ranking": "./src/ranking.ts",
+    "./score": "./src/score.ts",
+    "./user": "./src/user.ts",
+    "./seo": "./src/seo.ts",
+    "./navigation": "./src/navigation.ts",
+    "./theme": "./src/theme.ts",
+    "./project": "./src/project.ts"
+  },
+  "description": "Shared TypeScript type definitions: scores, users, themes, navigation, and SEO"
+}

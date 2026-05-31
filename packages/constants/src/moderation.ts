@@ -1,0 +1,76 @@
+export const ADMIN_ROLE_OWNER = "owner";
+export const ADMIN_ROLE_MODERATOR = "moderator";
+export const ADMIN_ROLE_VIEWER = "viewer";
+
+export const ADMIN_ROLES = [ADMIN_ROLE_OWNER, ADMIN_ROLE_MODERATOR, ADMIN_ROLE_VIEWER] as const;
+
+export type AdminRole = (typeof ADMIN_ROLES)[number];
+
+export const PROFILE_REPORT_REASON_SPAM = "spam";
+export const PROFILE_REPORT_REASON_HARASSMENT = "harassment";
+export const PROFILE_REPORT_REASON_IMPERSONATION = "impersonation";
+export const PROFILE_REPORT_REASON_INAPPROPRIATE = "inappropriate";
+export const PROFILE_REPORT_REASON_SUSPICIOUS = "suspicious";
+export const PROFILE_REPORT_REASON_OTHER = "other";
+
+export const PROFILE_REPORT_REASONS = [
+  PROFILE_REPORT_REASON_SPAM,
+  PROFILE_REPORT_REASON_HARASSMENT,
+  PROFILE_REPORT_REASON_IMPERSONATION,
+  PROFILE_REPORT_REASON_INAPPROPRIATE,
+  PROFILE_REPORT_REASON_SUSPICIOUS,
+  PROFILE_REPORT_REASON_OTHER,
+] as const;
+
+export type ProfileReportReason = (typeof PROFILE_REPORT_REASONS)[number];
+export const DEFAULT_PROFILE_REPORT_REASON = PROFILE_REPORT_REASON_SPAM;
+
+export const PROFILE_REPORT_REASON_LABELS: Record<ProfileReportReason, string> = {
+  [PROFILE_REPORT_REASON_SPAM]: "Spam or low-quality profile",
+  [PROFILE_REPORT_REASON_HARASSMENT]: "Harassment or abusive behavior",
+  [PROFILE_REPORT_REASON_IMPERSONATION]: "Impersonation",
+  [PROFILE_REPORT_REASON_INAPPROPRIATE]: "Inappropriate profile content",
+  [PROFILE_REPORT_REASON_SUSPICIOUS]: "Suspicious automation",
+  [PROFILE_REPORT_REASON_OTHER]: "Something else",
+};
+
+export const PROFILE_REPORT_STATUS_PENDING = "pending";
+export const PROFILE_REPORT_STATUS_REVIEWING = "reviewing";
+export const PROFILE_REPORT_STATUS_DISMISSED = "dismissed";
+export const PROFILE_REPORT_STATUS_ACTIONED = "actioned";
+
+export const PROFILE_REPORT_STATUSES = [
+  PROFILE_REPORT_STATUS_PENDING,
+  PROFILE_REPORT_STATUS_REVIEWING,
+  PROFILE_REPORT_STATUS_DISMISSED,
+  PROFILE_REPORT_STATUS_ACTIONED,
+] as const;
+
+export type ProfileReportStatus = (typeof PROFILE_REPORT_STATUSES)[number];
+
+export const PROFILE_REPORT_DETAILS_MAX_LENGTH = 1000;
+export const MODERATION_REPORT_QUEUE_PAGE_SIZE = 50;
+
+export const ADMIN_AUDIT_LOG_PAGE_SIZE = 25;
+export const ADMIN_AUDIT_LOG_FILTER_PAGE_SIZE = 50;
+export const ADMIN_FAILED_SYNC_PAGE_SIZE = 10;
+export const ADMIN_LOOKUP_AUDIT_LOG_LIMIT = 10;
+export const ADMIN_LOOKUP_REPORT_LIMIT = 20;
+export const ADMIN_LOOKUP_REPO_LIMIT = 25;
+export const ADMIN_OPERATIONAL_ERROR_MAX_LENGTH = 240;
+export const ADMIN_SECURITY_SAMPLE_PAGE_SIZE = 20;
+export const ADMIN_ACTION_REASON_MAX_LENGTH = 500;
+export const ADMIN_PROFILE_SEARCH_MIN_LENGTH = 1;
+export const ADMIN_PROFILE_SEARCH_MAX_LENGTH = 39;
+
+export const PROFILE_VISIBILITY_PUBLIC = "public";
+export const PROFILE_VISIBILITY_PRIVATE = "private";
+export const PROFILE_VISIBILITY_HIDDEN = "hidden";
+
+export const PROFILE_VISIBILITIES = [
+  PROFILE_VISIBILITY_PUBLIC,
+  PROFILE_VISIBILITY_PRIVATE,
+  PROFILE_VISIBILITY_HIDDEN,
+] as const;
+
+export type ProfileVisibility = (typeof PROFILE_VISIBILITIES)[number];

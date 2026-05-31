@@ -1,0 +1,21 @@
+{
+  "name": "@stackmatch/hooks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./sound-engine": "./src/sound-engine.ts",
+    "./use-sound": "./src/use-sound.ts",
+    "./use-clipboard": "./src/use-clipboard.ts",
+    "./use-debounce": "./src/use-debounce.ts",
+    "./use-debounced-search-input": "./src/use-debounced-search-input.ts",
+    "./use-infinite-load-more": "./src/use-infinite-load-more.ts"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.15"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0"
+  },
+  "description": "Shared React hooks: sound effects, clipboard, debounce, and infinite loading"
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@stackmatch/utils",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cn": "./src/cn.ts",
+    "./feature-gates": "./src/feature-gates.ts",
+    "./formatting": "./src/formatting.ts",
+    "./dates": "./src/dates.ts",
+    "./url": "./src/url.ts",
+    "./ranking": "./src/ranking.ts",
+    "./location": "./src/location.ts",
+    "./score": "./src/score.ts",
+    "./ranks": "./src/ranks.ts",
+    "./package-homepage-data": "./src/package-homepage-data.ts"
+  },
+  "dependencies": {
+    "@stackmatch/constants": "workspace:*",
+    "@stackmatch/types": "workspace:*",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "description": "Pure utility functions: formatting, dates, URL helpers, scoring, and class merging"
+}
