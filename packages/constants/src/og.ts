@@ -21,6 +21,8 @@ export const HEATMAP_MAX_COLOR_INDEX = HEATMAP_COLOR_LEVELS - 1;
 
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;
+export const OG_IMAGE_TYPE = "image/png";
+export const OG_IMAGE_VERSION = "4";
 export const OG_PUBLIC_CACHE_MAX_AGE_SECONDS = 300;
 export const OG_PUBLIC_CACHE_S_MAXAGE_SECONDS = 3600;
 export const OG_PUBLIC_CACHE_STALE_WHILE_REVALIDATE_SECONDS = 86_400;

@@ -131,7 +131,7 @@ describe("seo helpers", () => {
     });
   });
 
-  it("passes absolute ogImage URLs through unchanged (toAbsoluteUrl)", () => {
+  it("keeps absolute ogImage origins and versions the social URL", () => {
     const metadata = createMetadata({
       title: "Test",
       description: "Test",
@@ -141,7 +141,7 @@ describe("seo helpers", () => {
     const ogImages = (metadata.openGraph as Record<string, unknown>)?.images as Array<{
       url: string;
     }>;
-    expect(ogImages?.[0]?.url).toBe("https://cdn.example.com/image.png");
+    expect(ogImages?.[0]?.url).toBe("https://cdn.example.com/image.png?v=4");
   });
 
   it("createDynamicMetadata delegates to createMetadata", () => {

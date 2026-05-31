@@ -167,6 +167,20 @@ describe("createMetadata", () => {
     const og = meta.openGraph as { type: string };
     expect(og.type).toBe("profile");
   });
+
+  it("versions OpenGraph and Twitter images for crawler cache refreshes", () => {
+    const meta = createMetadata({
+      title: "Test",
+      description: "Test",
+    });
+    const og = meta.openGraph as { images: Array<{ type: string; url: string }> };
+    const twitter = meta.twitter as { images: Array<{ type: string; url: string }> };
+
+    expect(og.images[0]?.url).toBe("https://stackmatch.dev/api/og/global?v=4");
+    expect(og.images[0]?.type).toBe("image/png");
+    expect(twitter.images[0]?.url).toBe("https://stackmatch.dev/api/og/global?v=4");
+    expect(twitter.images[0]?.type).toBe("image/png");
+  });
 });
 
 describe("createDynamicMetadata", () => {

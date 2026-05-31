@@ -1,5 +1,10 @@
 import { siteConfig } from "@stackmatch/config/site";
-import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "@stackmatch/constants/og";
+import {
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_TYPE,
+  OG_IMAGE_VERSION,
+  OG_IMAGE_WIDTH,
+} from "@stackmatch/constants/og";
 import { getI18n } from "@stackmatch/localization";
 import type { MetadataConfig } from "@stackmatch/types/seo";
 import type { Metadata } from "next";
@@ -10,7 +15,6 @@ const SEO_CONFIG = {
   locale: "en_US",
   xHandle: "@thedaviddias",
   defaultOGImage: "/api/og/global",
-  ogImageVersion: "3", // bump to force Twitter/X card image cache refresh
 } as const;
 const i18n = getI18n();
 
@@ -72,10 +76,10 @@ function toAbsoluteUrl(url: string): string {
   return canonicalUrl(url);
 }
 
-/** Append a cache-busting version param to an image URL for Twitter/X. */
+/** Append a cache-busting version param to social preview image URLs. */
 function withImageVersion(imageUrl: string): string {
   const separator = imageUrl.includes("?") ? "&" : "?";
-  return `${imageUrl}${separator}v=${SEO_CONFIG.ogImageVersion}`;
+  return `${imageUrl}${separator}v=${OG_IMAGE_VERSION}`;
 }
 
 export function createMetadata(config: MetadataConfig): Metadata {
@@ -120,7 +124,8 @@ export function createMetadata(config: MetadataConfig): Metadata {
       locale: SEO_CONFIG.locale,
       images: [
         {
-          url: image,
+          url: withImageVersion(image),
+          type: OG_IMAGE_TYPE,
           width: OG_IMAGE_WIDTH,
           height: OG_IMAGE_HEIGHT,
           alt: ogImageAlt,
@@ -136,7 +141,7 @@ export function createMetadata(config: MetadataConfig): Metadata {
       images: [
         {
           url: withImageVersion(image),
-          type: "image/png",
+          type: OG_IMAGE_TYPE,
           width: OG_IMAGE_WIDTH,
           height: OG_IMAGE_HEIGHT,
           alt: ogImageAlt,
@@ -177,7 +182,8 @@ export const rootMetadata: Metadata = {
     locale: SEO_CONFIG.locale,
     images: [
       {
-        url: toAbsoluteUrl(SEO_CONFIG.defaultOGImage),
+        url: withImageVersion(toAbsoluteUrl(SEO_CONFIG.defaultOGImage)),
+        type: OG_IMAGE_TYPE,
         width: OG_IMAGE_WIDTH,
         height: OG_IMAGE_HEIGHT,
         alt: i18n.metadata.root.previewAlt,
@@ -193,7 +199,7 @@ export const rootMetadata: Metadata = {
     images: [
       {
         url: withImageVersion(toAbsoluteUrl(SEO_CONFIG.defaultOGImage)),
-        type: "image/png",
+        type: OG_IMAGE_TYPE,
         width: OG_IMAGE_WIDTH,
         height: OG_IMAGE_HEIGHT,
         alt: i18n.metadata.root.previewAlt,
