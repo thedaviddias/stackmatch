@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -29,6 +30,7 @@ interface StarButtonProps {
   /** Segmented keeps the legacy two-part shell; action is a single profile action button. */
   variant?: "segmented" | "action";
   className?: string;
+  onStarDelta?: (delta: number) => void;
 }
 
 function formatCompactNumber(value: number): string {
@@ -48,9 +50,11 @@ export function StarButton({
   compact = false,
   variant = "segmented",
   className,
+  onStarDelta,
 }: StarButtonProps) {
   const { session } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const toggleStar = useMutation(api.mutations.stars.toggleStar);
 
   const [starred, setStarred] = useState(initialStarred);
@@ -67,6 +71,19 @@ export function StarButton({
   const localStarCount =
     typeof starCount === "number" ? Math.max(0, starCount + countDelta.starDelta) : undefined;
 
+  const applyStarDelta = useCallback(
+    (delta: number) => {
+      if (typeof localStarCount === "number") {
+        setCountDelta((current) => ({
+          ...current,
+          starDelta: current.starDelta + delta,
+        }));
+      }
+      onStarDelta?.(delta);
+    },
+    [localStarCount, onStarDelta]
+  );
+
   const handleStar = useCallback(async () => {
     if (!session?.user) {
       savePendingStar({ targetOwner });
@@ -75,7 +92,10 @@ export function StarButton({
     }
 
     const wasStarred = starred;
-    setStarred(!wasStarred);
+    const optimisticStarred = !wasStarred;
+    const optimisticDelta = Number(optimisticStarred) - Number(wasStarred);
+    setStarred(optimisticStarred);
+    applyStarDelta(optimisticDelta);
     setIsLoading(true);
 
     try {
@@ -83,26 +103,25 @@ export function StarButton({
       const nextStarred = result.starred;
       setStarred(nextStarred);
 
-      if (typeof localStarCount === "number") {
-        const starDelta = Number(nextStarred) - Number(wasStarred);
-        if (starDelta !== 0) {
-          setCountDelta((current) => ({
-            ...current,
-            starDelta: current.starDelta + starDelta,
-          }));
-        }
+      const correctionDelta = Number(nextStarred) - Number(optimisticStarred);
+      if (correctionDelta !== 0) {
+        applyStarDelta(correctionDelta);
       }
+
+      void queryClient.invalidateQueries({ queryKey: ["top-stackers-directory"] });
+      void queryClient.invalidateQueries({ queryKey: ["developers-directory"] });
 
       if (result.isMatch) {
         toast.success(`It's a match! You and @${targetOwner} starred each other!`);
       }
     } catch (error) {
       setStarred(wasStarred);
+      applyStarDelta(-optimisticDelta);
       toast.error(error instanceof Error ? error.message : "Failed to update star");
     } finally {
       setIsLoading(false);
     }
-  }, [session, starred, targetOwner, toggleStar, router, localStarCount]);
+  }, [session, starred, targetOwner, toggleStar, router, applyStarDelta, queryClient]);
 
   if (variant === "action") {
     return (

@@ -8,11 +8,7 @@ import { useState } from "react";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
-const PERSISTED_QUERY_KEYS = new Set([
-  "developers-directory",
-  "stacks-directory",
-  "top-stackers-directory",
-]);
+const PERSISTED_QUERY_KEYS = new Set(["developers-directory", "stacks-directory"]);
 
 const noopStorage: Storage = {
   getItem: (_key: string) => null,

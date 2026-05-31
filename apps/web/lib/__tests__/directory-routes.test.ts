@@ -122,8 +122,6 @@ describe("directory API routes", () => {
     });
     expect(getTopStackersPageMock).toHaveBeenCalledWith(parsed);
     expect(await response.json()).toEqual(payload);
-    expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=60, s-maxage=300, stale-while-revalidate=3600"
-    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 });

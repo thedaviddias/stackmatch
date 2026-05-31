@@ -24,8 +24,16 @@ vi.mock("@/components/ui/data-display/share-dropdown", () => ({
 }));
 
 vi.mock("@/components/ui/feedback/star-button", () => ({
-  StarButton: ({ starCount }: { starCount?: number }) => (
-    <button type="button">Star {starCount}</button>
+  StarButton: ({
+    starCount,
+    onStarDelta,
+  }: {
+    starCount?: number;
+    onStarDelta?: (delta: number) => void;
+  }) => (
+    <button type="button" onClick={() => onStarDelta?.(1)}>
+      Star {starCount}
+    </button>
   ),
 }));
 
@@ -157,5 +165,15 @@ describe("ProfileHeader", () => {
     );
 
     expect(screen.queryByRole("button", { name: /grow score/i })).not.toBeInTheDocument();
+  });
+
+  it("updates the displayed star count from optimistic star deltas", () => {
+    render(<ProfileHeader {...baseProps} starsReceived={10} />);
+
+    expect(screen.getByRole("button", { name: "Star 10" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Star 10" }));
+
+    expect(screen.getByRole("button", { name: "Star 11" })).toBeInTheDocument();
   });
 });

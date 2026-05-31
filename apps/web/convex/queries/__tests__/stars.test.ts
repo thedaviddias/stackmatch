@@ -12,6 +12,7 @@ const EXPECTED_STAR_SCORE = 1;
 const STAR_CREATED_AT = 10;
 const PROFILE_CREATED_AT = 20;
 const TOP_STACKERS_LIMIT = 8;
+const LIMITED_TOP_STACKERS_LIMIT = 2;
 
 type TestRow = {
   _id: string;
@@ -96,5 +97,70 @@ describe("buildWeeklyTopStackers", () => {
       joinedAt: PROFILE_CREATED_AT,
     });
     expect(rows[0]?.followers).not.toBe(GITHUB_FOLLOWERS_COUNT);
+  });
+
+  it("fills the requested limit with claimed profiles after excluding unclaimed targets", async () => {
+    const weekStart = getWeekStart();
+    const ctx = createMockQueryCtx({
+      stars: [
+        ...Array.from({ length: 5 }, (_, index) => ({
+          _id: `star:unclaimed-${index}`,
+          starrerLogin: `unclaimed-starrer-${index}`,
+          targetOwner: "unclaimed",
+          weekStart,
+          createdAt: STAR_CREATED_AT + index,
+        })),
+        ...Array.from({ length: 2 }, (_, index) => ({
+          _id: `star:claimed-one-${index}`,
+          starrerLogin: `claimed-one-starrer-${index}`,
+          targetOwner: "claimed-one",
+          weekStart,
+          createdAt: STAR_CREATED_AT + index,
+        })),
+        {
+          _id: "star:claimed-two",
+          starrerLogin: "claimed-two-starrer",
+          targetOwner: "claimed-two",
+          weekStart,
+          createdAt: STAR_CREATED_AT,
+        },
+      ],
+      profiles: [
+        {
+          _id: "profile:unclaimed",
+          _creationTime: PROFILE_CREATED_AT,
+          owner: "unclaimed",
+          name: "Unclaimed",
+          avatarUrl: "https://github.com/unclaimed.png",
+          followersCount: 0,
+          isClaimed: false,
+        },
+        {
+          _id: "profile:claimed-one",
+          _creationTime: PROFILE_CREATED_AT,
+          owner: "claimed-one",
+          name: "Claimed One",
+          avatarUrl: "https://github.com/claimed-one.png",
+          followersCount: 0,
+          isClaimed: true,
+        },
+        {
+          _id: "profile:claimed-two",
+          _creationTime: PROFILE_CREATED_AT,
+          owner: "claimed-two",
+          name: "Claimed Two",
+          avatarUrl: "https://github.com/claimed-two.png",
+          followersCount: 0,
+          isClaimed: true,
+        },
+      ],
+      follows: [],
+    });
+
+    const rows = await buildWeeklyTopStackers(ctx, LIMITED_TOP_STACKERS_LIMIT);
+
+    expect(rows).toHaveLength(LIMITED_TOP_STACKERS_LIMIT);
+    expect(rows.map((row) => row.owner)).toEqual(["claimed-one", "claimed-two"]);
+    expect(rows.map((row) => row.stars)).toEqual([2, 1]);
   });
 });

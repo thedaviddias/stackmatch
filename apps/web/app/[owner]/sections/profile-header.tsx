@@ -3,7 +3,7 @@ import { INVITE_BONUS_MAX_SCORE } from "@stackmatch/constants/invite";
 import { Bot, ExternalLink, EyeOff, Sparkles, Trophy, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { type ComponentPropsWithoutRef, type ReactNode, useEffect, useState } from "react";
 import { FollowButton } from "@/components/social/follow-button";
 import { MessageButton } from "@/components/social/message-button";
 import { ProfileSafetyMenu } from "@/components/social/profile-safety-menu";
@@ -163,11 +163,17 @@ export function ProfileHeader({
   const hasProfileMeta = Boolean(profile?.joinedAt);
   const hasVisibleHeaderMeta = hasProfileMeta || hasVisibleFollowers || hasVisibleFollowing;
   const stackScore = profile?.stackScore ?? 0;
+  const [optimisticStarsReceived, setOptimisticStarsReceived] = useState(starsReceived);
+
+  useEffect(() => {
+    setOptimisticStarsReceived(starsReceived);
+  }, [starsReceived]);
+
   const hasBioAndSocials = Boolean(profile?.bio && (profile?.website || profile?.x));
   const hasStackDepth = summary.publicPackageCount > STACK_DEPTH_TARGET_PACKAGE_COUNT;
   const communityScore = Math.min(
     COMMUNITY_STARS_MAX_SCORE,
-    Math.floor((starsReceived ?? 0) / COMMUNITY_STARS_MILESTONE)
+    Math.floor(optimisticStarsReceived / COMMUNITY_STARS_MILESTONE)
   );
 
   return (
@@ -319,8 +325,11 @@ export function ProfileHeader({
                 <StarButton
                   targetOwner={owner}
                   initialStarred={isStarredByViewer}
-                  starCount={starsReceived}
+                  starCount={optimisticStarsReceived}
                   variant="action"
+                  onStarDelta={(delta) => {
+                    setOptimisticStarsReceived((current) => Math.max(0, current + delta));
+                  }}
                 />
                 {isClaimed && (
                   <FollowButton targetOwner={owner} viewerStackScore={viewerStackScore} />

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { parseTopStackersParams } from "@/lib/directory/top-stackers-directory";
 import { getTopStackersDirectoryPage } from "@/lib/server/directory/top-stackers-directory";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
 
@@ -16,7 +19,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json(data, {
     headers: {
-      "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+      "Cache-Control": "no-store",
     },
   });
 }

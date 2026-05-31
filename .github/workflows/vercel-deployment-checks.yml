@@ -22,6 +22,7 @@ jobs:
     env:
       NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL || secrets.NEXT_PUBLIC_CONVEX_URL }}
       CONVEX_SITE_URL: ${{ vars.CONVEX_SITE_URL || secrets.CONVEX_SITE_URL }}
+      ANALYZE_API_KEY: ${{ vars.ANALYZE_API_KEY || secrets.ANALYZE_API_KEY }}
     steps:
       - name: Checkout repository
         uses: vercel/repository-dispatch/actions/checkout@v1
@@ -70,4 +71,4 @@ jobs:
         if: always() && github.event_name == 'repository_dispatch'
         uses: vercel/repository-dispatch/actions/status@v1
         with:
-          name: "Vercel - ai-vs-human: production-ready"
+          name: "Vercel - stackmatch: production-ready"

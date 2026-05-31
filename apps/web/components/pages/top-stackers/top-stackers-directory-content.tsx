@@ -2,6 +2,8 @@
 
 import {
   TOP_STACKERS_DIRECTORY_PAGE_SIZE,
+  TOP_STACKERS_DIRECTORY_QUERY_GC_MS,
+  TOP_STACKERS_DIRECTORY_QUERY_STALE_MS,
   TOP_STACKERS_DIRECTORY_SORT_OPTIONS,
 } from "@stackmatch/constants/directory";
 import { useDebouncedSearchInput } from "@stackmatch/hooks/use-debounced-search-input";
@@ -242,8 +244,9 @@ export function TopStackersDirectoryContent() {
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     retry: 1,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
+    staleTime: TOP_STACKERS_DIRECTORY_QUERY_STALE_MS,
+    gcTime: TOP_STACKERS_DIRECTORY_QUERY_GC_MS,
+    refetchOnMount: "always",
   });
 
   const items = useMemo(

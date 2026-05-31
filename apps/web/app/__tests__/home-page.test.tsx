@@ -58,6 +58,22 @@ vi.mock("@/components/marketing/avatar-marquee", () => ({
   DeveloperAvatarMarquee: () => <div>Developer avatar marquee</div>,
 }));
 
+vi.mock("@/components/pages/home/top-stackers-section", () => ({
+  HomeTopStackersSection: ({
+    initialTopStackers,
+  }: {
+    initialTopStackers: Array<{ owner: string }>;
+  }) =>
+    initialTopStackers.length > 0 ? (
+      <section>
+        <h2>Top Stackers This Week</h2>
+        {initialTopStackers.map((stacker) => (
+          <span key={stacker.owner}>{stacker.owner}</span>
+        ))}
+      </section>
+    ) : null,
+}));
+
 const recentUser = {
   owner: "octocat",
   avatarUrl: "https://github.com/octocat.png",
@@ -133,6 +149,15 @@ describe("HomePage", () => {
     expect(html).toContain("octocat");
     expect(html).toContain("Top Stackers This Week");
     expect(html).not.toContain("A developer-first stack ecosystem.");
+  });
+
+  it("passes server top stackers as the home live-section fallback", async () => {
+    listWeeklyTopStackersMock.mockResolvedValue([topStacker]);
+
+    const html = await renderHomePage();
+
+    expect(html).toContain("Top Stackers This Week");
+    expect(html).toContain("octocat");
   });
 
   it("only renders recent users that are also in the developers directory", async () => {

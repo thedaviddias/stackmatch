@@ -25,8 +25,7 @@ export async function buildWeeklyTopStackers(ctx: QueryCtx, limit = DEFAULT_TOP_
 
   const ranked = [...starrersByTarget.entries()]
     .map(([owner, starrers]) => [owner, starrers.size] as const)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit);
+    .sort((a, b) => b[1] - a[1]);
 
   const results = [];
   for (const [owner, starScore] of ranked) {
@@ -49,6 +48,8 @@ export async function buildWeeklyTopStackers(ctx: QueryCtx, limit = DEFAULT_TOP_
       memberNumber: profile.memberNumber,
       joinedAt: profile._creationTime ?? 0,
     });
+
+    if (results.length >= limit) break;
   }
 
   return results;
