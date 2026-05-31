@@ -205,7 +205,7 @@ describe("UserCard", () => {
     expect(screen.getByText("+1")).toBeInTheDocument();
   });
 
-  it("shows claimed and indexed profile status badges when provided", () => {
+  it("only shows a profile status badge when the profile is claimed", () => {
     const { rerender } = renderUserCard(
       <UserCard
         owner="octocat"
@@ -236,7 +236,23 @@ describe("UserCard", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText("Indexed")).toBeInTheDocument();
+    expect(screen.queryByText("Indexed")).not.toBeInTheDocument();
+  });
+
+  it("keeps the match badge visible for indexed profiles", () => {
+    renderUserCard(
+      <UserCard
+        owner="indexed"
+        avatarUrl="https://github.com/indexed.png"
+        displayName="Indexed User"
+        repoCount={8}
+        matchScore={82}
+        profileStatus="indexed"
+      />
+    );
+
+    expect(screen.getByText("82% Match")).toBeInTheDocument();
+    expect(screen.queryByText("Indexed")).not.toBeInTheDocument();
   });
 
   it("shows missing stack data as a neutral claimed-profile state", () => {
@@ -272,7 +288,7 @@ describe("UserCard", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText("Indexed")).toBeInTheDocument();
+    expect(screen.queryByText("Indexed")).not.toBeInTheDocument();
     expect(screen.queryByText("No stack data yet")).not.toBeInTheDocument();
   });
 });

@@ -6,7 +6,7 @@ import {
   MATCH_CARD_TOP_STACK_LIMIT,
 } from "@stackmatch/constants/social";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
-import { BadgeCheck, GitBranch, Handshake, Trophy } from "lucide-react";
+import { BadgeCheck, Handshake, Trophy } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { LinkCustom } from "@/components/ui/link";
@@ -52,9 +52,7 @@ export function WeeklyPickCard({ match }: WeeklyPickCardProps) {
           icon: BadgeCheck,
           className: "text-emerald-700 dark:text-emerald-300",
         }
-      : match.profile?.indexedAt != null
-        ? { label: "Indexed", icon: GitBranch, className: "text-sky-700 dark:text-sky-300" }
-        : null;
+      : null;
   const ProfileStatusIcon = profileStatus?.icon;
   const topStacks = match.profile?.topStacks?.filter((stack) => !isLowSignalPackage(stack)) ?? [];
   const visibleTopStacks = topStacks.slice(0, MATCH_CARD_TOP_STACK_LIMIT);

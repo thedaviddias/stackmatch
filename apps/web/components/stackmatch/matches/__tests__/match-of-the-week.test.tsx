@@ -118,4 +118,30 @@ describe("WeeklyPickCard", () => {
     expect(screen.queryByText("@commitlint/cli")).not.toBeInTheDocument();
     expect(screen.queryByText("+1")).not.toBeInTheDocument();
   });
+
+  it("only shows a profile status badge when the weekly pick is claimed", () => {
+    const { rerender } = render(<WeeklyPickCard match={makeMatch()} />);
+
+    expect(screen.getByText("Claimed")).toBeInTheDocument();
+
+    rerender(
+      <WeeklyPickCard
+        match={makeMatch({
+          profile: {
+            name: "Indexed User",
+            avatarUrl: "https://github.com/indexed.png",
+            followers: 10,
+            isClaimed: false,
+            indexedAt: 1_700_000_000_000,
+            stackScore: 72,
+            topStacks: ["react"],
+          },
+        })}
+      />
+    );
+
+    expect(screen.queryByText("Claimed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Indexed")).not.toBeInTheDocument();
+    expect(screen.getByText("72% Match")).toBeInTheDocument();
+  });
 });

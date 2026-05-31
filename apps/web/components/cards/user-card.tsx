@@ -9,15 +9,7 @@ import { HOUR_MS } from "@stackmatch/constants/time";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
 import { useQuery } from "@tanstack/react-query";
 import { cva } from "class-variance-authority";
-import {
-  BadgeCheck,
-  CircleDashed,
-  GitBranch,
-  Handshake,
-  Loader2,
-  Star,
-  Trophy,
-} from "lucide-react";
+import { BadgeCheck, CircleDashed, Handshake, Loader2, Star, Trophy } from "lucide-react";
 import Image from "next/image";
 import { type ComponentType, useMemo, useState } from "react";
 import { LinkCustom } from "@/components/ui/link";
@@ -71,23 +63,17 @@ const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
 });
 
 function ProfileStatusBadge({ status }: { status?: UserCardProfileStatus }) {
-  if (!status) return null;
+  if (status !== "claimed") return null;
 
-  const ProfileStatusIcon = status === "claimed" ? BadgeCheck : GitBranch;
-  const label = status === "claimed" ? "Claimed" : "Indexed";
+  const ProfileStatusIcon = BadgeCheck;
 
   return (
     <span
       data-theme-label="status"
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest",
-        status === "claimed"
-          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-          : "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-      )}
+      className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300"
     >
       <ProfileStatusIcon className="size-2.5" />
-      {label}
+      Claimed
     </span>
   );
 }
@@ -128,7 +114,11 @@ function MatchMetaBadges({
   profileStatus?: UserCardProfileStatus;
   stackDataStatus?: UserCardStackDataStatus;
 }) {
-  if (matchScore === undefined && !profileStatus && stackDataStatus !== "missing") return null;
+  const hasVisibleProfileStatus = profileStatus === "claimed";
+
+  if (matchScore === undefined && !hasVisibleProfileStatus && stackDataStatus !== "missing") {
+    return null;
+  }
 
   return (
     <div className="flex min-h-6 flex-wrap items-center gap-2">
