@@ -105,9 +105,16 @@ export function GlobalSearchModal({ open, onOpenChange }: GlobalSearchModalProps
       router.push(href);
       onOpenChange(false);
       setQuery("");
+      setSelectedValue("");
     },
     [router, onOpenChange]
   );
+
+  const closeSearch = useCallback(() => {
+    onOpenChange(false);
+    setQuery("");
+    setSelectedValue("");
+  }, [onOpenChange]);
 
   function handleSelect(href: string, type: SearchResultType, label: string) {
     addRecentSearch({ type, label, href });
@@ -235,6 +242,7 @@ export function GlobalSearchModal({ open, onOpenChange }: GlobalSearchModalProps
                       </div>
                       <CompactOwnerScanForm
                         defaultOwner={debouncedQuery}
+                        onScanSuccess={closeSearch}
                         submitLabel="Find Stackmates"
                       />
                     </div>

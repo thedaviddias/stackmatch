@@ -30,8 +30,11 @@ describe("CompactOwnerScanForm", () => {
 
   it("normalizes GitHub profile URLs before submitting", async () => {
     vi.mocked(postJson).mockResolvedValue({ queued: 1 });
+    const onScanSuccess = vi.fn();
 
-    const { getByLabelText, getByRole } = render(<CompactOwnerScanForm />);
+    const { getByLabelText, getByRole } = render(
+      <CompactOwnerScanForm onScanSuccess={onScanSuccess} />
+    );
     const input = getByLabelText(/GitHub user or organization to scan/i);
     const submitBtn = getByRole("button", { name: /Scan owner/i });
 
@@ -41,6 +44,7 @@ describe("CompactOwnerScanForm", () => {
     await waitFor(() => {
       expect(postJson).toHaveBeenCalledWith("/api/scan/user", { owner: "MrSunshyne" });
       expect(pushMock).toHaveBeenCalledWith("/MrSunshyne");
+      expect(onScanSuccess).toHaveBeenCalledWith("MrSunshyne");
     });
   });
 
@@ -61,7 +65,10 @@ describe("CompactOwnerScanForm", () => {
   });
 
   it("shows client-side feedback for invalid URLs", () => {
-    const { getByLabelText, getByRole, getByText } = render(<CompactOwnerScanForm />);
+    const onScanSuccess = vi.fn();
+    const { getByLabelText, getByRole, getByText } = render(
+      <CompactOwnerScanForm onScanSuccess={onScanSuccess} />
+    );
     const input = getByLabelText(/GitHub user or organization to scan/i);
     const submitBtn = getByRole("button", { name: /Scan owner/i });
 
@@ -71,5 +78,6 @@ describe("CompactOwnerScanForm", () => {
     expect(getByText(getWebAlertTitle("form.owner.invalid"))).toBeDefined();
     expect(getByRole("alert")).toHaveTextContent(getWebAlertTitle("form.owner.invalid"));
     expect(postJson).not.toHaveBeenCalled();
+    expect(onScanSuccess).not.toHaveBeenCalled();
   });
 });

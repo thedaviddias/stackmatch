@@ -10,11 +10,13 @@ import { postJson } from "@/lib/post-json";
 
 interface CompactOwnerScanFormProps {
   defaultOwner?: string;
+  onScanSuccess?: (normalizedOwner: string) => void;
   submitLabel?: string;
 }
 
 export function CompactOwnerScanForm({
   defaultOwner = "",
+  onScanSuccess,
   submitLabel = "Scan owner",
 }: CompactOwnerScanFormProps) {
   const router = useRouter();
@@ -42,6 +44,7 @@ export function CompactOwnerScanForm({
     try {
       await postJson<{ queued: number }>("/api/scan/user", { owner: normalizedOwner });
       router.push(`/${encodeURIComponent(normalizedOwner)}`);
+      onScanSuccess?.(normalizedOwner);
     } catch (submitError) {
       setError(
         submitError instanceof Error
