@@ -1,4 +1,5 @@
 export {
+  listClaimedDevelopersDirectoryRows,
   listDevelopersDirectoryRows,
   listDistinctLanguages,
   listDistinctTopics,

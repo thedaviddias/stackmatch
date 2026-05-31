@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryDataPort } from "@/data/discovery/port";
 import {
+  listClaimedDevelopersDirectoryRows,
   listDevelopersDirectoryRows,
   listDistinctLanguages,
   listDistinctTopics,
@@ -56,6 +57,27 @@ describe("discovery data service", () => {
         },
       },
     ],
+    listClaimedDevelopersDirectoryRows: async () => [
+      {
+        owner: "claimed",
+        avatarUrl: "https://github.com/claimed.png",
+        repoCount: 0,
+        power: 15,
+        totalStars: 0,
+        starsCount: 0,
+        firstIndexedAt: 3,
+        lastIndexedAt: 4,
+        isSyncing: false,
+        profileStatus: "claimed",
+        claimedAt: 3,
+        profile: {
+          name: "Claimed User",
+          followers: 1,
+          avatarUrl: "https://github.com/claimed.png",
+          stackScore: 15,
+        },
+      },
+    ],
     listWeeklyTopStackers: async () => [
       {
         owner: "octocat",
@@ -107,6 +129,15 @@ describe("discovery data service", () => {
   it("returns developers directory rows", async () => {
     const rows = await listDevelopersDirectoryRows();
     expect(rows[0]?.owner).toBe("octocat");
+  });
+
+  it("returns claimed developers directory rows", async () => {
+    const rows = await listClaimedDevelopersDirectoryRows();
+    expect(rows[0]).toMatchObject({
+      owner: "claimed",
+      repoCount: 0,
+      profileStatus: "claimed",
+    });
   });
 
   it("returns top stackers", async () => {

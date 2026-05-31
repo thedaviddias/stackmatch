@@ -18,6 +18,7 @@ describe("directory page item de-duplication", () => {
         firstIndexedAt: 1,
         lastIndexedAt: 2,
         isSyncing: false,
+        profileStatus: "indexed",
       },
       {
         owner: "octocat",
@@ -31,6 +32,7 @@ describe("directory page item de-duplication", () => {
         firstIndexedAt: 3,
         lastIndexedAt: 4,
         isSyncing: false,
+        profileStatus: "indexed",
       },
     ]);
 

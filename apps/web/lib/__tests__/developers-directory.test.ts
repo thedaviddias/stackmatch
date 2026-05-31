@@ -20,6 +20,7 @@ const FIXTURES: DeveloperDirectoryItem[] = [
     firstIndexedAt: 1_700_000_000_000,
     lastIndexedAt: 1_700_100_000_000,
     isSyncing: false,
+    profileStatus: "indexed",
   },
   {
     owner: "beta",
@@ -33,6 +34,8 @@ const FIXTURES: DeveloperDirectoryItem[] = [
     firstIndexedAt: 1_700_500_000_000,
     lastIndexedAt: 1_700_600_000_000,
     isSyncing: false,
+    profileStatus: "claimed",
+    claimedAt: 1_700_700_000_000,
   },
   {
     owner: "gamma",
@@ -46,6 +49,8 @@ const FIXTURES: DeveloperDirectoryItem[] = [
     firstIndexedAt: 1_699_500_000_000,
     lastIndexedAt: 1_699_600_000_000,
     isSyncing: true,
+    profileStatus: "claimed",
+    claimedAt: 1_700_200_000_000,
   },
 ];
 
@@ -54,6 +59,7 @@ describe("developers directory helpers", () => {
     const parsed = parseDevelopersDirectoryParams({
       cursor: "-10",
       limit: "999",
+      view: "unknown",
       sort: "unknown",
       q: "   hello   ",
     });
@@ -61,15 +67,27 @@ describe("developers directory helpers", () => {
     expect(parsed).toEqual({
       cursor: 0,
       limit: 100,
+      view: "indexed",
       sort: "joined",
       q: "hello",
     });
+  });
+
+  it("accepts the claimed view", () => {
+    const parsed = parseDevelopersDirectoryParams({
+      view: "claimed",
+      sort: "stars",
+    });
+
+    expect(parsed.view).toBe("claimed");
+    expect(parsed.sort).toBe("stars");
   });
 
   it("rejects partially numeric cursor/limit values", () => {
     const parsed = parseDevelopersDirectoryParams({
       cursor: "12abc",
       limit: "8px",
+      view: "indexed",
       sort: "joined",
       q: "ok",
     });
@@ -77,6 +95,7 @@ describe("developers directory helpers", () => {
     expect(parsed).toEqual({
       cursor: 0,
       limit: 40,
+      view: "indexed",
       sort: "joined",
       q: "ok",
     });
@@ -86,6 +105,7 @@ describe("developers directory helpers", () => {
     const parsed = parseDevelopersDirectoryParams({
       cursor: "+5",
       limit: " 7 ",
+      view: "indexed",
       sort: "joined",
       q: "owner",
     });
@@ -93,6 +113,7 @@ describe("developers directory helpers", () => {
     expect(parsed).toEqual({
       cursor: 5,
       limit: 7,
+      view: "indexed",
       sort: "joined",
       q: "owner",
     });
@@ -104,19 +125,22 @@ describe("developers directory helpers", () => {
     expect(filterDevelopersDirectory(FIXTURES, "").length).toBe(FIXTURES.length);
   });
 
-  it("sorts by joined date descending", () => {
-    const sorted = sortDevelopersDirectory(FIXTURES, "joined");
+  it("sorts indexed rows by indexed date descending", () => {
+    const sorted = sortDevelopersDirectory(FIXTURES, "indexed", "joined");
     expect(sorted.map((item) => item.owner)).toEqual(["beta", "alpha", "gamma"]);
   });
 
-  it("sorts by followers then joined date", () => {
-    const sorted = sortDevelopersDirectory(FIXTURES, "followers");
+  it("sorts claimed rows by claimed date descending", () => {
+    const sorted = sortDevelopersDirectory(FIXTURES, "claimed", "joined");
     expect(sorted.map((item) => item.owner)).toEqual(["beta", "gamma", "alpha"]);
   });
 
-  it("sorts by stars then joined date", () => {
-    const sorted = sortDevelopersDirectory(FIXTURES, "stars");
-    expect(sorted.map((item) => item.owner)).toEqual(["gamma", "beta", "alpha"]);
+  it("preserves follower and star sorting inside each view", () => {
+    const followersSorted = sortDevelopersDirectory(FIXTURES, "indexed", "followers");
+    const starsSorted = sortDevelopersDirectory(FIXTURES, "indexed", "stars");
+
+    expect(followersSorted.map((item) => item.owner)).toEqual(["beta", "gamma", "alpha"]);
+    expect(starsSorted.map((item) => item.owner)).toEqual(["gamma", "beta", "alpha"]);
   });
 
   it("paginates with nextCursor and total", () => {

@@ -1,8 +1,12 @@
 "use client";
 
 import {
+  DEVELOPERS_DIRECTORY_DEFAULT_VIEW,
   DEVELOPERS_DIRECTORY_PAGE_SIZE,
+  DEVELOPERS_DIRECTORY_QUERY_GC_MS,
+  DEVELOPERS_DIRECTORY_QUERY_STALE_MS,
   DEVELOPERS_DIRECTORY_SORT_OPTIONS,
+  DEVELOPERS_DIRECTORY_VIEW_OPTIONS,
 } from "@stackmatch/constants/directory";
 import { useDebouncedSearchInput } from "@stackmatch/hooks/use-debounced-search-input";
 import { useInfiniteLoadMore } from "@stackmatch/hooks/use-infinite-load-more";
@@ -17,6 +21,7 @@ import { CompactOwnerScanForm } from "@/components/stackmatch/forms/compact-owne
 import type { DeveloperDirectoryItem } from "@/lib/directory/developers-directory";
 import { formatCompactNumber, formatJoinDate } from "@/lib/storage/utils";
 
+type DevelopersDirectoryView = "indexed" | "claimed";
 type DevelopersDirectorySort = "joined" | "followers" | "stars";
 
 interface DevelopersDirectoryApiResponse {
@@ -52,16 +57,19 @@ export function dedupeDevelopers(items: DeveloperDirectoryItem[]): DeveloperDire
 
 async function fetchDevelopersDirectoryPage({
   pageParam,
+  view,
   sort,
   query,
 }: {
   pageParam: number;
+  view: DevelopersDirectoryView;
   sort: DevelopersDirectorySort;
   query: string;
 }): Promise<DevelopersDirectoryApiResponse> {
   const params = new URLSearchParams({
     cursor: String(pageParam),
     limit: String(DEVELOPERS_DIRECTORY_PAGE_SIZE),
+    view,
     sort,
   });
 
@@ -85,6 +93,7 @@ interface DevelopersDirectoryResultsProps {
   onRetry: () => void;
   total: number;
   items: DeveloperDirectoryItem[];
+  viewMode: DevelopersDirectoryView;
   sortMode: DevelopersDirectorySort;
   loadMoreRef: { current: HTMLDivElement | null };
   searchQuery: string;
@@ -92,6 +101,7 @@ interface DevelopersDirectoryResultsProps {
 
 function getDeveloperDirectoryMetric(
   item: DeveloperDirectoryItem,
+  viewMode: DevelopersDirectoryView,
   sortMode: DevelopersDirectorySort
 ): UserCardMetric {
   if (sortMode === "followers") {
@@ -110,8 +120,16 @@ function getDeveloperDirectoryMetric(
     };
   }
 
+  if (viewMode === "claimed") {
+    return {
+      label: "Claimed",
+      value: formatJoinDate(item.claimedAt ?? item.firstIndexedAt),
+      icon: CalendarDays,
+    };
+  }
+
   return {
-    label: "Joined",
+    label: "Indexed",
     value: formatJoinDate(item.firstIndexedAt),
     icon: CalendarDays,
   };
@@ -125,6 +143,7 @@ function DevelopersDirectoryResults({
   onRetry,
   total,
   items,
+  viewMode,
   sortMode,
   loadMoreRef,
   searchQuery,
@@ -165,9 +184,11 @@ function DevelopersDirectoryResults({
         <Users className="mx-auto size-10 text-neutral-500" />
         <h3 className="mt-4 text-lg font-bold text-white">No developers found</h3>
         <p className="mt-2 text-sm text-neutral-400">
-          Search only browses indexed profiles. Scan a GitHub owner to build a new stack profile.
+          {viewMode === "claimed"
+            ? "Search only browses claimed profiles. Sign in with GitHub to claim a Stackmatch profile."
+            : "Search only browses indexed profiles. Scan a GitHub owner to build a new stack profile."}
         </p>
-        <CompactOwnerScanForm defaultOwner={searchQuery} />
+        {viewMode === "indexed" && <CompactOwnerScanForm defaultOwner={searchQuery} />}
       </div>
     );
   }
@@ -186,7 +207,8 @@ function DevelopersDirectoryResults({
             isOnline={isOwnerOnline(presenceByOwner, item.owner)}
             power={item.power}
             starsCount={item.starsCount}
-            metric={getDeveloperDirectoryMetric(item, sortMode)}
+            metric={getDeveloperDirectoryMetric(item, viewMode, sortMode)}
+            profileStatus={item.profileStatus}
           />
         ))}
       </div>
@@ -210,6 +232,12 @@ function DevelopersDirectoryResults({
 }
 
 export function DevelopersDirectoryContent() {
+  const [viewMode, setViewMode] = useQueryState(
+    "view",
+    parseAsStringLiteral(DEVELOPERS_DIRECTORY_VIEW_OPTIONS)
+      .withDefault(DEVELOPERS_DIRECTORY_DEFAULT_VIEW)
+      .withOptions({ scroll: false })
+  );
   const [sortMode, setSortMode] = useQueryState(
     "sort",
     parseAsStringLiteral(DEVELOPERS_DIRECTORY_SORT_OPTIONS)
@@ -223,18 +251,20 @@ export function DevelopersDirectoryContent() {
   const [searchInput, setSearchInput] = useDebouncedSearchInput(searchParam, setSearchParam);
 
   const directoryQuery = useInfiniteQuery({
-    queryKey: ["developers-directory-v2", { sort: sortMode, q: searchParam }],
+    queryKey: ["developers-directory-v3", { view: viewMode, sort: sortMode, q: searchParam }],
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       fetchDevelopersDirectoryPage({
         pageParam,
+        view: viewMode,
         sort: sortMode,
         query: searchParam,
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     retry: 1,
-    staleTime: 15 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
+    staleTime: DEVELOPERS_DIRECTORY_QUERY_STALE_MS,
+    gcTime: DEVELOPERS_DIRECTORY_QUERY_GC_MS,
+    refetchOnMount: "always",
   });
 
   const items = useMemo(
@@ -260,20 +290,23 @@ export function DevelopersDirectoryContent() {
                 All Developers
               </h2>
               <p className="mt-1 text-sm font-medium text-neutral-400">
-                Browse every indexed owner on Stackmatch. {total.toLocaleString("en-US")} listed.
+                {viewMode === "claimed"
+                  ? "Browse public profiles claimed by Stackmatch members."
+                  : "Browse public owners with indexed stack data."}{" "}
+                {total.toLocaleString("en-US")} listed.
               </p>
             </div>
 
             <div className="inline-flex rounded-lg border border-neutral-800 bg-black p-1">
-              {DEVELOPERS_DIRECTORY_SORT_OPTIONS.map((option) => (
+              {DEVELOPERS_DIRECTORY_VIEW_OPTIONS.map((option) => (
                 <button
                   key={option}
                   type="button"
                   onClick={() => {
-                    void setSortMode(option);
+                    void setViewMode(option);
                   }}
                   className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
-                    sortMode === option
+                    viewMode === option
                       ? "bg-white text-black"
                       : "text-neutral-400 hover:text-white"
                   }`}
@@ -282,6 +315,23 @@ export function DevelopersDirectoryContent() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="inline-flex w-fit rounded-lg border border-neutral-800 bg-black p-1">
+            {DEVELOPERS_DIRECTORY_SORT_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  void setSortMode(option);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
+                  sortMode === option ? "bg-white text-black" : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
           </div>
 
           <label
@@ -312,6 +362,7 @@ export function DevelopersDirectoryContent() {
           }}
           total={total}
           items={items}
+          viewMode={viewMode}
           sortMode={sortMode}
           loadMoreRef={loadMoreRef}
           searchQuery={searchParam}

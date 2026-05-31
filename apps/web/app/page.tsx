@@ -25,6 +25,7 @@ import { HomeTopStackersSection } from "@/components/pages/home/top-stackers-sec
 import { OwnerLookupForm } from "@/components/stackmatch/owner-lookup-form";
 import { LinkCustom } from "@/components/ui/link";
 import {
+  listClaimedDevelopersDirectoryRows,
   listDevelopersDirectoryRows,
   listGlobalStackLeaderboard,
   listIndexedUsersWithProfiles,
@@ -41,7 +42,7 @@ const copy = getI18n();
 const HOME_LEADERBOARD_LIMIT = 12;
 const HOME_RECENT_USERS_LIMIT = 40;
 const HOME_TOP_STACKERS_LIMIT = 8;
-const HOME_RECENTLY_JOINED_LIMIT = 8;
+const HOME_RECENTLY_JOINED_LIMIT = 9;
 const HOME_GRAPH_HANDLES_LIMIT = 5;
 const HOME_AVATAR_MARQUEE_MIN_HANDLES = 16;
 const HOME_CACHE_REVALIDATE_SECONDS = 60;
@@ -299,6 +300,14 @@ const getCachedHomeDirectoryUsers = unstable_cache(
   { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
 );
 
+function getHomeClaimedUsers() {
+  return safeFetchQuery(
+    "claimed developers",
+    () => listClaimedDevelopersDirectoryRows(HOME_RECENT_USERS_LIMIT),
+    []
+  );
+}
+
 function getHomeTopStackers() {
   return safeFetchQuery(
     "weekly top stackers",
@@ -307,24 +316,57 @@ function getHomeTopStackers() {
   );
 }
 
-function filterUsersInDevelopersDirectory(
-  users: DiscoveryIndexedUser[],
-  directoryUsers: Pick<DiscoveryIndexedUser, "owner">[]
+function getUserRecency(user: DiscoveryIndexedUser): number {
+  return user.claimedAt ?? user.firstIndexedAt ?? user.lastIndexedAt;
+}
+
+function buildHomeNewStackmatchUsers(
+  indexedUsers: DiscoveryIndexedUser[],
+  claimedUsers: DiscoveryIndexedUser[]
 ) {
-  const directoryOwners = new Set(directoryUsers.map((user) => user.owner.toLowerCase()));
-  return users.filter((user) => directoryOwners.has(user.owner.toLowerCase()));
+  const usersByOwner = new Map<string, DiscoveryIndexedUser>();
+
+  for (const user of indexedUsers) {
+    usersByOwner.set(user.owner.toLowerCase(), {
+      ...user,
+      profileStatus: user.profileStatus ?? "indexed",
+    });
+  }
+
+  for (const user of claimedUsers) {
+    const key = user.owner.toLowerCase();
+    const existing = usersByOwner.get(key);
+    usersByOwner.set(key, {
+      ...existing,
+      ...user,
+      profile: user.profile ?? existing?.profile,
+      avatarUrl: user.profile?.avatarUrl ?? user.avatarUrl ?? existing?.avatarUrl,
+      repoCount: existing?.repoCount ?? user.repoCount,
+      isSyncing: existing?.isSyncing ?? user.isSyncing,
+      starsCount: Math.max(existing?.starsCount ?? 0, user.starsCount ?? 0),
+      firstIndexedAt: existing?.firstIndexedAt ?? user.firstIndexedAt,
+      lastIndexedAt: Math.max(existing?.lastIndexedAt ?? 0, user.lastIndexedAt ?? 0),
+      profileStatus: "claimed",
+    });
+  }
+
+  return [...usersByOwner.values()].sort((a, b) => getUserRecency(b) - getUserRecency(a));
 }
 
 export default async function HomePage() {
-  const [leaderboard, recentUsers, directoryUsers, topStackers] = await Promise.all([
+  const [leaderboard, recentUsers, directoryUsers, claimedUsers, topStackers] = await Promise.all([
     getCachedHomeLeaderboard(),
     getCachedHomeRecentUsers(),
     getCachedHomeDirectoryUsers(),
+    getHomeClaimedUsers(),
     getHomeTopStackers(),
   ]);
 
-  const directoryRecentUsers = filterUsersInDevelopersDirectory(recentUsers, directoryUsers);
-  // Slice to first 8 for the recently indexed graph section
+  const directoryRecentUsers = buildHomeNewStackmatchUsers(
+    directoryUsers.length > 0 ? directoryUsers : recentUsers,
+    claimedUsers
+  );
+  // Slice to first 9 for the recently indexed graph section
   const newToGraph = directoryRecentUsers.slice(0, HOME_RECENTLY_JOINED_LIMIT);
   const recentUserHandles = directoryRecentUsers.map((user) => user.owner);
   const graphHandles = recentUserHandles.slice(0, HOME_GRAPH_HANDLES_LIMIT);
@@ -375,7 +417,7 @@ export default async function HomePage() {
             />
           )}
 
-          {/* ── New to the Graph Developers ──────────────────────────── */}
+          {/* ── New to Stackmatch Developers ──────────────────────────── */}
           {newToGraph.length > 0 && (
             <section className="relative mt-16">
               <SectionTitle

@@ -158,13 +158,13 @@ function TopStackChips({
   const hasResponsiveOverflow = mobileLimit < desktopLimit;
 
   return (
-    <div className="mt-5">
-      <div className="mb-2 flex items-center justify-between">
+    <div className="mt-4">
+      <div className="mb-1.5 flex items-center justify-between">
         <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
           Top Stack
         </p>
       </div>
-      <div className="flex min-h-14 flex-wrap content-start gap-1.5 overflow-hidden">
+      <div className="flex flex-wrap content-start gap-1.5 overflow-hidden pb-3">
         {visibleTopStacks.map((stack, index) => (
           <span
             key={stack}

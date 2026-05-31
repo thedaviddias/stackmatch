@@ -40,6 +40,13 @@ export async function listDevelopersDirectoryRows(): Promise<DiscoveryIndexedUse
   return DiscoveryIndexedUsersListSchema.parse(rows);
 }
 
+export async function listClaimedDevelopersDirectoryRows(
+  limit?: number
+): Promise<DiscoveryIndexedUser[]> {
+  const rows = await discoveryPort.listClaimedDevelopersDirectoryRows(limit);
+  return DiscoveryIndexedUsersListSchema.parse(rows);
+}
+
 export async function listWeeklyTopStackers(limit: number): Promise<DiscoveryTopStacker[]> {
   const rows = await discoveryPort.listWeeklyTopStackers(limit);
   return DiscoveryTopStackersListSchema.parse(rows);

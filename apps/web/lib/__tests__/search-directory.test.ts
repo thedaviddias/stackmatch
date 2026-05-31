@@ -56,6 +56,7 @@ const developerFixture = (
   firstIndexedAt: 0,
   lastIndexedAt: 0,
   isSyncing: false,
+  profileStatus: "indexed",
 });
 
 describe("searchGlobal", () => {

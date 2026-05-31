@@ -43,6 +43,8 @@ export const DiscoveryIndexedUserSchema = z.object({
   isProfileSynced: z.boolean().optional(),
   publicTotalCommits: z.coerce.number().int().nonnegative().optional(),
   publicTotalStars: z.coerce.number().int().nonnegative().optional(),
+  profileStatus: z.enum(["indexed", "claimed"]).optional(),
+  claimedAt: z.coerce.number().nonnegative().optional(),
   profile: DiscoveryIndexedUserProfileSchema,
 });
 

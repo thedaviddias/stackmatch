@@ -47,27 +47,28 @@ describe("directory API routes", () => {
   });
 
   it("returns developers directory payload with cache headers", async () => {
-    const parsed = { cursor: 0, limit: 40, sort: "joined", q: "" } as const;
+    const parsed = { cursor: 0, limit: 40, view: "indexed", sort: "joined", q: "" } as const;
     const payload = { items: [{ owner: "octocat" }], nextCursor: null, total: 1 };
 
     parseDevelopersParamsMock.mockReturnValue(parsed);
     getDevelopersPageMock.mockResolvedValue(payload as never);
 
     const response = await getDevelopersRoute(
-      new Request("https://stackmatch.dev/api/developers?cursor=0&limit=40&sort=joined")
+      new Request(
+        "https://stackmatch.dev/api/developers?cursor=0&limit=40&view=indexed&sort=joined"
+      )
     );
 
     expect(parseDevelopersParamsMock).toHaveBeenCalledWith({
       cursor: "0",
       limit: "40",
+      view: "indexed",
       sort: "joined",
       q: null,
     });
     expect(getDevelopersPageMock).toHaveBeenCalledWith(parsed);
     expect(await response.json()).toEqual(payload);
-    expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=60, s-maxage=900, stale-while-revalidate=86400"
-    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("returns stacks directory payload with cache headers", async () => {

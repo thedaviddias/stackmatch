@@ -16,6 +16,8 @@ const INDEXED_USERS_DEFAULT_LIMIT = 100;
 const DEVELOPERS_DIRECTORY_DEFAULT_LIMIT = 100;
 const INDEXED_USERS_WITH_PROFILES_LIMIT = 40;
 const RELATED_RECENT_USERS_SCAN_LIMIT = 100;
+const CLAIMED_DEVELOPERS_DIRECTORY_DEFAULT_LIMIT = 100;
+const CLAIMED_DEVELOPERS_WEEKLY_STARS_SCAN_LIMIT = 100;
 
 interface DiscoveryUser {
   owner: string;
@@ -34,6 +36,27 @@ interface DiscoveryUser {
   automationPercentage: string;
 }
 
+function isPublicClaimedProfile(profile: {
+  isClaimed?: boolean;
+  visibility?: string;
+  memberNumber?: number;
+  claimedAt?: number;
+}) {
+  return (
+    (profile.isClaimed === true || profile.memberNumber != null || profile.claimedAt != null) &&
+    profile.visibility !== "hidden" &&
+    profile.visibility !== "private"
+  );
+}
+
+function getClaimedAt(profile: {
+  _creationTime?: number;
+  claimedAt?: number;
+  lastUpdated: number;
+}) {
+  return profile.claimedAt ?? profile._creationTime ?? profile.lastUpdated;
+}
+
 export const getIndexedUsers = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
@@ -45,20 +68,109 @@ export const getIndexedUsers = query({
   },
 });
 
-export const getDevelopersDirectory = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query("developerDirectoryCache")
-      .withIndex("by_power")
-      .order("desc")
-      .take(args.limit ?? DEVELOPERS_DIRECTORY_DEFAULT_LIMIT);
+export async function buildDevelopersDirectoryRows(
+  ctx: QueryCtx,
+  limit = DEVELOPERS_DIRECTORY_DEFAULT_LIMIT
+) {
+  const [rows, profiles] = await Promise.all([
+    ctx.db.query("developerDirectoryCache").withIndex("by_power").order("desc").take(limit),
+    ctx.db.query("profiles").collect(),
+  ]);
+  const profilesByOwner = new Map(
+    profiles.map((profile) => [profile.owner.toLowerCase(), profile])
+  );
 
-    return rows.map((row) => ({
+  return rows.map((row) => {
+    const profile = profilesByOwner.get(row.owner.toLowerCase());
+    const hasPublicProfile =
+      profile != null && profile.visibility !== "hidden" && profile.visibility !== "private";
+    const isClaimed = profile ? isPublicClaimedProfile(profile) : false;
+    const claimedAt = profile && isClaimed ? getClaimedAt(profile) : undefined;
+
+    return {
       ...row,
       starsCount: row.starsCount ?? 0,
-    }));
-  },
+      displayName: hasPublicProfile ? (profile.name ?? row.displayName) : row.displayName,
+      followers: hasPublicProfile ? profile.followers : row.followers,
+      profileStatus: isClaimed ? ("claimed" as const) : ("indexed" as const),
+      claimedAt,
+      profile: hasPublicProfile
+        ? {
+            name: profile.name ?? null,
+            followers: profile.followers,
+            avatarUrl: profile.avatarUrl,
+            stackScore: row.power,
+            topStacks: profile.topPackages ?? [],
+          }
+        : undefined,
+    };
+  });
+}
+
+export const getDevelopersDirectory = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => buildDevelopersDirectoryRows(ctx, args.limit),
+});
+
+export async function buildClaimedDevelopersDirectoryRows(
+  ctx: QueryCtx,
+  limit = CLAIMED_DEVELOPERS_DIRECTORY_DEFAULT_LIMIT
+) {
+  const [profiles, indexedRows] = await Promise.all([
+    ctx.db.query("profiles").collect(),
+    ctx.db.query("developerDirectoryCache").collect(),
+  ]);
+  const indexedByOwner = new Map(indexedRows.map((row) => [row.owner.toLowerCase(), row]));
+
+  const claimedProfiles = profiles
+    .filter(isPublicClaimedProfile)
+    .sort((a, b) => getClaimedAt(b) - getClaimedAt(a) || a.owner.localeCompare(b.owner))
+    .slice(0, limit);
+
+  const weekStart = getWeekStart();
+
+  return await Promise.all(
+    claimedProfiles.map(async (profile) => {
+      const indexed = indexedByOwner.get(profile.owner.toLowerCase());
+      const userStars = await ctx.db
+        .query("stars")
+        .withIndex("by_target_week", (q) =>
+          q.eq("targetOwner", profile.owner).eq("weekStart", weekStart)
+        )
+        .take(CLAIMED_DEVELOPERS_WEEKLY_STARS_SCAN_LIMIT);
+      const starsCount = new Set(userStars.map((star) => star.starrerLogin.toLowerCase())).size;
+      const claimedAt = getClaimedAt(profile);
+
+      return {
+        owner: profile.owner,
+        avatarUrl: profile.avatarUrl,
+        repoCount: indexed?.repoCount ?? 0,
+        power: indexed?.power ?? profile.stackScore ?? 0,
+        totalStars: indexed?.totalStars ?? 0,
+        starsCount,
+        firstIndexedAt: indexed?.firstIndexedAt ?? claimedAt,
+        lastIndexedAt: indexed?.lastIndexedAt ?? profile.lastUpdated,
+        isSyncing: indexed?.isSyncing ?? false,
+        displayName: profile.name ?? null,
+        followers: profile.followers,
+        isProfileSynced: true,
+        profileStatus: "claimed" as const,
+        claimedAt,
+        profile: {
+          name: profile.name ?? null,
+          followers: profile.followers,
+          avatarUrl: profile.avatarUrl,
+          stackScore: indexed?.power ?? profile.stackScore ?? 0,
+          topStacks: profile.topPackages ?? [],
+        },
+      };
+    })
+  );
+}
+
+export const getClaimedDevelopersDirectory = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => buildClaimedDevelopersDirectoryRows(ctx, args.limit),
 });
 
 /**

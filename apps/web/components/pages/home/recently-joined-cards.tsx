@@ -12,6 +12,7 @@ interface RecentlyJoinedItem {
   repoCount: number;
   isSyncing: boolean;
   starsCount?: number;
+  profileStatus?: "indexed" | "claimed";
   profile?: {
     avatarUrl?: string | null;
     name?: string | null;
@@ -43,6 +44,7 @@ export function RecentlyJoinedCards({ users, viewAllLabel }: RecentlyJoinedCards
             power={user.profile?.stackScore}
             topStacks={user.profile?.topStacks}
             starsCount={user.starsCount}
+            profileStatus={user.profileStatus}
           />
         ))}
       </SectionGrid>

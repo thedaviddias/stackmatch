@@ -1,12 +1,16 @@
 import {
   DEVELOPERS_DIRECTORY_DEFAULT_SORT,
+  DEVELOPERS_DIRECTORY_DEFAULT_VIEW,
   DEVELOPERS_DIRECTORY_PAGE_SIZE,
   DEVELOPERS_DIRECTORY_SORT_OPTIONS,
+  DEVELOPERS_DIRECTORY_VIEW_OPTIONS,
   DIRECTORY_MAX_LIMIT,
   DIRECTORY_MIN_LIMIT,
 } from "@stackmatch/constants/directory";
 
+export type DevelopersDirectoryView = "indexed" | "claimed";
 export type DevelopersDirectorySort = "joined" | "followers" | "stars";
+export type DeveloperDirectoryProfileStatus = "indexed" | "claimed";
 
 export interface DeveloperDirectoryItem {
   owner: string;
@@ -20,6 +24,8 @@ export interface DeveloperDirectoryItem {
   firstIndexedAt: number;
   lastIndexedAt: number;
   isSyncing: boolean;
+  profileStatus: DeveloperDirectoryProfileStatus;
+  claimedAt?: number;
 }
 
 export interface DevelopersDirectoryPage {
@@ -31,6 +37,7 @@ export interface DevelopersDirectoryPage {
 export interface ParsedDevelopersDirectoryParams {
   cursor: number;
   limit: number;
+  view: DevelopersDirectoryView;
   sort: DevelopersDirectorySort;
   q: string;
 }
@@ -38,8 +45,10 @@ export interface ParsedDevelopersDirectoryParams {
 const DEFAULT_LIMIT = DEVELOPERS_DIRECTORY_PAGE_SIZE;
 const MAX_LIMIT = DIRECTORY_MAX_LIMIT;
 const MIN_LIMIT = DIRECTORY_MIN_LIMIT;
+const DEFAULT_VIEW: DevelopersDirectoryView = DEVELOPERS_DIRECTORY_DEFAULT_VIEW;
 const DEFAULT_SORT: DevelopersDirectorySort = DEVELOPERS_DIRECTORY_DEFAULT_SORT;
 
+const VIEW_VALUES = new Set<DevelopersDirectoryView>(DEVELOPERS_DIRECTORY_VIEW_OPTIONS);
 const SORT_VALUES = new Set<DevelopersDirectorySort>(DEVELOPERS_DIRECTORY_SORT_OPTIONS);
 
 function parseInteger(value: string | null | undefined): number | null {
@@ -54,6 +63,7 @@ function parseInteger(value: string | null | undefined): number | null {
 export function parseDevelopersDirectoryParams(input: {
   cursor?: string | null;
   limit?: string | null;
+  view?: string | null;
   sort?: string | null;
   q?: string | null;
 }): ParsedDevelopersDirectoryParams {
@@ -66,13 +76,16 @@ export function parseDevelopersDirectoryParams(input: {
     Math.max(MIN_LIMIT, parsedLimit !== null ? parsedLimit : DEFAULT_LIMIT)
   );
 
+  const view = VIEW_VALUES.has(input.view as DevelopersDirectoryView)
+    ? (input.view as DevelopersDirectoryView)
+    : DEFAULT_VIEW;
   const sort = SORT_VALUES.has(input.sort as DevelopersDirectorySort)
     ? (input.sort as DevelopersDirectorySort)
     : DEFAULT_SORT;
 
   const q = (input.q ?? "").trim().slice(0, 100);
 
-  return { cursor, limit, sort, q };
+  return { cursor, limit, view, sort, q };
 }
 
 export function filterDevelopersDirectory(
@@ -91,6 +104,7 @@ export function filterDevelopersDirectory(
 
 export function sortDevelopersDirectory(
   items: DeveloperDirectoryItem[],
+  view: DevelopersDirectoryView,
   sort: DevelopersDirectorySort
 ): DeveloperDirectoryItem[] {
   const sorted = [...items];
@@ -99,7 +113,7 @@ export function sortDevelopersDirectory(
     if (sort === "followers") {
       return (
         b.followers - a.followers ||
-        b.firstIndexedAt - a.firstIndexedAt ||
+        getRecencyValue(b, view) - getRecencyValue(a, view) ||
         b.totalStars - a.totalStars ||
         a.owner.localeCompare(b.owner)
       );
@@ -108,14 +122,14 @@ export function sortDevelopersDirectory(
     if (sort === "stars") {
       return (
         b.totalStars - a.totalStars ||
-        b.firstIndexedAt - a.firstIndexedAt ||
+        getRecencyValue(b, view) - getRecencyValue(a, view) ||
         b.followers - a.followers ||
         a.owner.localeCompare(b.owner)
       );
     }
 
     return (
-      b.firstIndexedAt - a.firstIndexedAt ||
+      getRecencyValue(b, view) - getRecencyValue(a, view) ||
       b.lastIndexedAt - a.lastIndexedAt ||
       b.totalStars - a.totalStars ||
       a.owner.localeCompare(b.owner)
@@ -123,6 +137,10 @@ export function sortDevelopersDirectory(
   });
 
   return sorted;
+}
+
+function getRecencyValue(item: DeveloperDirectoryItem, view: DevelopersDirectoryView) {
+  return view === "claimed" ? (item.claimedAt ?? item.firstIndexedAt) : item.firstIndexedAt;
 }
 
 export function paginateDevelopersDirectory(

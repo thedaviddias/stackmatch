@@ -3,9 +3,13 @@ import { DAY_MS } from "@stackmatch/constants/time";
 export const DIRECTORY_MIN_LIMIT = 1;
 export const DIRECTORY_MAX_LIMIT = 100;
 
+export const DEVELOPERS_DIRECTORY_VIEW_OPTIONS = ["indexed", "claimed"] as const;
+export const DEVELOPERS_DIRECTORY_DEFAULT_VIEW = "indexed";
 export const DEVELOPERS_DIRECTORY_SORT_OPTIONS = ["joined", "followers", "stars"] as const;
 export const DEVELOPERS_DIRECTORY_DEFAULT_SORT = "joined";
 export const DEVELOPERS_DIRECTORY_PAGE_SIZE = 40;
+export const DEVELOPERS_DIRECTORY_QUERY_STALE_MS = 0;
+export const DEVELOPERS_DIRECTORY_QUERY_GC_MS = DAY_MS;
 
 export const STACKS_DIRECTORY_SORT_OPTIONS = ["owners", "repos", "uses", "name"] as const;
 export const STACKS_DIRECTORY_DEFAULT_SORT = "owners";

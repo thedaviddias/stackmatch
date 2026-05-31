@@ -24,6 +24,8 @@ type RawUserRow = {
   isProfileSynced?: boolean;
   publicTotalCommits?: number;
   publicTotalStars?: number;
+  profileStatus?: "indexed" | "claimed";
+  claimedAt?: number;
   profile?: {
     name?: string | null;
     followers?: number;
@@ -70,6 +72,8 @@ function mapRowToDiscoveryUser(row: RawUserRow): DiscoveryIndexedUser {
     isProfileSynced: row.isProfileSynced,
     publicTotalCommits: row.publicTotalCommits,
     publicTotalStars: row.publicTotalStars,
+    profileStatus: row.profileStatus,
+    claimedAt: row.claimedAt,
     profile: mapProfile(row),
   };
 }
@@ -128,6 +132,23 @@ export const convexDiscoveryDataPort: DiscoveryDataPort = {
       {}
     )) as RawUserRow[];
     return mapRawUsersToDiscoveryUsers(fallbackRows);
+  },
+
+  async listClaimedDevelopersDirectoryRows(limit) {
+    const usersApi = (
+      api as unknown as {
+        queries: {
+          users: {
+            getClaimedDevelopersDirectory: Parameters<typeof fetchQuery>[0];
+          };
+        };
+      }
+    ).queries.users;
+
+    const rows = (await fetchQuery(usersApi.getClaimedDevelopersDirectory, {
+      limit,
+    })) as RawUserRow[];
+    return mapRawUsersToDiscoveryUsers(rows);
   },
 
   listWeeklyTopStackers(limit) {

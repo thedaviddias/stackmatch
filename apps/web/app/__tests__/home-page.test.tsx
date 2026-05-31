@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import HomePage from "../page";
 
 const {
+  listClaimedDevelopersDirectoryRowsMock,
   listDevelopersDirectoryRowsMock,
   listGlobalStackLeaderboardMock,
   listIndexedUsersWithProfilesMock,
   listWeeklyTopStackersMock,
 } = vi.hoisted(() => ({
+  listClaimedDevelopersDirectoryRowsMock: vi.fn(),
   listDevelopersDirectoryRowsMock: vi.fn(),
   listGlobalStackLeaderboardMock: vi.fn(),
   listIndexedUsersWithProfilesMock: vi.fn(),
@@ -34,6 +36,7 @@ vi.mock("next/image", () => ({
 }));
 
 vi.mock("@/data/discovery", () => ({
+  listClaimedDevelopersDirectoryRows: listClaimedDevelopersDirectoryRowsMock,
   listDevelopersDirectoryRows: listDevelopersDirectoryRowsMock,
   listGlobalStackLeaderboard: listGlobalStackLeaderboardMock,
   listIndexedUsersWithProfiles: listIndexedUsersWithProfilesMock,
@@ -48,7 +51,9 @@ vi.mock("@/components/pages/home/recently-joined-cards", () => ({
   RecentlyJoinedCards: ({ users }: { users: Array<{ owner: string }> }) => (
     <div>
       {users.map((user) => (
-        <span key={user.owner}>{user.owner}</span>
+        <span data-home-recent-owner={user.owner} key={user.owner}>
+          {user.owner}
+        </span>
       ))}
     </div>
   ),
@@ -91,6 +96,9 @@ const recentUser = {
   },
 };
 
+const HOME_RECENTLY_JOINED_EXPECTED_COUNT = 9;
+const HOME_RECENTLY_JOINED_OVERFLOW_COUNT = HOME_RECENTLY_JOINED_EXPECTED_COUNT + 1;
+
 const stackEntry = {
   packageName: "react",
   ownerCount: 2,
@@ -109,6 +117,21 @@ const topStacker = {
   joinedAt: 1,
 };
 
+function makeRecentUser(owner: string, recency: number) {
+  return {
+    ...recentUser,
+    owner,
+    avatarUrl: `https://github.com/${owner}.png`,
+    firstIndexedAt: recency,
+    lastIndexedAt: recency,
+    profile: {
+      ...recentUser.profile,
+      name: owner,
+      avatarUrl: `https://github.com/${owner}.png`,
+    },
+  };
+}
+
 async function renderHomePage() {
   return renderToStaticMarkup(await HomePage());
 }
@@ -116,6 +139,7 @@ async function renderHomePage() {
 describe("HomePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listClaimedDevelopersDirectoryRowsMock.mockResolvedValue([]);
     listDevelopersDirectoryRowsMock.mockResolvedValue([]);
     listGlobalStackLeaderboardMock.mockResolvedValue([]);
     listIndexedUsersWithProfilesMock.mockResolvedValue([]);
@@ -144,7 +168,7 @@ describe("HomePage", () => {
 
     const html = await renderHomePage();
 
-    expect(html).toContain("New to the Graph");
+    expect(html).toContain("New to Stackmatch");
     expect(html).toContain("Trending Stacks");
     expect(html).toContain("octocat");
     expect(html).toContain("Top Stackers This Week");
@@ -160,7 +184,7 @@ describe("HomePage", () => {
     expect(html).toContain("octocat");
   });
 
-  it("only renders recent users that are also in the developers directory", async () => {
+  it("only renders indexed recent users that are also in the developers directory", async () => {
     const syncingOnlyUser = {
       ...recentUser,
       owner: "syncing-only",
@@ -179,8 +203,53 @@ describe("HomePage", () => {
 
     const html = await renderHomePage();
 
-    expect(html).toContain("New to the Graph");
+    expect(html).toContain("New to Stackmatch");
     expect(html).toContain("octocat");
     expect(html).not.toContain("syncing-only");
+  });
+
+  it("renders claimed users before indexing finishes", async () => {
+    listClaimedDevelopersDirectoryRowsMock.mockResolvedValue([
+      {
+        ...recentUser,
+        owner: "claimed-zero-repo",
+        avatarUrl: "https://github.com/claimed-zero-repo.png",
+        repoCount: 0,
+        profileStatus: "claimed",
+        claimedAt: 99,
+        firstIndexedAt: 99,
+        lastIndexedAt: 99,
+        profile: {
+          ...recentUser.profile,
+          name: "Claimed Zero Repo",
+          avatarUrl: "https://github.com/claimed-zero-repo.png",
+        },
+      },
+    ]);
+
+    const html = await renderHomePage();
+
+    expect(html).toContain("New to Stackmatch");
+    expect(html).toContain('data-home-recent-owner="claimed-zero-repo"');
+  });
+
+  it("renders nine eligible recent users in New to Stackmatch", async () => {
+    const eligibleUsers = Array.from({ length: HOME_RECENTLY_JOINED_OVERFLOW_COUNT }, (_, index) =>
+      makeRecentUser(
+        `recent-user-${String(index + 1).padStart(2, "0")}`,
+        HOME_RECENTLY_JOINED_OVERFLOW_COUNT - index
+      )
+    );
+
+    listIndexedUsersWithProfilesMock.mockResolvedValue(eligibleUsers);
+    listDevelopersDirectoryRowsMock.mockResolvedValue(eligibleUsers);
+
+    const html = await renderHomePage();
+
+    expect(html.match(/data-home-recent-owner=/g)).toHaveLength(
+      HOME_RECENTLY_JOINED_EXPECTED_COUNT
+    );
+    expect(html).toContain('data-home-recent-owner="recent-user-09"');
+    expect(html).not.toContain('data-home-recent-owner="recent-user-10"');
   });
 });

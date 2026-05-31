@@ -14,6 +14,7 @@ vi.mock("@/data/api", () => ({
         getGlobalStackLeaderboard: "global-stack-leaderboard",
       },
       users: {
+        getClaimedDevelopersDirectory: "claimed-developers-directory",
         getDevelopersDirectory: "developers-directory",
         getIndexedUsers: "indexed-users",
         getIndexedUsersWithProfiles: "indexed-users-with-profiles",
@@ -72,5 +73,50 @@ describe("convexDiscoveryDataPort", () => {
     await convexDiscoveryDataPort.listDevelopersDirectoryRows();
 
     expect(fetchQueryMock).toHaveBeenCalledWith(api.queries.users.getDevelopersDirectory, {});
+  });
+
+  it("loads claimed developers directory rows from the claimed query", async () => {
+    fetchQueryMock.mockResolvedValueOnce([
+      {
+        owner: "claimed",
+        avatarUrl: "https://github.com/claimed.png",
+        repoCount: 0,
+        firstIndexedAt: 1,
+        lastIndexedAt: 2,
+        isSyncing: false,
+        profileStatus: "claimed",
+        claimedAt: 1,
+      },
+    ]);
+
+    const rows = await convexDiscoveryDataPort.listClaimedDevelopersDirectoryRows(10);
+
+    expect(fetchQueryMock).toHaveBeenCalledWith(api.queries.users.getClaimedDevelopersDirectory, {
+      limit: 10,
+    });
+    expect(rows[0]?.profileStatus).toBe("claimed");
+  });
+
+  it("accepts fractional Convex creation timestamps for claimed profiles", async () => {
+    fetchQueryMock.mockResolvedValueOnce([
+      {
+        owner: "thedaviddias",
+        avatarUrl: "https://github.com/thedaviddias.png",
+        repoCount: 12,
+        firstIndexedAt: 1,
+        lastIndexedAt: 2,
+        isSyncing: false,
+        profileStatus: "claimed",
+        claimedAt: 1_764_522_335_234.567,
+      },
+    ]);
+
+    const rows = await convexDiscoveryDataPort.listDevelopersDirectoryRows();
+
+    expect(rows[0]).toMatchObject({
+      owner: "thedaviddias",
+      profileStatus: "claimed",
+      claimedAt: 1_764_522_335_234.567,
+    });
   });
 });

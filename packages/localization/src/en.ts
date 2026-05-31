@@ -136,8 +136,8 @@ export const en: AppCopy = {
       heroCodeToken: "package.json",
       heroDescriptionSuffix:
         "files across GitHub to build your unique stack fingerprint. Star compatible developers, create mutual matches, and turn shared tools into collaboration.",
-      recentlyJoinedTitle: "New to the Graph",
-      recentlyJoinedDescription: "Recently indexed developers discovered through public stacks.",
+      recentlyJoinedTitle: "New to Stackmatch",
+      recentlyJoinedDescription: "Recently claimed and indexed developers joining the community.",
       graphTitle: "Explore the Stack Graph",
       graphDescription:
         "Stackmatch is a map of developers, packages, languages, and communities connected by real dependency overlap.",
