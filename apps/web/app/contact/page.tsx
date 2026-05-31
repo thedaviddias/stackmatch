@@ -11,7 +11,7 @@ const contactEmailHref = `mailto:${siteConfig.contactEmail}`;
 const contactCards = [
   {
     title: "Support and feedback",
-    description: "Send bug reports, product feedback, account questions, and public alpha notes.",
+    description: "Send bug reports, product feedback, account questions, and launch notes.",
     icon: Mail,
     linkLabel: siteConfig.contactEmail,
     href: contactEmailHref,
@@ -62,7 +62,7 @@ export default function ContactPage() {
 
       <section className="max-w-3xl">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-th-accent-1/30 bg-th-accent-1/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-th-accent-1-text">
-          Public alpha
+          Newly launched
         </div>
         <h1 className="font-display text-4xl font-black tracking-tight text-foreground sm:text-5xl dark:text-white">
           Contact Stackmatch
@@ -77,7 +77,7 @@ export default function ContactPage() {
           >
             {siteConfig.ownerName}
           </a>
-          . For the fastest route, send public alpha support, privacy, and contribution questions to{" "}
+          . For the fastest route, send launch support, privacy, and contribution questions to{" "}
           <LinkCustom
             href={contactEmailHref}
             className="font-semibold text-th-accent-1-text underline underline-offset-4"

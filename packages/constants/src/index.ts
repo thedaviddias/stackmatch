@@ -5,6 +5,7 @@ export * from "@stackmatch/constants/messages";
 export * from "@stackmatch/constants/moderation";
 export * from "@stackmatch/constants/notifications";
 export * from "@stackmatch/constants/og";
+export * from "@stackmatch/constants/owner";
 export * from "@stackmatch/constants/ranking";
 export * from "@stackmatch/constants/security";
 export * from "@stackmatch/constants/social";

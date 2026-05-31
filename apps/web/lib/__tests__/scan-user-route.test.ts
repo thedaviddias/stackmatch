@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/scan/user/route";
 import { fetchMutation } from "@/data/server";
+import { getServerGitHubLogin, getServerSessionSnapshot } from "@/lib/auth/auth-server";
 import { fetchTopPublicRepos, GitHubPublicReposError } from "@/lib/server/scan-repos";
 
 const scanReposMock = vi.hoisted(() => {
@@ -48,6 +49,11 @@ vi.mock("@/data/server", () => ({
   fetchMutation: vi.fn(),
 }));
 
+vi.mock("@/lib/auth/auth-server", () => ({
+  getServerGitHubLogin: vi.fn(),
+  getServerSessionSnapshot: vi.fn(),
+}));
+
 vi.mock("@/lib/server/scan-repos", () => ({
   fetchTopPublicRepos: scanReposMock.fetchTopPublicRepos,
   GitHubPublicReposError: scanReposMock.GitHubPublicReposError,
@@ -78,6 +84,8 @@ describe("POST /api/scan/user", () => {
   const getAnalyzeApiKeyMock = vi.mocked(getAnalyzeApiKey);
   const fetchMutationMock = vi.mocked(fetchMutation);
   const fetchTopPublicReposMock = vi.mocked(fetchTopPublicRepos);
+  const getServerSessionSnapshotMock = vi.mocked(getServerSessionSnapshot);
+  const getServerGitHubLoginMock = vi.mocked(getServerGitHubLogin);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -85,6 +93,8 @@ describe("POST /api/scan/user", () => {
     fetchTopPublicReposMock.mockReset();
     requireHumanRequestMock.mockResolvedValue({ allowed: true });
     getAnalyzeApiKeyMock.mockReturnValue("analyze-key");
+    getServerSessionSnapshotMock.mockResolvedValue(null);
+    getServerGitHubLoginMock.mockResolvedValue(null);
     fetchTopPublicReposMock.mockResolvedValue([{ owner: "octocat", name: "hello-world" }]);
     fetchMutationMock
       .mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null })
@@ -112,6 +122,35 @@ describe("POST /api/scan/user", () => {
     expect(throttleCallOrder).toBeDefined();
     expect(githubFetchCallOrder).toBeDefined();
     expect(throttleCallOrder ?? 0).toBeLessThan(githubFetchCallOrder ?? 0);
+  });
+
+  it("uses signed-in scan throttle and records submitter context", async () => {
+    getServerSessionSnapshotMock.mockResolvedValueOnce({ user: { id: "user_123" } });
+    getServerGitHubLoginMock.mockResolvedValueOnce("octocat");
+
+    const response = await POST(makeRequest({ owner: "octocat" }));
+
+    expect(response.status).toBe(200);
+    expect(fetchMutationMock).toHaveBeenNthCalledWith(
+      1,
+      "throttleScanUser",
+      expect.objectContaining({
+        owner: "octocat",
+        apiKey: "analyze-key",
+        submitter: {
+          authUserId: "user_123",
+          githubLogin: "octocat",
+        },
+      })
+    );
+    expect(fetchMutationMock).toHaveBeenNthCalledWith(2, "requestUserScan", {
+      repos: [{ owner: "octocat", name: "hello-world" }],
+      apiKey: "analyze-key",
+      submitter: {
+        authUserId: "user_123",
+        githubLogin: "octocat",
+      },
+    });
   });
 
   it("normalizes GitHub profile URLs before fetching repositories", async () => {

@@ -1,3 +1,4 @@
+import type { OwnerType } from "@stackmatch/constants/owner";
 import { SectionTitle } from "@stackmatch/ui/section-title";
 import { Crown } from "lucide-react";
 import { PackageOwnersSection } from "@/components/pages/package/package-owners-section";
@@ -9,6 +10,7 @@ interface TopOwner {
   depCount: number;
   devDepCount: number;
   totalStars: number;
+  ownerType?: OwnerType;
   isBlurred?: boolean;
 }
 

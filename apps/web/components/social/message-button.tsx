@@ -21,6 +21,75 @@ interface MessageButtonProps {
   className?: string;
 }
 
+interface NoMutualMatchState {
+  viewerHasStarredTarget?: boolean;
+  targetHasStarredViewer?: boolean;
+}
+
+function getMutualStarRequirementMessage(
+  targetOwner: string,
+  noMatch: NoMutualMatchState | null | undefined
+): string {
+  if (noMatch?.viewerHasStarredTarget && !noMatch.targetHasStarredViewer) {
+    return `Waiting for @${targetOwner} to star you back this week.`;
+  }
+
+  if (!noMatch?.viewerHasStarredTarget && noMatch?.targetHasStarredViewer) {
+    return `Star @${targetOwner} back to unlock messaging.`;
+  }
+
+  return `Star @${targetOwner} first. You can message once they star you back this week.`;
+}
+
+function getMessageTierRequirementMessage(): string {
+  const tierName = getFeatureTierName("message");
+  return `Reach ${tierName} (Score ${TIER_THRESHOLDS.MESSAGE}+) to send messages.`;
+}
+
+function getUnavailableMessage({
+  blocked,
+  featureLocked,
+  isCheckingMessage,
+  isLocked,
+  isUnavailable,
+  noMatch,
+  targetOwner,
+}: {
+  blocked: boolean | null | undefined;
+  featureLocked: boolean | null | undefined;
+  isCheckingMessage: boolean;
+  isLocked: boolean;
+  isUnavailable: boolean;
+  noMatch: NoMutualMatchState | null | undefined;
+  targetOwner: string;
+}): string | null {
+  if (isLocked || featureLocked) return getMessageTierRequirementMessage();
+  if (isCheckingMessage) return "Checking whether messaging is available...";
+  if (noMatch) return getMutualStarRequirementMessage(targetOwner, noMatch);
+  if (blocked || isUnavailable) return "Messaging is not available for this profile.";
+  return null;
+}
+
+function getMessageButtonLabel({
+  blocked,
+  isCheckingMessage,
+  isLocked,
+  noMatch,
+  targetOwner,
+}: {
+  blocked: boolean | null | undefined;
+  isCheckingMessage: boolean;
+  isLocked: boolean;
+  noMatch: NoMutualMatchState | null | undefined;
+  targetOwner: string;
+}): string {
+  if (isLocked) return "Messaging locked — increase your Stack Score to unlock";
+  if (isCheckingMessage) return "Checking message availability";
+  if (blocked) return "Messaging is not available for this profile";
+  if (noMatch) return "Star each other to message";
+  return `Message @${targetOwner}`;
+}
+
 export function MessageButton({
   targetOwner,
   viewerStackScore = 0,
@@ -34,12 +103,35 @@ export function MessageButton({
 
   const gates = getFeatureGates(viewerStackScore);
   const isLocked = !gates.canMessage;
-  const noMatch = canMessage && !canMessage.canMessage && canMessage.reason === "no_mutual_match";
-  const blocked = canMessage && !canMessage.canMessage && canMessage.reason === "blocked";
-  const featureLocked =
-    canMessage && !canMessage.canMessage && canMessage.reason === "feature_locked";
-  const isUnavailable = Boolean(canMessage && !canMessage.canMessage);
-  const isDisabledVisually = isLocked || noMatch || blocked || featureLocked || isUnavailable;
+  const isCheckingMessage = canMessage === undefined;
+  const noMatch =
+    canMessage?.canMessage === false && canMessage.reason === "no_mutual_match"
+      ? {
+          viewerHasStarredTarget: canMessage.viewerHasStarredTarget,
+          targetHasStarredViewer: canMessage.targetHasStarredViewer,
+        }
+      : null;
+  const blocked = canMessage?.canMessage === false && canMessage.reason === "blocked";
+  const featureLocked = canMessage?.canMessage === false && canMessage.reason === "feature_locked";
+  const isUnavailable = canMessage?.canMessage === false;
+  const isDisabledVisually =
+    isCheckingMessage || isLocked || Boolean(noMatch) || blocked || featureLocked || isUnavailable;
+  const unavailableMessage = getUnavailableMessage({
+    blocked,
+    featureLocked,
+    isCheckingMessage,
+    isLocked,
+    isUnavailable,
+    noMatch,
+    targetOwner,
+  });
+  const buttonLabel = getMessageButtonLabel({
+    blocked,
+    isCheckingMessage,
+    isLocked,
+    noMatch,
+    targetOwner,
+  });
 
   const openOrCreateConversation = useCallback(async () => {
     if (!canMessage?.canMessage) return;
@@ -66,64 +158,30 @@ export function MessageButton({
       return;
     }
 
-    if (isLocked) {
-      const tierName = getFeatureTierName("message");
-      toast.info(`Reach ${tierName} (Score ${TIER_THRESHOLDS.MESSAGE}+) to send messages.`);
-      return;
-    }
-
-    if (noMatch) {
-      toast.info("You can only message mutual matches. Star each other first!");
-      return;
-    }
-
-    if (blocked) {
-      toast.info("Messaging is not available for this profile.");
-      return;
-    }
-
-    if (featureLocked) {
-      const tierName = getFeatureTierName("message");
-      toast.info(`Reach ${tierName} (Score ${TIER_THRESHOLDS.MESSAGE}+) to send messages.`);
-      return;
-    }
-
-    if (isUnavailable) {
-      toast.info("Messaging is not available for this profile.");
+    if (unavailableMessage) {
+      toast.info(unavailableMessage);
       return;
     }
 
     await openOrCreateConversation();
-  }, [
-    session,
-    isLocked,
-    noMatch,
-    blocked,
-    featureLocked,
-    isUnavailable,
-    openOrCreateConversation,
-    router,
-  ]);
+  }, [session, unavailableMessage, openOrCreateConversation, router]);
 
   return (
     <button
       type="button"
       onClick={openMessageAction}
-      aria-disabled={isLoading}
+      aria-disabled={isLoading || isCheckingMessage}
+      title={noMatch ? "Star each other to message" : undefined}
       className={profileActionButtonClassName({
         intent: isDisabledVisually ? "locked" : "neutral",
         size: "icon",
-        className: cn(isLoading && "pointer-events-none opacity-50", className),
+        className: cn(
+          (isLoading || isCheckingMessage) && "opacity-50",
+          isLoading && "pointer-events-none",
+          className
+        ),
       })}
-      aria-label={
-        isLocked
-          ? "Messaging locked — increase your Stack Score to unlock"
-          : blocked
-            ? "Messaging is not available for this profile"
-            : noMatch
-              ? "Star each other to message"
-              : `Message @${targetOwner}`
-      }
+      aria-label={buttonLabel}
     >
       <Mail className={PROFILE_ACTION_ICON_CLASS} />
     </button>

@@ -1,7 +1,16 @@
-import { DAY_MS, MINUTE_MS } from "@stackmatch/constants/time";
+import { DAY_MS, MINUTE_MS, SECOND_MS } from "@stackmatch/constants/time";
 
 export const RESYNC_COOLDOWN_MS = 10 * MINUTE_MS;
 export const RESYNC_DAILY_LIMIT = 6;
+
+const AUTHENTICATED_SCAN_COOLDOWN_SECONDS = 15;
+
+/** Public package scan throttles. Anonymous scans stay conservative; signed-in users can explore quickly. */
+export const ANONYMOUS_SCAN_COOLDOWN_MS = 2 * MINUTE_MS;
+export const ANONYMOUS_SCAN_DAILY_LIMIT = 6;
+export const AUTHENTICATED_SCAN_COOLDOWN_MS = AUTHENTICATED_SCAN_COOLDOWN_SECONDS * SECOND_MS;
+export const AUTHENTICATED_SCAN_DAILY_LIMIT = 60;
+
 export const GITHUB_PUBLIC_REPOS_CACHE_TTL_MS =
   MINUTE_MS + MINUTE_MS + MINUTE_MS + MINUTE_MS + MINUTE_MS;
 export const GITHUB_PUBLIC_REPOS_NOT_FOUND_CACHE_TTL_MS = MINUTE_MS;

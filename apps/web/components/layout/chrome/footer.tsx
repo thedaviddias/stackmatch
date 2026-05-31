@@ -9,6 +9,8 @@ const FOOTER_LINK_GROUPS = [
     links: [
       { label: "Explore developers", href: ROUTES.developers },
       { label: "Browse stacks", href: ROUTES.stacks },
+      { label: "For DevTools", href: ROUTES.companies },
+      { label: "Sponsor Stackmatch", href: ROUTES.sponsors },
       { label: "Top Stackers", href: ROUTES.topStackers },
       { label: "Docs", href: ROUTES.docs.home },
     ],

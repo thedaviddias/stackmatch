@@ -1,5 +1,6 @@
 "use node";
 
+import { normalizeGitHubOwnerType } from "@stackmatch/constants/owner";
 import { anyApi } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
@@ -109,6 +110,7 @@ export const fetchRepo = internalAction({
           x: userData.twitter_username ?? undefined,
           location: userData.location ?? undefined,
           company: userData.company ?? undefined,
+          ownerType: normalizeGitHubOwnerType(userData.type),
         });
       }
     } catch {

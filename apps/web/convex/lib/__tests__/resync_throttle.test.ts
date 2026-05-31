@@ -1,3 +1,5 @@
+import { AUTHENTICATED_SCAN_DAILY_LIMIT } from "@stackmatch/constants/sync";
+import { MINUTE_MS } from "@stackmatch/constants/time";
 import { describe, expect, it } from "vitest";
 import { evaluateResyncThrottle, RESYNC_COOLDOWN_MS, RESYNC_DAILY_LIMIT } from "../resync_throttle";
 
@@ -53,6 +55,26 @@ describe("evaluateResyncThrottle", () => {
     expect(next.dayCount).toBe(2);
   });
 
+  it("supports a custom cooldown window", () => {
+    const now = Date.UTC(2026, 1, 25, 10, 0, 0);
+    const first = evaluateResyncThrottle({ now, cooldownMs: MINUTE_MS });
+    if (!first.allowed) {
+      throw new Error("Expected first resync to be allowed");
+    }
+
+    const next = evaluateResyncThrottle({
+      now: now + MINUTE_MS,
+      cooldownMs: MINUTE_MS,
+      state: {
+        lastResyncAt: first.lastResyncAt,
+        dayKey: first.dayKey,
+        dayCount: first.dayCount,
+      },
+    });
+
+    expect(next.allowed).toBe(true);
+  });
+
   it("rejects the seventh request in the same UTC day", () => {
     const now = Date.UTC(2026, 1, 25, 20, 0, 0);
     const result = evaluateResyncThrottle({
@@ -67,6 +89,22 @@ describe("evaluateResyncThrottle", () => {
     expect(result.allowed).toBe(false);
     expect(result.reason).toBe("daily_cap");
     expect(result.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it("supports a custom daily limit", () => {
+    const now = Date.UTC(2026, 1, 25, 20, 0, 0);
+    const result = evaluateResyncThrottle({
+      now,
+      dailyLimit: AUTHENTICATED_SCAN_DAILY_LIMIT,
+      state: {
+        lastResyncAt: now - RESYNC_COOLDOWN_MS,
+        dayKey: "2026-02-25",
+        dayCount: RESYNC_DAILY_LIMIT,
+      },
+    });
+
+    expect(result.allowed).toBe(true);
+    expect(result.dayCount).toBe(RESYNC_DAILY_LIMIT + 1);
   });
 
   it("resets day count on the next UTC day", () => {

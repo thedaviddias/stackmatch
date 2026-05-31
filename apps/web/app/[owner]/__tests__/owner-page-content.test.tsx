@@ -146,6 +146,13 @@ describe("owner page data hydration", () => {
         type: "success",
       },
     });
+
+    expect(resolveOwnerPageUrlState("?githubApp=installed&orgClaim=verified")).toEqual({
+      initialStatus: {
+        text: getWebAlertTitle("profile.github-app.organization-verified"),
+        type: "success",
+      },
+    });
   });
 
   it("keeps server data visible while the client query is loading", () => {

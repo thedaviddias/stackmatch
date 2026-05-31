@@ -6,6 +6,7 @@ import { normalizeGitHubOwnerInput } from "@stackmatch/security/input";
 import { NextResponse } from "next/server";
 import { api } from "@/data/api";
 import { fetchMutation } from "@/data/server";
+import { getServerGitHubLogin, getServerSessionSnapshot } from "@/lib/auth/auth-server";
 import {
   fetchTopPublicRepos,
   GitHubPublicReposError,
@@ -16,6 +17,11 @@ import {
 interface ScanUserRequest {
   owner?: string;
   repos?: ScanUserRepoInput[];
+}
+
+interface ScanSubmitter {
+  authUserId: string;
+  githubLogin?: string;
 }
 
 const BAD_REQUEST_STATUS = 400;
@@ -97,7 +103,8 @@ function resolveOwnerInput(rawOwner: string | undefined): string | NextResponse 
 async function enforceScanThrottle(
   request: Request,
   owner: string,
-  apiKey: string
+  apiKey: string,
+  submitter: ScanSubmitter | undefined
 ): Promise<NextResponse | null> {
   const clientIp = getClientIp(request);
   const ipHash = await hashValue(clientIp);
@@ -106,6 +113,7 @@ async function enforceScanThrottle(
     owner,
     ipHash,
     apiKey,
+    ...(submitter ? { submitter } : {}),
   });
 
   if (throttleResult.allowed) {
@@ -115,9 +123,24 @@ async function enforceScanThrottle(
   logScanRejection(getScanRejectionReason(throttleResult.reason), {
     owner,
     ipHash,
+    throttleScope: submitter ? "authenticated" : "anonymous",
     retryAfterSeconds: throttleResult.retryAfterSeconds,
   });
   return scanRateLimitResponse(throttleResult.reason, throttleResult.retryAfterSeconds);
+}
+
+async function getScanSubmitter(): Promise<ScanSubmitter | undefined> {
+  const session = await getServerSessionSnapshot();
+  const authUserId = session?.user.id?.trim();
+  if (!authUserId) {
+    return undefined;
+  }
+
+  const githubLogin = await getServerGitHubLogin();
+  return {
+    authUserId,
+    ...(githubLogin ? { githubLogin } : {}),
+  };
 }
 
 async function resolveScanRepos(
@@ -161,11 +184,13 @@ async function requestScanForRepos({
   owner,
   repos,
   apiKey,
+  submitter,
 }: {
   request: Request;
   owner: string | undefined;
   repos: ScanUserRepoInput[];
   apiKey: string;
+  submitter: ScanSubmitter | undefined;
 }) {
   if (repos.length === 0) {
     return jsonError("No public repositories found for this owner", NOT_FOUND_STATUS);
@@ -177,7 +202,7 @@ async function requestScanForRepos({
   }
 
   if (!owner) {
-    const throttleResponse = await enforceScanThrottle(request, throttleOwner, apiKey);
+    const throttleResponse = await enforceScanThrottle(request, throttleOwner, apiKey, submitter);
     if (throttleResponse) return throttleResponse;
   }
 
@@ -185,6 +210,7 @@ async function requestScanForRepos({
     const result = await fetchMutation(api.mutations.request_user_scan.requestUserScan, {
       repos,
       apiKey,
+      ...(submitter ? { submitter } : {}),
     });
 
     return NextResponse.json({ queued: result.length, results: result });
@@ -212,13 +238,15 @@ export async function POST(request: Request) {
   const owner = resolveOwnerInput(body.owner);
   if (owner instanceof NextResponse) return owner;
 
+  const submitter = await getScanSubmitter();
+
   if (owner) {
-    const throttleResponse = await enforceScanThrottle(request, owner, apiKey);
+    const throttleResponse = await enforceScanThrottle(request, owner, apiKey, submitter);
     if (throttleResponse) return throttleResponse;
   }
 
   const repos = await resolveScanRepos(owner, body.repos);
   if (repos instanceof NextResponse) return repos;
 
-  return requestScanForRepos({ request, owner, repos, apiKey });
+  return requestScanForRepos({ request, owner, repos, apiKey, submitter });
 }

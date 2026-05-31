@@ -25,8 +25,8 @@ import { isOwnerOnline, usePresenceByOwners } from "@/components/presence/use-pr
 import { getI18n } from "@/lib/re-exports/i18n";
 import { cn } from "@/lib/storage/utils";
 import { DiscoverySection } from "./discovery-section";
-import { MatchOfTheWeek } from "./matches/match-of-the-week";
-import { pickMatchOfTheWeek } from "./matches/match-of-the-week-selection";
+import { WeeklyPickCard } from "./matches/match-of-the-week";
+import { pickWeeklyPicks } from "./matches/match-of-the-week-selection";
 import { type Stackmate, StackmateGrid } from "./stackmate-grid";
 
 const i18n = getI18n();
@@ -330,17 +330,17 @@ export function DiscoveryFeed({
 
   // ── Build sections with cascading deduplication ──────────────
   // Each section excludes owners already claimed by earlier sections,
-  // so users never appear twice across Match of the Week / Fresh Faces /
+  // so users never appear twice across Weekly Picks / Fresh Faces /
   // Stack Twins / Near You. Best Matches shows the remaining pool.
 
-  const { matchOfTheWeek, freshFaces, newToGraph, stackTwins, nearYou, mentors, bestMatchPool } =
+  const { weeklyPicks, freshFaces, newToGraph, stackTwins, nearYou, mentors, bestMatchPool } =
     useMemo(() => {
       const claimed = new Set<string>();
 
-      // 1. Match of the Week — use the ranked matches from the backend. Raw
+      // 1. Weekly Picks — use the ranked matches from the backend. Raw
       // Jaccard can drop after private packages hydrate even when overlap is meaningful.
-      const motw = pickMatchOfTheWeek(matches, viewerOwner, weekStart);
-      if (motw) claimed.add(motw.owner);
+      const picks = pickWeeklyPicks(matches, viewerOwner, weekStart);
+      for (const pick of picks) claimed.add(pick.owner);
 
       // 2. Fresh Faces — claimed < recent window, not already claimed
       const ff = matches
@@ -373,7 +373,7 @@ export function DiscoveryFeed({
       const bp = matches.filter((m) => !claimed.has(m.owner));
 
       return {
-        matchOfTheWeek: motw,
+        weeklyPicks: picks,
         freshFaces: ff,
         newToGraph: ng,
         stackTwins: st,
@@ -399,10 +399,20 @@ export function DiscoveryFeed({
 
   return (
     <div className="space-y-10">
-      {/* Match of the Week — only shown if a quality match exists */}
-      {matchOfTheWeek && (
+      {/* Weekly Picks — only shown if quality matches exist */}
+      {weeklyPicks.length > 0 && (
         <div>
-          <MatchOfTheWeek match={matchOfTheWeek} />
+          <DiscoverySection
+            title="Weekly Picks"
+            icon={<Trophy className="size-4" />}
+            subtitle="Featured stackmates rotating from your strongest matches"
+            count={weeklyPicks.length}
+            layout="horizontal"
+          >
+            {weeklyPicks.map((match) => (
+              <WeeklyPickCard key={match.owner} match={match} />
+            ))}
+          </DiscoverySection>
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { RESYNC_COOLDOWN_MS, RESYNC_DAILY_LIMIT } from "@stackmatch/constants/sync";
+import { SECOND_MS } from "@stackmatch/constants/time";
 
 export { RESYNC_COOLDOWN_MS, RESYNC_DAILY_LIMIT };
 
@@ -13,6 +14,8 @@ interface ResyncThrottleState {
 interface EvaluateResyncThrottleArgs {
   now: number;
   state?: ResyncThrottleState;
+  cooldownMs?: number;
+  dailyLimit?: number;
 }
 
 export type ResyncThrottleResult =
@@ -50,13 +53,15 @@ function getSecondsUntilNextUtcDay(timestamp: number): number {
 export function evaluateResyncThrottle({
   now,
   state,
+  cooldownMs = RESYNC_COOLDOWN_MS,
+  dailyLimit = RESYNC_DAILY_LIMIT,
 }: EvaluateResyncThrottleArgs): ResyncThrottleResult {
   const dayKey = getUtcDayKey(now);
   const isSameDay = state?.dayKey === dayKey;
   const dayCount = isSameDay ? (state?.dayCount ?? 0) : 0;
   const lastResyncAt = state?.lastResyncAt;
 
-  if (dayCount >= RESYNC_DAILY_LIMIT) {
+  if (dayCount >= dailyLimit) {
     return {
       allowed: false,
       reason: "daily_cap",
@@ -69,8 +74,8 @@ export function evaluateResyncThrottle({
 
   if (typeof lastResyncAt === "number") {
     const elapsed = now - lastResyncAt;
-    if (elapsed < RESYNC_COOLDOWN_MS) {
-      const retryAfterSeconds = Math.max(1, Math.ceil((RESYNC_COOLDOWN_MS - elapsed) / 1000));
+    if (elapsed < cooldownMs) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((cooldownMs - elapsed) / SECOND_MS));
       return {
         allowed: false,
         reason: "cooldown",

@@ -1,9 +1,13 @@
 import { ROUTES } from "@stackmatch/config";
+import {
+  GITHUB_OWNER_TYPE_ORGANIZATION,
+  GITHUB_OWNER_TYPE_USER,
+} from "@stackmatch/constants/owner";
 import { NextResponse } from "next/server";
 import { api } from "@/data/api";
 import { fetchServerAuthMutation, getServerGitHubLogin } from "@/lib/auth/auth-server";
 import { buildLoginUrl } from "@/lib/auth/login-url";
-import { verifyGitHubAppInstallationForLogin } from "@/lib/github/github-app-installation";
+import { verifyGitHubAppInstallation } from "@/lib/github/github-app-installation";
 import { logger } from "@/lib/re-exports/logger";
 
 const BAD_REQUEST_STATUS = 400;
@@ -55,10 +59,33 @@ export async function GET(request: Request) {
   }
 
   try {
-    const installationAccount = await verifyGitHubAppInstallationForLogin({
+    const installationAccount = await verifyGitHubAppInstallation({
       installationId,
-      githubLogin: serverGitHubLogin,
     });
+
+    if (installationAccount.accountType === GITHUB_OWNER_TYPE_ORGANIZATION) {
+      const result = await fetchServerAuthMutation(
+        api.mutations.organization_claims.claimOrganizationWithGitHubAppInstallation,
+        {
+          installationId,
+          organizationLogin: installationAccount.accountLogin,
+        }
+      );
+
+      return redirectTo(ROUTES.owner(result.organizationLogin), request, {
+        githubApp: "installed",
+        orgClaim: "verified",
+      });
+    }
+
+    if (installationAccount.accountType !== GITHUB_OWNER_TYPE_USER) {
+      throw new Error("GitHub App installation account type is not supported.");
+    }
+
+    if (installationAccount.accountLogin.toLowerCase() !== serverGitHubLogin.toLowerCase()) {
+      throw new Error("GitHub App installation does not belong to the signed-in GitHub user.");
+    }
+
     const result = await fetchServerAuthMutation(
       api.mutations.github_app_installations.linkGitHubAppInstallation,
       {

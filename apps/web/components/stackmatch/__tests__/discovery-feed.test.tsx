@@ -53,6 +53,18 @@ function makeWeeklyMatch(): Stackmate {
   });
 }
 
+function makeWeeklyCandidates(count = 2): Stackmate[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeMatch(`weekly-${index + 1}`, {
+      name: `Weekly Match ${index + 1}`,
+      avatarUrl: `https://github.com/weekly-${index + 1}.png`,
+      followers: 1,
+      isClaimed: false,
+      indexedAt: NOW - 20 * DAY_MS,
+    })
+  );
+}
+
 describe("DiscoveryFeed joined/indexed grouping", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -65,7 +77,7 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
 
   it("shows recent claimed users in Fresh Faces with joined labels", () => {
     renderFeed([
-      makeWeeklyMatch(),
+      ...makeWeeklyCandidates(),
       makeMatch("claimed", {
         name: "Claimed User",
         avatarUrl: "https://github.com/claimed.png",
@@ -85,7 +97,7 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
 
   it("shows recent unclaimed indexed users in New to the Graph", () => {
     renderFeed([
-      makeWeeklyMatch(),
+      ...makeWeeklyCandidates(),
       makeMatch("indexed", {
         name: "Indexed User",
         avatarUrl: "https://github.com/indexed.png",
@@ -104,7 +116,7 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
 
   it("does not show unclaimed indexed users in Fresh Faces", () => {
     renderFeed([
-      makeWeeklyMatch(),
+      ...makeWeeklyCandidates(),
       makeMatch("claimed", {
         name: "Claimed User",
         avatarUrl: "https://github.com/claimed.png",
@@ -128,13 +140,13 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
     expect(within(freshFaces as HTMLElement).queryByTestId("card-indexed")).not.toBeInTheDocument();
   });
 
-  it("does not duplicate users already claimed by Match of the Week", () => {
+  it("does not duplicate users already claimed by Weekly Picks", () => {
     renderFeed([
       makeMatch(
-        "weekly",
+        "weekly-a",
         {
-          name: "Weekly Match",
-          avatarUrl: "https://github.com/weekly.png",
+          name: "Weekly Match A",
+          avatarUrl: "https://github.com/weekly-a.png",
           followers: 1,
           isClaimed: true,
           joinedAt: NOW,
@@ -142,11 +154,25 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
         },
         { jaccard: 0.8 }
       ),
+      makeMatch(
+        "weekly-b",
+        {
+          name: "Weekly Match B",
+          avatarUrl: "https://github.com/weekly-b.png",
+          followers: 1,
+          isClaimed: true,
+          joinedAt: NOW,
+          indexedAt: NOW,
+        },
+        { jaccard: 0.7 }
+      ),
     ]);
 
-    expect(screen.getByText("Match of the Week")).toBeInTheDocument();
+    expect(screen.getByText("Weekly Picks")).toBeInTheDocument();
+    expect(screen.getAllByText("Weekly Pick")).toHaveLength(2);
     expect(screen.queryByText("Fresh Faces")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("card-weekly")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("card-weekly-a")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("card-weekly-b")).not.toBeInTheDocument();
   });
 
   it("keeps a weekly match visible when package-heavy graphs have low Jaccard", () => {
@@ -164,6 +190,16 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
       ),
     ]);
 
-    expect(screen.getByText("Match of the Week")).toBeInTheDocument();
+    expect(screen.getByText("Weekly Picks")).toBeInTheDocument();
+    expect(screen.getByText("Weekly Pick")).toBeInTheDocument();
+  });
+
+  it("keeps a single weekly pick in the compact responsive grid", () => {
+    renderFeed([makeWeeklyMatch()]);
+
+    const weeklyPicks = screen.getByText("Weekly Picks").closest(".space-y-5");
+    const grid = weeklyPicks?.querySelector(".grid");
+
+    expect(grid?.className).toContain("md:grid-cols-2");
   });
 });

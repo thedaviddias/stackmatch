@@ -16,6 +16,8 @@ const serverSchema = {
   CONVEX_SITE_URL: z.string().url().optional(),
   GITHUB_TOKEN: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
+  SENTRY_ORG: z.string().optional(),
+  SENTRY_PROJECT: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   VERCEL: z.string().optional(),
   CI: z.string().optional(),
@@ -62,5 +64,11 @@ describe("server env schema", () => {
     for (const value of ["development", "test", "production"]) {
       expect(serverSchema.NODE_ENV.safeParse(value).success).toBe(true);
     }
+  });
+
+  it("allows Sentry source map upload env to be omitted", () => {
+    expect(serverSchema.SENTRY_AUTH_TOKEN.safeParse(undefined).success).toBe(true);
+    expect(serverSchema.SENTRY_ORG.safeParse(undefined).success).toBe(true);
+    expect(serverSchema.SENTRY_PROJECT.safeParse(undefined).success).toBe(true);
   });
 });

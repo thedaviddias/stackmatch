@@ -9,7 +9,15 @@ import { HOUR_MS } from "@stackmatch/constants/time";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
 import { useQuery } from "@tanstack/react-query";
 import { cva } from "class-variance-authority";
-import { BadgeCheck, GitBranch, Handshake, Loader2, Star, Trophy } from "lucide-react";
+import {
+  BadgeCheck,
+  CircleDashed,
+  GitBranch,
+  Handshake,
+  Loader2,
+  Star,
+  Trophy,
+} from "lucide-react";
 import Image from "next/image";
 import { type ComponentType, useMemo, useState } from "react";
 import { LinkCustom } from "@/components/ui/link";
@@ -36,6 +44,7 @@ export interface UserCardMetric {
 }
 
 export type UserCardProfileStatus = "claimed" | "indexed";
+export type UserCardStackDataStatus = "available" | "missing";
 
 interface UserCardProps {
   owner: string;
@@ -52,6 +61,7 @@ interface UserCardProps {
   starsCount?: number;
   metric?: UserCardMetric;
   profileStatus?: UserCardProfileStatus;
+  stackDataStatus?: UserCardStackDataStatus;
 }
 
 const MAX_STACK_SCORE = 100;
@@ -82,6 +92,20 @@ function ProfileStatusBadge({ status }: { status?: UserCardProfileStatus }) {
   );
 }
 
+function StackDataStatusBadge({ status }: { status?: UserCardStackDataStatus }) {
+  if (status !== "missing") return null;
+
+  return (
+    <span
+      data-theme-label="stack-data-status"
+      className="inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900/70 dark:text-neutral-300"
+    >
+      <CircleDashed className="size-2.5" />
+      No stack data yet
+    </span>
+  );
+}
+
 function formatCompactNumber(value: number): string {
   return COMPACT_NUMBER_FORMATTER.format(value);
 }
@@ -98,11 +122,13 @@ function SyncingStatus() {
 function MatchMetaBadges({
   matchScore,
   profileStatus,
+  stackDataStatus,
 }: {
   matchScore?: number;
   profileStatus?: UserCardProfileStatus;
+  stackDataStatus?: UserCardStackDataStatus;
 }) {
-  if (matchScore === undefined && !profileStatus) return null;
+  if (matchScore === undefined && !profileStatus && stackDataStatus !== "missing") return null;
 
   return (
     <div className="flex min-h-6 flex-wrap items-center gap-2">
@@ -118,6 +144,7 @@ function MatchMetaBadges({
         </div>
       )}
       <ProfileStatusBadge status={profileStatus} />
+      <StackDataStatusBadge status={stackDataStatus} />
     </div>
   );
 }
@@ -158,13 +185,13 @@ function TopStackChips({
   const hasResponsiveOverflow = mobileLimit < desktopLimit;
 
   return (
-    <div className="mt-4">
+    <div>
       <div className="mb-1.5 flex items-center justify-between">
         <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
           Top Stack
         </p>
       </div>
-      <div className="flex flex-wrap content-start gap-1.5 overflow-hidden pb-3">
+      <div className="flex flex-wrap content-start gap-1.5 overflow-hidden">
         {visibleTopStacks.map((stack, index) => (
           <span
             key={stack}
@@ -207,6 +234,7 @@ export function UserCard({
   starsCount,
   metric,
   profileStatus,
+  stackDataStatus,
 }: UserCardProps) {
   const [showFallbackAvatar, setShowFallbackAvatar] = useState(false);
 
@@ -264,7 +292,11 @@ export function UserCard({
             </div>
           </div>
 
-          <MatchMetaBadges matchScore={initialMatchScore} profileStatus={profileStatus} />
+          <MatchMetaBadges
+            matchScore={initialMatchScore}
+            profileStatus={profileStatus}
+            stackDataStatus={stackDataStatus}
+          />
         </div>
 
         <TopStackChips
@@ -273,44 +305,46 @@ export function UserCard({
           mobileTopStackLimit={mobileTopStackLimit}
         />
 
-        <div className="mt-auto flex items-end justify-between border-t border-border pt-4 dark:border-neutral-800/50">
-          <div className="flex">
-            <div className="flex flex-col">
-              {metric ? (
-                <>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
-                    {metric.label}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 dark:text-emerald-300">
-                    {MetricIcon ? (
-                      <MetricIcon className="size-3 text-emerald-600 dark:text-emerald-400" />
-                    ) : null}
-                    {metric.value}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
-                    Score
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 dark:text-emerald-300">
-                    <Trophy className="size-3 text-emerald-600 dark:text-emerald-400" />
-                    {normalizedScore !== null ? `${normalizedScore}%` : "—"}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5 text-right sm:flex-row sm:items-center">
-            {isSyncing ? <SyncingStatus /> : null}
-            {typeof starsCount === "number" ? (
-              <div className="flex items-center gap-1.5 text-muted-foreground dark:text-neutral-500">
-                <Star className="size-3.5" />
-                <span className="text-xs font-black tabular-nums">
-                  {formatCompactNumber(starsCount)}
-                </span>
+        <div className="mt-auto pt-4">
+          <div className="flex items-end justify-between border-t border-border pt-4 dark:border-neutral-800/50">
+            <div className="flex">
+              <div className="flex flex-col">
+                {metric ? (
+                  <>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
+                      {metric.label}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 dark:text-emerald-300">
+                      {MetricIcon ? (
+                        <MetricIcon className="size-3 text-emerald-600 dark:text-emerald-400" />
+                      ) : null}
+                      {metric.value}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
+                      Score
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 dark:text-emerald-300">
+                      <Trophy className="size-3 text-emerald-600 dark:text-emerald-400" />
+                      {normalizedScore !== null ? `${normalizedScore}%` : "—"}
+                    </span>
+                  </>
+                )}
               </div>
-            ) : null}
+            </div>
+            <div className="flex flex-col items-end gap-1.5 text-right sm:flex-row sm:items-center">
+              {isSyncing ? <SyncingStatus /> : null}
+              {typeof starsCount === "number" ? (
+                <div className="flex items-center gap-1.5 text-muted-foreground dark:text-neutral-500">
+                  <Star className="size-3.5" />
+                  <span className="text-xs font-black tabular-nums">
+                    {formatCompactNumber(starsCount)}
+                  </span>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

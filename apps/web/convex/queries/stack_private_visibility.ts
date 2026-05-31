@@ -15,12 +15,17 @@ export function shouldUseOwnerPublicPreview({
   owner,
   viewerLogin,
   viewAs,
+  isAuthorizedOwnerViewer,
 }: {
   owner: string;
   viewerLogin: string | null;
   viewAs?: "public";
+  isAuthorizedOwnerViewer?: boolean;
 }): boolean {
-  return viewAs === "public" && viewerLogin?.toLowerCase() === owner.toLowerCase();
+  return (
+    viewAs === "public" &&
+    (viewerLogin?.toLowerCase() === owner.toLowerCase() || isAuthorizedOwnerViewer === true)
+  );
 }
 
 export function resolveOwnerPageAccess({
@@ -28,14 +33,22 @@ export function resolveOwnerPageAccess({
   viewerLogin,
   viewAs,
   visibility,
+  isAuthorizedOwnerViewer,
 }: {
   owner: string;
   viewerLogin: string | null;
   viewAs?: "public";
   visibility?: string;
+  isAuthorizedOwnerViewer?: boolean;
 }) {
-  const isActualOwnerViewer = viewerLogin?.toLowerCase() === owner.toLowerCase();
-  const isPublicPreview = shouldUseOwnerPublicPreview({ owner, viewerLogin, viewAs });
+  const isActualOwnerViewer =
+    viewerLogin?.toLowerCase() === owner.toLowerCase() || isAuthorizedOwnerViewer === true;
+  const isPublicPreview = shouldUseOwnerPublicPreview({
+    owner,
+    viewerLogin,
+    viewAs,
+    isAuthorizedOwnerViewer,
+  });
   const isOwnerViewer = Boolean(isActualOwnerViewer && !isPublicPreview);
   const isVisibleToPublic = visibility !== "hidden" && visibility !== "private";
 

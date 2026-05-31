@@ -274,7 +274,12 @@ export const canMessageUser = query({
       .unique();
 
     if (!myStar || !theirStar) {
-      return { canMessage: false, reason: "no_mutual_match" as const };
+      return {
+        canMessage: false,
+        reason: "no_mutual_match" as const,
+        viewerHasStarredTarget: myStar !== null,
+        targetHasStarredViewer: theirStar !== null,
+      };
     }
 
     return { canMessage: true };

@@ -54,12 +54,10 @@ function createGitHubAppJwt(): string {
   return `${unsignedToken}.${signature}`;
 }
 
-export async function verifyGitHubAppInstallationForLogin({
+export async function verifyGitHubAppInstallation({
   installationId,
-  githubLogin,
 }: {
   installationId: number;
-  githubLogin: string;
 }): Promise<VerifiedGitHubAppInstallation> {
   const response = await fetch(`https://api.github.com/app/installations/${installationId}`, {
     headers: {
@@ -84,13 +82,25 @@ export async function verifyGitHubAppInstallationForLogin({
     throw new Error("GitHub App installation response did not include an account.");
   }
 
-  if (accountType !== "User") {
-    throw new Error("Organization GitHub App installations are not supported yet.");
-  }
+  return { accountLogin, accountType };
+}
 
+export async function verifyGitHubAppInstallationForLogin({
+  installationId,
+  githubLogin,
+}: {
+  installationId: number;
+  githubLogin: string;
+}): Promise<VerifiedGitHubAppInstallation> {
+  const installation = await verifyGitHubAppInstallation({ installationId });
+  const { accountLogin, accountType } = installation;
+
+  if (accountType !== "User") {
+    throw new Error("GitHub App installation is not a user installation.");
+  }
   if (accountLogin.toLowerCase() !== githubLogin.toLowerCase()) {
     throw new Error("GitHub App installation does not belong to the signed-in GitHub user.");
   }
 
-  return { accountLogin, accountType };
+  return installation;
 }

@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { BackgroundOrbs } from "@/components/layout/background-orbs";
+import { OrganizationEcosystemSection } from "@/components/pages/owner/organization-ecosystem-section";
 import { isOwnerOnline, usePresenceByOwners } from "@/components/presence/use-presence-by-owners";
 import { useSession } from "@/components/providers/session-provider";
 import { OwnerPageSkeleton } from "@/components/skeletons/page-skeletons";
@@ -445,7 +446,7 @@ function OwnerPageLoadedContent({
         {/* Claim Profile Banner for anonymous visitors on unclaimed profiles */}
         {showClaimProfileBanner && (
           <ErrorBoundary level="widget">
-            <ClaimProfileBanner owner={owner} />
+            <ClaimProfileBanner owner={owner} ownerType={data.profile?.ownerType} />
           </ErrorBoundary>
         )}
 
@@ -473,23 +474,40 @@ function OwnerPageLoadedContent({
           />
         </ErrorBoundary>
 
-        {/* 2. Owner Actions (sync controls) */}
-        <ErrorBoundary level="section">
-          <section>
-            <OwnerActions
+        {data.profile?.ownerType === "organization" && (
+          <ErrorBoundary level="section">
+            <OrganizationEcosystemSection
               owner={owner}
               isOwnerViewer={isOwnerViewer}
-              onStatus={handleStatusChange}
-              repos={data.repos}
+              profile={data.profile}
+              summary={data.summary}
               syncCounts={data.syncCounts}
-              privateSyncStatus={ownerControls?.privateSyncStatus ?? null}
-              publicLastSyncedAt={data.publicLastSyncedAt}
-              visibility={data.profile?.visibility ?? "public"}
-              inviteCodes={ownerControls?.inviteCodes}
-              referralPoints={data.profile?.referralPoints ?? 0}
+              topPackages={data.publicTopPackages}
+              repos={data.repos}
+              orgClaim={data.orgClaim}
             />
-          </section>
-        </ErrorBoundary>
+          </ErrorBoundary>
+        )}
+
+        {/* 2. Owner Actions (sync controls) */}
+        {data.profile?.ownerType !== "organization" && (
+          <ErrorBoundary level="section">
+            <section>
+              <OwnerActions
+                owner={owner}
+                isOwnerViewer={isOwnerViewer}
+                onStatus={handleStatusChange}
+                repos={data.repos}
+                syncCounts={data.syncCounts}
+                privateSyncStatus={ownerControls?.privateSyncStatus ?? null}
+                publicLastSyncedAt={data.publicLastSyncedAt}
+                visibility={data.profile?.visibility ?? "public"}
+                inviteCodes={ownerControls?.inviteCodes}
+                referralPoints={data.profile?.referralPoints ?? 0}
+              />
+            </section>
+          </ErrorBoundary>
+        )}
 
         {/* 3. Sync status alerts */}
         <ErrorBoundary level="section">

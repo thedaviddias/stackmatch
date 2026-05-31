@@ -1,5 +1,6 @@
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
 import { getWeekStart } from "../lib/date_helpers";
@@ -55,6 +56,46 @@ function getClaimedAt(profile: {
   lastUpdated: number;
 }) {
   return profile.claimedAt ?? profile._creationTime ?? profile.lastUpdated;
+}
+
+async function getWeeklyStarsCount(ctx: QueryCtx, owner: string, weekStart: number) {
+  const userStars = await ctx.db
+    .query("stars")
+    .withIndex("by_target_week", (q) => q.eq("targetOwner", owner).eq("weekStart", weekStart))
+    .take(CLAIMED_DEVELOPERS_WEEKLY_STARS_SCAN_LIMIT);
+  return new Set(userStars.map((star) => star.starrerLogin.toLowerCase())).size;
+}
+
+function buildClaimedProfileDirectoryRow(
+  profile: Doc<"profiles">,
+  indexed: Doc<"developerDirectoryCache"> | undefined,
+  starsCount: number
+) {
+  const claimedAt = getClaimedAt(profile);
+
+  return {
+    owner: profile.owner,
+    avatarUrl: profile.avatarUrl,
+    repoCount: indexed?.repoCount ?? 0,
+    power: indexed?.power ?? profile.stackScore ?? 0,
+    totalStars: indexed?.totalStars ?? 0,
+    starsCount,
+    firstIndexedAt: indexed?.firstIndexedAt ?? claimedAt,
+    lastIndexedAt: indexed?.lastIndexedAt ?? profile.lastUpdated,
+    isSyncing: indexed?.isSyncing ?? false,
+    displayName: profile.name ?? null,
+    followers: profile.followers,
+    isProfileSynced: true,
+    profileStatus: "claimed" as const,
+    claimedAt,
+    profile: {
+      name: profile.name ?? null,
+      followers: profile.followers,
+      avatarUrl: profile.avatarUrl,
+      stackScore: indexed?.power ?? profile.stackScore ?? 0,
+      topStacks: profile.topPackages ?? [],
+    },
+  };
 }
 
 export const getIndexedUsers = query({
@@ -132,38 +173,11 @@ export async function buildClaimedDevelopersDirectoryRows(
   return await Promise.all(
     claimedProfiles.map(async (profile) => {
       const indexed = indexedByOwner.get(profile.owner.toLowerCase());
-      const userStars = await ctx.db
-        .query("stars")
-        .withIndex("by_target_week", (q) =>
-          q.eq("targetOwner", profile.owner).eq("weekStart", weekStart)
-        )
-        .take(CLAIMED_DEVELOPERS_WEEKLY_STARS_SCAN_LIMIT);
-      const starsCount = new Set(userStars.map((star) => star.starrerLogin.toLowerCase())).size;
-      const claimedAt = getClaimedAt(profile);
-
-      return {
-        owner: profile.owner,
-        avatarUrl: profile.avatarUrl,
-        repoCount: indexed?.repoCount ?? 0,
-        power: indexed?.power ?? profile.stackScore ?? 0,
-        totalStars: indexed?.totalStars ?? 0,
-        starsCount,
-        firstIndexedAt: indexed?.firstIndexedAt ?? claimedAt,
-        lastIndexedAt: indexed?.lastIndexedAt ?? profile.lastUpdated,
-        isSyncing: indexed?.isSyncing ?? false,
-        displayName: profile.name ?? null,
-        followers: profile.followers,
-        isProfileSynced: true,
-        profileStatus: "claimed" as const,
-        claimedAt,
-        profile: {
-          name: profile.name ?? null,
-          followers: profile.followers,
-          avatarUrl: profile.avatarUrl,
-          stackScore: indexed?.power ?? profile.stackScore ?? 0,
-          topStacks: profile.topPackages ?? [],
-        },
-      };
+      return buildClaimedProfileDirectoryRow(
+        profile,
+        indexed,
+        await getWeeklyStarsCount(ctx, profile.owner, weekStart)
+      );
     })
   );
 }

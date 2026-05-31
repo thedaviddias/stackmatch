@@ -114,7 +114,7 @@ export const startConversation = mutation({
 
     if (!myStar || !theirStar) {
       throw new ConvexError(
-        "You can only message mutual matches. Both you and the other developer must have starred each other this week."
+        "You can only message after you and the other developer have starred each other this week."
       );
     }
 

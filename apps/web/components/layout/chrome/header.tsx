@@ -14,6 +14,7 @@ const HEADER_NAV_ITEMS = [
   { href: ROUTES.developers, label: "Developers" },
   { href: ROUTES.stacks, label: "Stacks" },
   { href: ROUTES.topics, label: "Topics" },
+  { href: ROUTES.sponsors, label: "Sponsors" },
 ] as const;
 
 const HEADER_AUTO_HIDE_START_Y = 96;

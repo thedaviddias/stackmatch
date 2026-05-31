@@ -44,7 +44,9 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 
     // Lists
     ul: ({ children }: Props) => (
-      <ul className="mt-3 space-y-2 text-sm text-neutral-600 dark:text-neutral-400">{children}</ul>
+      <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-neutral-600 dark:text-neutral-400">
+        {children}
+      </ul>
     ),
     ol: ({ children }: Props) => (
       <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-neutral-600 dark:text-neutral-400">

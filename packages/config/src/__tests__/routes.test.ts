@@ -10,6 +10,8 @@ describe("ROUTES", () => {
   it("builds internal app routes with encoding", () => {
     expect(ROUTES.invite("ABC123")).toBe("/invite/ABC123");
     expect(ROUTES.owner("david dias")).toBe("/david%20dias");
+    expect(ROUTES.companies).toBe("/companies");
+    expect(ROUTES.sponsors).toBe("/sponsors");
     expect(ROUTES.topics).toBe("/topics");
     expect(ROUTES.repo("david dias", "stack/match")).toBe("/david%20dias/stack%2Fmatch");
     expect(ROUTES.package("@stackmatch/web")).toBe("/package/%40stackmatch%2Fweb");

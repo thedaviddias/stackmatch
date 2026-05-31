@@ -1,4 +1,9 @@
 import {
+  OWNER_TYPE_DEVELOPER,
+  OWNER_TYPE_ORGANIZATION,
+  type OwnerType,
+} from "@stackmatch/constants/owner";
+import {
   OWNER_BLURRED_COUNT,
   OWNER_MATCH_CACHE_TTL_MS,
   OWNER_MATCH_CANDIDATE_LIMIT,
@@ -84,6 +89,7 @@ interface OwnerPageMatch {
     lastUpdated?: number;
     locationCity?: string;
     locationCountryCode?: string;
+    ownerType?: OwnerType;
   } | null;
 }
 
@@ -135,6 +141,7 @@ interface OwnerPageProfile {
   topTopics?: string[];
   locationCity?: string;
   locationCountryCode?: string;
+  ownerType: OwnerType;
 }
 
 interface OwnerPageDataResult {
@@ -163,6 +170,10 @@ interface OwnerPageDataResult {
   recentStars: RecentStar[];
   weekStart: number;
   weekEnd: number;
+  orgClaim?: {
+    claimedByLogin: string;
+    claimedAt: number;
+  };
 }
 
 const OWNER_MATCH_SHARED_PACKAGE_PREVIEW_LIMIT = 5;
@@ -245,6 +256,23 @@ async function resolveViewerLogin(ctx: QueryCtx): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function getOrganizationClaimForOwner(ctx: QueryCtx, owner: string) {
+  return await ctx.db
+    .query("organizationClaims")
+    .withIndex("by_organization", (q) => q.eq("organizationLoginLower", owner.toLowerCase()))
+    .unique();
+}
+
+async function isAuthorizedOrganizationViewer(
+  ctx: QueryCtx,
+  owner: string,
+  viewerLogin: string | null
+) {
+  if (!viewerLogin) return false;
+  const claim = await getOrganizationClaimForOwner(ctx, owner);
+  return claim?.claimedByLogin.toLowerCase() === viewerLogin.toLowerCase();
 }
 
 async function getOwnerPublicPackageRows(ctx: QueryCtx, owner: string): Promise<OwnerPackageRow[]> {
@@ -808,11 +836,13 @@ export const getOwnerPageMatches = query({
       .query("profiles")
       .withIndex("by_owner", (q) => q.eq("owner", owner))
       .unique();
+    const isAuthorizedOrgViewer = await isAuthorizedOrganizationViewer(ctx, owner, viewerLogin);
     const access = resolveOwnerPageAccess({
       owner,
       viewerLogin,
       viewAs: args.viewAs,
       visibility: currentProfile?.visibility ?? "public",
+      isAuthorizedOwnerViewer: isAuthorizedOrgViewer,
     });
 
     if (!access.canViewProfile) {
@@ -933,10 +963,23 @@ export const getPackagePageData = query({
     );
     const candidateOwners = candidateRows.map((row) => row.owner);
 
-    const [profilesByOwner, repoStatsByOwner] = await Promise.all([
+    const [profilesByOwner, repoStatsByOwner, allProfiles] = await Promise.all([
       fetchProfilesByOwner(ctx, candidateOwners),
       fetchRepoStatsByOwner(ctx, candidateOwners),
+      ctx.db.query("profiles").collect(),
     ]);
+    const profileByOwnerLower = new Map(
+      allProfiles.map((profile) => [profile.owner.toLowerCase(), profile])
+    );
+    const ownerTypeCounts = packageRows.reduce(
+      (counts, row) => {
+        const ownerType = profileByOwnerLower.get(row.owner.toLowerCase())?.ownerType;
+        if (ownerType === OWNER_TYPE_ORGANIZATION) counts.organization += 1;
+        else counts.developer += 1;
+        return counts;
+      },
+      { developer: 0, organization: 0 }
+    );
 
     const { avatarByOwner, publicProfiles } = buildProfileLookups(
       Array.from(profilesByOwner.values())
@@ -953,6 +996,7 @@ export const getPackagePageData = query({
           devDepCount: row.devDepCount,
           avatarUrl: avatarByOwner.get(row.owner) ?? `https://github.com/${row.owner}.png?size=60`,
           totalStars: repoStats?.totalStars ?? 0,
+          ownerType: profilesByOwner.get(row.owner)?.ownerType ?? OWNER_TYPE_DEVELOPER,
         };
       })
       .sort((a, b) => b.repoCount - a.repoCount || b.totalStars - a.totalStars)
@@ -974,6 +1018,7 @@ export const getPackagePageData = query({
                 devDepCount: 0,
                 avatarUrl: o.avatarUrl,
                 totalStars: 0,
+                ownerType: o.ownerType,
                 isBlurred: true as const,
               };
             }
@@ -1131,6 +1176,8 @@ export const getPackagePageData = query({
       totalRepoCount,
       totalDepCount,
       totalDevDepCount,
+      developerOwnerCount: ownerTypeCounts.developer,
+      organizationOwnerCount: ownerTypeCounts.organization,
       activeOwners30d,
       topOwners: gatedTopOwners,
       relatedPackages,
@@ -1397,11 +1444,16 @@ async function buildOwnerPageData(
     .query("profiles")
     .withIndex("by_owner", (q) => q.eq("owner", owner))
     .unique();
+  const organizationClaim = await getOrganizationClaimForOwner(ctx, owner);
+  const isAuthorizedOrgViewer =
+    viewerLogin != null &&
+    organizationClaim?.claimedByLogin.toLowerCase() === viewerLogin.toLowerCase();
   const access = resolveOwnerPageAccess({
     owner,
     viewerLogin,
     viewAs: args.viewAs,
     visibility: currentProfile?.visibility ?? "public",
+    isAuthorizedOwnerViewer: isAuthorizedOrgViewer,
   });
 
   const canUsePublicDataCache =
@@ -1596,12 +1648,14 @@ async function buildOwnerPageData(
         topTopics: currentProfile.topTopics,
         locationCity: currentProfile.locationCity,
         locationCountryCode: currentProfile.locationCountryCode,
+        ownerType: currentProfile.ownerType ?? OWNER_TYPE_DEVELOPER,
       }
     : null;
 
   const isClaimed = !!(
     currentProfile?.isClaimed ||
     currentProfile?.hasPrivateData ||
+    organizationClaim ||
     access.isOwnerViewer
   );
 
@@ -1656,6 +1710,12 @@ async function buildOwnerPageData(
     recentStars,
     weekStart,
     weekEnd,
+    orgClaim: organizationClaim
+      ? {
+          claimedByLogin: organizationClaim.claimedByLogin,
+          claimedAt: organizationClaim.claimedAt,
+        }
+      : undefined,
   };
 
   logOwnerPageQueryTiming("getOwnerPageData", startedAt, {
@@ -1712,7 +1772,9 @@ export const getOwnerPageViewerState = query({
       };
     }
 
-    const isOwnerViewer = viewerLogin.toLowerCase() === owner.toLowerCase();
+    const isOwnerViewer =
+      viewerLogin.toLowerCase() === owner.toLowerCase() ||
+      (await isAuthorizedOrganizationViewer(ctx, owner, viewerLogin));
     const weekStart = getWeekStart();
     const [star, viewerStackScore] = await Promise.all([
       isOwnerViewer
@@ -1739,7 +1801,10 @@ export const getOwnerPageOwnerControls = query({
   args: { owner: v.string() },
   handler: async (ctx, { owner }) => {
     const viewerLogin = await resolveViewerLogin(ctx);
-    if (viewerLogin?.toLowerCase() !== owner.toLowerCase()) {
+    const isOwnerViewer =
+      viewerLogin?.toLowerCase() === owner.toLowerCase() ||
+      (await isAuthorizedOrganizationViewer(ctx, owner, viewerLogin));
+    if (!isOwnerViewer) {
       return null;
     }
 

@@ -238,4 +238,41 @@ describe("UserCard", () => {
 
     expect(screen.getByText("Indexed")).toBeInTheDocument();
   });
+
+  it("shows missing stack data as a neutral claimed-profile state", () => {
+    const { rerender } = renderUserCard(
+      <UserCard
+        owner="claimed"
+        avatarUrl="https://github.com/claimed.png"
+        displayName="Claimed User"
+        repoCount={0}
+        profileStatus="claimed"
+        stackDataStatus="missing"
+      />
+    );
+
+    expect(screen.getByText("Claimed")).toBeInTheDocument();
+    expect(screen.getByText("No stack data yet")).toBeInTheDocument();
+
+    rerender(
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+          })
+        }
+      >
+        <UserCard
+          owner="indexed"
+          avatarUrl="https://github.com/indexed.png"
+          displayName="Indexed User"
+          repoCount={8}
+          profileStatus="indexed"
+        />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByText("Indexed")).toBeInTheDocument();
+    expect(screen.queryByText("No stack data yet")).not.toBeInTheDocument();
+  });
 });

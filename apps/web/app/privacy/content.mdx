@@ -1,6 +1,12 @@
-Last updated: May 31, 2026
-
 Stackmatch helps developers find people and organizations with similar JavaScript package stacks. This notice explains the data model.
+
+Stackmatch is operated from Toronto, Ontario, Canada by [David Dias Digital](https://daviddias.digital). For privacy requests, contact [hello@stackmatch.dev](mailto:hello@stackmatch.dev).
+
+## Canadian Privacy Requests
+
+If you are in Canada, you can contact Stackmatch about access to your personal information, correction requests, deletion questions, consent questions, or privacy complaints at [hello@stackmatch.dev](mailto:hello@stackmatch.dev).
+
+Stackmatch will review privacy requests and respond based on the information involved, the account controls available, legal requirements, security needs, and abuse-prevention needs. We may need to verify that the requester controls the relevant GitHub or Stackmatch account before changing or disclosing account-related data.
 
 ## What We Access
 
@@ -9,6 +15,20 @@ When you sign in with GitHub, Stackmatch uses GitHub OAuth to identify your acco
 Stackmatch analyzes public GitHub repository metadata and public `package.json` manifests to build dependency fingerprints. We do not clone or store source code.
 
 Private repository analysis is optional and requires installing the Stackmatch GitHub App, where you choose which repositories to grant access to. Stackmatch does not request GitHub's broad private repository OAuth scope for normal sign-in.
+
+## How Public Scans Work
+
+Stackmatch scans public repository metadata and package manifests to infer package usage, package counts, repository scan status, stack fingerprints, and overlap between developers or organizations.
+
+Public scans focus on dependency manifests, not the source code in the repository. Stackmatch may cache scan results and recompute fingerprints as package scoring, repository selection, or ranking logic changes.
+
+## Optional Private Repository Analysis
+
+Private repository analysis is separate from standard sign-in. It requires installing the Stackmatch GitHub App and selecting the repositories you want GitHub to expose to Stackmatch.
+
+For private repositories, Stackmatch uses manifest data to create aggregate package names, counts, and sync status. Private-derived aggregate data stays private unless you explicitly choose to make it public.
+
+Disconnecting the GitHub App in Stackmatch removes the local installation link. To fully revoke GitHub-side access, remove the app installation or repository access in GitHub settings.
 
 ## What We Store
 
@@ -20,14 +40,67 @@ Stackmatch stores the data needed to operate the product:
 - Stack matches, package leaderboards, stars, follows, messages, notifications, and profile settings created in Stackmatch.
 - Technical abuse-prevention data such as IP-derived hashes and rate-limit records.
 
-## Private Repositories
-
-Private-derived aggregate data stays private unless you explicitly make it public. Clearing private stack data removes private package aggregates and private manifest cache records from Stackmatch. Disconnecting the GitHub App in Stackmatch removes the local installation link; revoke repository access from GitHub settings to fully remove GitHub-side access.
-
 ## What We Do Not Store
 
 Stackmatch does not store private repository source code, private file paths, private commit messages, commit SHAs, or private repository names.
 
+Stackmatch does not request GitHub's broad private repository OAuth scope for normal sign-in. Private repository access is controlled through the GitHub App installation flow.
+
+## How We Use Data
+
+Stackmatch uses data to:
+
+- authenticate accounts and claim Stackmatch profiles;
+- scan public repositories and optional private repositories;
+- build stack fingerprints, matches, package leaderboards, rankings, and discovery views;
+- power stars, follows, messages, notifications, profile settings, and account controls;
+- prevent abuse, rate-limit unsafe traffic, debug product issues, and protect the service;
+- understand aggregate product usage and improve Stackmatch.
+
+## Sharing and Disclosure
+
+Stackmatch shows public profile, package, ranking, and discovery information inside the product when that information is public or intentionally made visible.
+
+Private-derived aggregate data is not shown publicly unless you choose to publish it. Stackmatch may share limited data with infrastructure, analytics, security, hosting, logging, email, and operational providers that help run the service. When providers process personal information for Stackmatch, Stackmatch remains responsible for that handling.
+
+We may disclose information if required by law, to protect Stackmatch or users, to investigate abuse, or as part of a business transfer involving the service.
+
+## Cookies, Analytics, and Security Signals
+
+Stackmatch may use cookies, local storage, analytics events, bot detection, rate-limit records, and security logs to keep users signed in, remember preferences, measure product health, and protect the service from abuse.
+
+Analytics are used to understand product usage and improve the experience, not to sell private repository data.
+
+## Retention and Deletion
+
+Stackmatch keeps data for as long as needed to operate the product, maintain account controls, provide discovery features, comply with legal obligations, prevent abuse, and debug service issues.
+
+Clearing private stack data removes private package aggregates and private manifest cache records from Stackmatch. Some logs, rate-limit records, backups, and audit data may remain for a limited period when needed for security, integrity, or legal reasons.
+
+## Your Choices
+
+You can control parts of your Stackmatch presence from account and profile settings, including profile visibility and private aggregate data controls. You can revoke GitHub App repository access from GitHub settings.
+
+For privacy requests, corrections, deletion questions, or access questions, contact [hello@stackmatch.dev](mailto:hello@stackmatch.dev).
+
+## Security
+
+Stackmatch uses technical and operational safeguards to protect account, profile, scan, and private aggregate data. No internet service can guarantee perfect security.
+
+If you believe you found a security issue, contact [hello@stackmatch.dev](mailto:hello@stackmatch.dev) with enough detail for us to investigate.
+
+## Children
+
+Stackmatch is built for developers and is not directed to children. If you believe a child provided personal information to Stackmatch, contact us so we can review and remove it where appropriate.
+
+## Provider and Cross-Border Processing
+
+Stackmatch is operated from Toronto, Ontario, Canada. Stackmatch and its providers may process data in Canada, the United States, or other countries where service providers operate. Those countries may have different data protection laws.
+
+## Changes to This Policy
+
+We may update this policy as Stackmatch changes, as the data model changes, or as legal and operational requirements change. The updated date shows when the policy was last revised.
+
 ## Contact
 
-Stackmatch is operated by [David Dias Digital](https://daviddias.digital). For privacy requests, contact [hello@stackmatch.dev](mailto:hello@stackmatch.dev).
+Stackmatch is operated from Toronto, Ontario, Canada by [David Dias Digital](https://daviddias.digital). For privacy requests, contact [hello@stackmatch.dev](mailto:hello@stackmatch.dev).

@@ -1,4 +1,6 @@
 import { ROUTES } from "@stackmatch/config";
+import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
+import { Building2 } from "lucide-react";
 import Image from "next/image";
 import { LinkCustom } from "@/components/ui/link";
 
@@ -9,6 +11,7 @@ interface PackageOwnerCardProps {
   depCount: number;
   devDepCount: number;
   totalStars: number;
+  ownerType?: OwnerType;
 }
 
 function formatCompact(value: number): string {
@@ -25,7 +28,10 @@ export function PackageOwnerCard({
   depCount,
   devDepCount,
   totalStars,
+  ownerType,
 }: PackageOwnerCardProps) {
+  const isOrganization = ownerType === OWNER_TYPE_ORGANIZATION;
+
   return (
     <LinkCustom
       href={ROUTES.owner(owner)}
@@ -47,11 +53,19 @@ export function PackageOwnerCard({
           <p className="truncate text-base font-black tracking-tight text-white transition-colors group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-th-gradient-from group-hover:to-th-gradient-via">
             @{owner}
           </p>
-          {totalStars > 0 ? (
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-neutral-500">
-              <span className="text-amber-400">★</span> {formatCompact(totalStars)}
-            </p>
-          ) : null}
+          <p className="mt-0.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-neutral-500">
+            {isOrganization ? (
+              <span className="inline-flex items-center gap-1 text-sky-400">
+                <Building2 className="size-3" />
+                Org
+              </span>
+            ) : null}
+            {totalStars > 0 ? (
+              <span>
+                <span className="text-amber-400">★</span> {formatCompact(totalStars)}
+              </span>
+            ) : null}
+          </p>
         </div>
       </div>
 

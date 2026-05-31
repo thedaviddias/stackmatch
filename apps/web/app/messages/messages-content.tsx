@@ -61,7 +61,9 @@ function ConversationList() {
       <ErrorBoundary level="widget">
         <div className="mb-6">
           <h1 className="mb-1 text-2xl font-bold text-white">Messages</h1>
-          <p className="text-sm text-neutral-500">Conversations with your mutual matches.</p>
+          <p className="text-sm text-neutral-500">
+            Conversations with people you mutually starred this week.
+          </p>
         </div>
       </ErrorBoundary>
 

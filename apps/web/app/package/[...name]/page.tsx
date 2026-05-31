@@ -2,6 +2,7 @@ import { ROUTES } from "@stackmatch/config";
 import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import { BackgroundOrbs } from "@/components/layout/background-orbs";
+import { PackageEcosystemIntelligence } from "@/components/pages/package/package-ecosystem-intelligence";
 import { CompactOwnerScanForm } from "@/components/stackmatch/forms/compact-owner-scan-form";
 import { LinkCustom } from "@/components/ui/link";
 import { api } from "@/data/api";
@@ -67,6 +68,8 @@ function createFallbackPackageData(packageName: string) {
     totalRepoCount: 0,
     totalDepCount: 0,
     totalDevDepCount: 0,
+    developerOwnerCount: 0,
+    organizationOwnerCount: 0,
     activeOwners30d: 0,
     topOwners: [],
     relatedPackages: [],
@@ -221,7 +224,16 @@ export default async function PackagePage({ params }: { params: Promise<{ name: 
           totalOwnerCount={data.totalOwnerCount}
         />
 
-        {/* 5. Adoption & Trend Analytics (Charts) */}
+        {/* 5. Ecosystem Intelligence */}
+        <PackageEcosystemIntelligence
+          packageName={data.packageName}
+          developerOwnerCount={data.developerOwnerCount}
+          organizationOwnerCount={data.organizationOwnerCount}
+          activeOwners30d={data.activeOwners30d}
+          relatedPackages={data.relatedPackages}
+        />
+
+        {/* 6. Adoption & Trend Analytics (Charts) */}
         <PackageAnalytics
           totalDepCount={data.totalDepCount}
           totalDevDepCount={data.totalDevDepCount}
@@ -231,10 +243,10 @@ export default async function PackagePage({ params }: { params: Promise<{ name: 
           score={npmData.score}
         />
 
-        {/* 6. Technical Registry Details (Ecosystem Signals) */}
+        {/* 7. Technical Registry Details (Ecosystem Signals) */}
         <PackageRegistryDetails npmData={npmData} />
 
-        {/* 7. Full Related Packages Context */}
+        {/* 8. Full Related Packages Context */}
         <PackageRelated packageName={data.packageName} relatedPackages={data.relatedPackages} />
       </div>
     </div>

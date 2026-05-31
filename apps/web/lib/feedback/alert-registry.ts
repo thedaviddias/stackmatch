@@ -212,6 +212,17 @@ export const WEB_ALERTS = {
     persistence: "auto-dismiss",
     ariaRole: "status",
   },
+  "profile.github-app.organization-verified": {
+    id: "profile.github-app.organization-verified",
+    surface: "status",
+    severity: "success",
+    audience: "owner",
+    placement: "profile",
+    title: "Organization verified. Ecosystem dashboard controls are now available.",
+    description: "The GitHub App organization installation verified this profile.",
+    persistence: "auto-dismiss",
+    ariaRole: "status",
+  },
   "form.owner.invalid": {
     id: "form.owner.invalid",
     surface: "inline",

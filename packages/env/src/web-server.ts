@@ -38,6 +38,12 @@ export const serverEnv = createEnv({
     /** Sentry auth token for source map uploads during CI builds. */
     SENTRY_AUTH_TOKEN: z.string().optional(),
 
+    /** Sentry organization slug for source map uploads during CI builds. */
+    SENTRY_ORG: z.string().optional(),
+
+    /** Sentry project slug for source map uploads during CI builds. */
+    SENTRY_PROJECT: z.string().optional(),
+
     /** Resend API key for transactional emails. */
     RESEND_API_KEY: z.string().optional(),
 

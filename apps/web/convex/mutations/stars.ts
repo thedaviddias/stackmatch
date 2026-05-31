@@ -108,6 +108,14 @@ export const toggleStar = mutation({
       owner: targetOwner,
     });
 
+    const reciprocal = await ctx.db
+      .query("stars")
+      .withIndex("by_starrer_target_week", (q) =>
+        q.eq("starrerLogin", targetOwner).eq("targetOwner", githubLogin).eq("weekStart", weekStart)
+      )
+      .take(1);
+    const isMatch = reciprocal.length > 0;
+
     try {
       await ctx.runMutation(enqueueForOwnerFn, {
         recipientOwner: targetOwner,
@@ -115,7 +123,9 @@ export const toggleStar = mutation({
         category: "stars",
         type: "star_received",
         title: "You received a new star",
-        message: `${githubLogin} starred your profile this week.`,
+        message: isMatch
+          ? `You and @${githubLogin} starred each other this week. You can message them now.`
+          : `@${githubLogin} starred your profile this week. Star them back to unlock messaging.`,
         actionUrl: buildOwnerProfileNotificationUrl(githubLogin, process.env.NEXT_PUBLIC_BASE_URL),
         dedupeKey: `star:${githubLogin}:${targetOwner}:${weekStart}`,
         allowEmail: true,
@@ -135,16 +145,9 @@ export const toggleStar = mutation({
       console.error("[toggleStar] Failed to create feed event", feedError);
     }
 
-    const reciprocal = await ctx.db
-      .query("stars")
-      .withIndex("by_starrer_target_week", (q) =>
-        q.eq("starrerLogin", targetOwner).eq("targetOwner", githubLogin).eq("weekStart", weekStart)
-      )
-      .take(1);
-
     return {
       starred: true,
-      isMatch: reciprocal.length > 0,
+      isMatch,
     };
   },
 });

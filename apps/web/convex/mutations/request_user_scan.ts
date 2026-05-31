@@ -14,6 +14,12 @@ export const requestUserScan = mutation({
       })
     ),
     apiKey: v.string(),
+    submitter: v.optional(
+      v.object({
+        authUserId: v.string(),
+        githubLogin: v.optional(v.string()),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     if (!hasValidAnalyzeApiKey(args.apiKey)) {
@@ -21,11 +27,27 @@ export const requestUserScan = mutation({
     }
 
     const limitedRepos = args.repos.slice(0, 20);
+    const submittedAt = Date.now();
     const results = [] as Array<{
       fullName: string;
       status: "pending" | "syncing" | "synced" | "error" | "queued";
       existing: boolean;
     }>;
+    const fullNames = limitedRepos.map((repo) => `${repo.owner}/${repo.name}`);
+
+    const owner = limitedRepos[0]?.owner;
+    if (args.submitter && owner && fullNames.length > 0) {
+      await ctx.db.insert("scanSubmissions", {
+        owner,
+        repoFullNames: fullNames,
+        repoCount: fullNames.length,
+        submittedByAuthUserId: args.submitter.authUserId,
+        ...(args.submitter.githubLogin
+          ? { submittedByGitHubLogin: args.submitter.githubLogin }
+          : {}),
+        createdAt: submittedAt,
+      });
+    }
 
     for (const repo of limitedRepos) {
       const fullName = `${repo.owner}/${repo.name}`;
@@ -63,14 +85,13 @@ export const requestUserScan = mutation({
         defaultBranch: "main",
         githubId: 0,
         syncStatus: "pending",
-        requestedAt: Date.now(),
+        requestedAt: submittedAt,
         ...(repo.pushedAt !== undefined ? { pushedAt: repo.pushedAt } : {}),
       });
 
       results.push({ fullName, status: "pending", existing: false });
     }
 
-    const owner = limitedRepos[0]?.owner;
     if (owner) {
       const ownerPending = await ctx.db
         .query("repos")

@@ -209,6 +209,7 @@ function DevelopersDirectoryResults({
             starsCount={item.starsCount}
             metric={getDeveloperDirectoryMetric(item, viewMode, sortMode)}
             profileStatus={item.profileStatus}
+            stackDataStatus={viewMode === "claimed" && item.repoCount === 0 ? "missing" : undefined}
           />
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { OWNER_TYPE_DEVELOPER } from "@stackmatch/constants/owner";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
@@ -69,6 +70,7 @@ export const claimProfile = mutation({
         followersCount: 0,
         followingCount: 0,
         starsReceivedCount: 0,
+        ownerType: OWNER_TYPE_DEVELOPER,
         isClaimed: true,
         claimedAt: now,
         lastUpdated: now,
@@ -128,6 +130,14 @@ export const upsertProfile = internalMutation({
     x: v.optional(v.string()),
     location: v.optional(v.string()),
     company: v.optional(v.string()),
+    ownerType: v.optional(
+      v.union(
+        v.literal("developer"),
+        v.literal("organization"),
+        v.literal("bot"),
+        v.literal("maintainer")
+      )
+    ),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -144,6 +154,7 @@ export const upsertProfile = internalMutation({
       x: args.x,
       location: args.location,
       company: args.company,
+      ownerType: args.ownerType,
       lastUpdated: Date.now(),
     };
 

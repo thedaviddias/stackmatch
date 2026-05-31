@@ -1,6 +1,16 @@
 import { ROUTES } from "@stackmatch/config";
 import { INVITE_BONUS_MAX_SCORE } from "@stackmatch/constants/invite";
-import { Bot, ExternalLink, EyeOff, Sparkles, Trophy, Users } from "lucide-react";
+import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
+import {
+  Bot,
+  Building2,
+  CheckCircle2,
+  ExternalLink,
+  EyeOff,
+  Sparkles,
+  Trophy,
+  Users,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { type ComponentPropsWithoutRef, type ReactNode, useEffect, useState } from "react";
@@ -124,6 +134,7 @@ interface ProfileHeaderProps {
     bio?: string;
     website?: string;
     x?: string;
+    ownerType?: OwnerType;
   } | null;
   summary: {
     personalizedWithPrivate: boolean;
@@ -155,6 +166,7 @@ export function ProfileHeader({
   const isHydrating = state.hydrating;
   const isOwnershipPending = state.ownershipPending ?? false;
   const isClaimed = state.claimed;
+  const isOrganization = profile?.ownerType === OWNER_TYPE_ORGANIZATION;
   const profileImage =
     profile?.avatarUrl ?? ROUTES.external.githubAvatar(owner, PROFILE_AVATAR_SIZE);
   const { data: hasAiVsHumanProfile } = useAiVsHumanProfile(owner);
@@ -230,13 +242,31 @@ export function ProfileHeader({
                 <h1 className="max-w-full truncate text-3xl font-black leading-tight tracking-tight text-foreground dark:text-white sm:text-4xl">
                   {profile?.name ?? `@${owner}`}
                 </h1>
+                {!isOwnershipPending && !isHydrating && isOrganization && (
+                  <span
+                    data-theme-label="status"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300"
+                  >
+                    <Building2 className="size-3" />
+                    Organization
+                  </span>
+                )}
+                {!isOwnershipPending && !isHydrating && isOrganization && isClaimed && (
+                  <span
+                    data-theme-label="status"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300"
+                  >
+                    <CheckCircle2 className="size-3" />
+                    Verified
+                  </span>
+                )}
                 {!isOwnershipPending && !isHydrating && isOwnerViewer && (
                   <div className="flex items-center gap-2">
                     <span
                       data-theme-label="status"
                       className="rounded-full bg-muted px-3 py-1 text-[10px] font-black uppercase tracking-widest text-th-accent-1-text border border-th-accent-1/20 backdrop-blur-md dark:bg-white/10"
                     >
-                      Owner
+                      {isOrganization ? "Org Admin" : "Owner"}
                     </span>
                     {profile?.visibility === "private" && (
                       <span
@@ -321,7 +351,12 @@ export function ProfileHeader({
             </div>
           ) : !isHydrating && !isOwnerViewer ? (
             <div className="flex w-full flex-col gap-2 sm:ml-auto sm:max-w-md lg:w-72 lg:max-w-none">
-              <div className={cn("grid w-full gap-2", isClaimed ? "grid-cols-2" : "grid-cols-1")}>
+              <div
+                className={cn(
+                  "grid w-full gap-2",
+                  isClaimed && !isOrganization ? "grid-cols-2" : "grid-cols-1"
+                )}
+              >
                 <StarButton
                   targetOwner={owner}
                   initialStarred={isStarredByViewer}
@@ -331,13 +366,23 @@ export function ProfileHeader({
                     setOptimisticStarsReceived((current) => Math.max(0, current + delta));
                   }}
                 />
-                {isClaimed && (
+                {isClaimed && !isOrganization && (
                   <FollowButton targetOwner={owner} viewerStackScore={viewerStackScore} />
                 )}
               </div>
 
               <div className="flex items-center justify-center gap-2 sm:justify-end">
-                {isClaimed && (
+                {isOrganization && (
+                  <a
+                    href="#ecosystem"
+                    className={profileActionButtonClassName({ size: "icon" })}
+                    aria-label="View organization ecosystem"
+                    title="View organization ecosystem"
+                  >
+                    <Building2 className="size-4" />
+                  </a>
+                )}
+                {isClaimed && !isOrganization && (
                   <MessageButton targetOwner={owner} viewerStackScore={viewerStackScore} />
                 )}
                 <ShareDropdown shareUrl={shareUrl} iconOnly />
@@ -351,7 +396,7 @@ export function ProfileHeader({
                 label={i18n.actions.share.shareCard}
                 shareText={i18n.actions.share.tweetTextOwn}
               />
-              {stackScore < STACK_SCORE_CAP && (
+              {!isOrganization && stackScore < STACK_SCORE_CAP && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button

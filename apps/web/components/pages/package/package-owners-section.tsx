@@ -1,5 +1,6 @@
 "use client";
 
+import type { OwnerType } from "@stackmatch/constants/owner";
 import { OWNERS_GRID_CARD_LIMIT, PACKAGE_PREVIEW_COUNT } from "@stackmatch/constants/social";
 import { Lock } from "lucide-react";
 import { PackageOwnerCard } from "@/components/cards/package-owner-card";
@@ -15,6 +16,7 @@ interface TopOwner {
   depCount: number;
   devDepCount: number;
   totalStars: number;
+  ownerType?: OwnerType;
   isBlurred?: boolean;
 }
 
@@ -58,6 +60,7 @@ export function PackageOwnersSection({
                 depCount={owner.depCount}
                 devDepCount={owner.devDepCount}
                 totalStars={owner.totalStars}
+                ownerType={owner.ownerType}
               />
             </div>
             {owner.isBlurred && (
@@ -70,7 +73,7 @@ export function PackageOwnersSection({
       </div>
       {hasBlurredItems && gatedCount > 0 && (
         <SignInGateCta
-          message={`Sign in to see all ${topOwnersCount} developers using ${packageName}`}
+          message={`Sign in to see all ${topOwnersCount} developers and organizations using ${packageName}`}
           className="mt-6"
         />
       )}

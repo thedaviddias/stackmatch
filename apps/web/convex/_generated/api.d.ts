@@ -63,6 +63,7 @@ import type * as mutations_messages from "../mutations/messages.js";
 import type * as mutations_migrations from "../mutations/migrations.js";
 import type * as mutations_moderation from "../mutations/moderation.js";
 import type * as mutations_notifications from "../mutations/notifications.js";
+import type * as mutations_organization_claims from "../mutations/organization_claims.js";
 import type * as mutations_privacy from "../mutations/privacy.js";
 import type * as mutations_profiles from "../mutations/profiles.js";
 import type * as mutations_recompute_directory from "../mutations/recompute_directory.js";
@@ -195,6 +196,7 @@ declare const fullApi: ApiFromModules<{
   "mutations/migrations": typeof mutations_migrations;
   "mutations/moderation": typeof mutations_moderation;
   "mutations/notifications": typeof mutations_notifications;
+  "mutations/organization_claims": typeof mutations_organization_claims;
   "mutations/privacy": typeof mutations_privacy;
   "mutations/profiles": typeof mutations_profiles;
   "mutations/recompute_directory": typeof mutations_recompute_directory;

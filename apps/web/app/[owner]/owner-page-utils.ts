@@ -82,7 +82,8 @@ export function resolveOwnerPageUrlState(search: string | URLSearchParams): {
   const viewAs = searchParams.get("view") === "public" ? "public" : undefined;
   const initialStatus = resolveGitHubAppRedirectStatus(
     searchParams.get("githubApp"),
-    searchParams.get("privateSync")
+    searchParams.get("privateSync"),
+    searchParams.get("orgClaim")
   );
 
   return {
@@ -93,7 +94,8 @@ export function resolveOwnerPageUrlState(search: string | URLSearchParams): {
 
 export function resolveGitHubAppRedirectStatus(
   githubApp: string | null | undefined,
-  privateSync: string | null | undefined
+  privateSync: string | null | undefined,
+  orgClaim?: string | null
 ): StatusMessage | null {
   if (githubApp === "error") {
     return {
@@ -103,6 +105,17 @@ export function resolveGitHubAppRedirectStatus(
   }
 
   if (githubApp !== "installed") return null;
+
+  if (orgClaim === "verified") {
+    return {
+      text: getWebAlertTitle("profile.github-app.organization-verified"),
+      type: "success",
+    };
+  }
+
+  if (privateSync === undefined) {
+    return null;
+  }
 
   if (privateSync === "started") {
     return {

@@ -11,6 +11,7 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "check:web": "pnpm --filter @stackmatch/web check",
+    "check:sentry": "pnpm --filter @stackmatch/web check:sentry",
     "check:commit-msg": "node scripts/check-commit-msg.mjs",
     "check:constants": "node scripts/check-centralized-constants.mjs",
     "check:data-boundary": "node scripts/check-data-boundary.mjs",

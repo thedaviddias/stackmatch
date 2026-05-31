@@ -183,6 +183,32 @@ describe("buildClaimedDevelopersDirectoryRows", () => {
 });
 
 describe("buildDevelopersDirectoryRows", () => {
+  it("excludes public claimed profiles without indexed repos from the indexed directory", async () => {
+    const ctx = createMockQueryCtx({
+      developerDirectoryCache: [],
+      profiles: [
+        {
+          _id: "profile:claimed-only",
+          _creationTime: 1,
+          owner: "claimed-only",
+          avatarUrl: "https://github.com/claimed-only.png",
+          followers: 7,
+          lastUpdated: 4,
+          isClaimed: true,
+          claimedAt: 3,
+          name: "Claimed Only",
+          visibility: "public",
+          topPackages: ["html"],
+        },
+      ],
+      stars: [],
+    });
+
+    const rows = await buildDevelopersDirectoryRows(ctx, 10);
+
+    expect(rows).toEqual([]);
+  });
+
   it("marks indexed cache rows as claimed when a public claimed profile exists", async () => {
     const ctx = createMockQueryCtx({
       developerDirectoryCache: [
@@ -220,6 +246,7 @@ describe("buildDevelopersDirectoryRows", () => {
 
     const rows = await buildDevelopersDirectoryRows(ctx, 10);
 
+    expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       owner: "TheDavidDias",
       displayName: "David Dias",

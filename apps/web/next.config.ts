@@ -114,22 +114,28 @@ const isVercel = process.env.VERCEL === "1";
 const configWithMDX = withMDX(nextConfig);
 const configWithBotId = isVercel ? withBotId(configWithMDX) : configWithMDX;
 const configWithToolbar = withStackmatchVercelToolbar(configWithBotId);
+const hasSentrySourceMapUploadConfig = Boolean(
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+);
 
-const configWithSentry = process.env.SENTRY_AUTH_TOKEN
-  ? withSentryConfig(configWithToolbar, {
-      // Suppress source map upload logs in CI
-      silent: !process.env.CI,
+const configWithSentry = withSentryConfig(configWithToolbar, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
 
-      // Source maps: disable upload unless auth token is provided
-      sourcemaps: {
-        disable: !process.env.SENTRY_AUTH_TOKEN,
-      },
+  // Suppress source map upload logs in CI
+  silent: !process.env.CI,
 
-      // Automatically tree-shake Sentry debug statements to reduce bundle size
-      bundleSizeOptimizations: {
-        excludeDebugStatements: true,
-      },
-    })
-  : configWithToolbar;
+  // Keep the Sentry build integration active, but upload maps only when
+  // all required project credentials are present.
+  sourcemaps: {
+    disable: !hasSentrySourceMapUploadConfig,
+  },
+
+  // Automatically tree-shake Sentry debug statements to reduce bundle size
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+  },
+});
 
 export default configWithSentry;

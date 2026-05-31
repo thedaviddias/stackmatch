@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { Stackmate } from "../../stackmate-grid";
-import { MatchOfTheWeek } from "../match-of-the-week";
+import { WeeklyPickCard } from "../match-of-the-week";
 
 vi.mock("@/components/ui/link", () => ({
   LinkCustom: ({
@@ -48,9 +48,11 @@ function makeMatch(overrides: Partial<Stackmate> = {}): Stackmate {
   };
 }
 
-describe("MatchOfTheWeek", () => {
+describe("WeeklyPickCard", () => {
   it("limits top stack badges and shows responsive hidden counts", () => {
-    render(<MatchOfTheWeek match={makeMatch()} />);
+    render(<WeeklyPickCard match={makeMatch()} />);
+
+    expect(screen.getByText("Weekly Pick")).toBeInTheDocument();
 
     expect(screen.getByText("react")).toBeInTheDocument();
     expect(screen.getByText("next")).toBeInTheDocument();
@@ -62,7 +64,7 @@ describe("MatchOfTheWeek", () => {
 
   it("hides low-signal top stack badges and excludes them from overflow counts", () => {
     render(
-      <MatchOfTheWeek
+      <WeeklyPickCard
         match={makeMatch({
           profile: {
             name: "Octo Cat",
@@ -97,7 +99,7 @@ describe("MatchOfTheWeek", () => {
 
   it("omits stack chips when every package is low signal", () => {
     render(
-      <MatchOfTheWeek
+      <WeeklyPickCard
         match={makeMatch({
           profile: {
             name: "Octo Cat",

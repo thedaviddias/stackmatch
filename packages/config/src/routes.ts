@@ -31,6 +31,8 @@ export const ROUTES = {
   notifications: "/notifications",
   feed: "/feed",
   messages: "/messages",
+  companies: "/companies",
+  sponsors: "/sponsors",
   developers: "/developers",
   stacks: "/stacks",
   topics: "/topics",

@@ -176,4 +176,19 @@ describe("ProfileHeader", () => {
 
     expect(screen.getByRole("button", { name: "Star 11" })).toBeInTheDocument();
   });
+
+  it("renders organization positioning without personal follow or message actions", () => {
+    render(
+      <ProfileHeader {...baseProps} profile={{ ...baseProps.profile, ownerType: "organization" }} />
+    );
+
+    expect(screen.getByText("Organization")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view organization ecosystem/i })).toHaveAttribute(
+      "href",
+      "#ecosystem"
+    );
+    expect(screen.queryByRole("button", { name: /follow/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /message/i })).not.toBeInTheDocument();
+  });
 });

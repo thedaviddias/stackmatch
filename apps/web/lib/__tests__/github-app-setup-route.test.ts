@@ -4,8 +4,11 @@ const mocks = vi.hoisted(() => ({
   fetchServerAuthMutation: vi.fn(),
   getServerGitHubLogin: vi.fn(),
   linkGitHubAppInstallation: { name: "linkGitHubAppInstallation" },
+  claimOrganizationWithGitHubAppInstallation: {
+    name: "claimOrganizationWithGitHubAppInstallation",
+  },
   requestPrivateStackSync: { name: "requestPrivateStackSync" },
-  verifyGitHubAppInstallationForLogin: vi.fn(),
+  verifyGitHubAppInstallation: vi.fn(),
   loggerError: vi.fn(),
 }));
 
@@ -14,6 +17,10 @@ vi.mock("@/data/api", () => ({
     mutations: {
       github_app_installations: {
         linkGitHubAppInstallation: mocks.linkGitHubAppInstallation,
+      },
+      organization_claims: {
+        claimOrganizationWithGitHubAppInstallation:
+          mocks.claimOrganizationWithGitHubAppInstallation,
       },
       request_private_stack_sync: {
         requestPrivateStackSync: mocks.requestPrivateStackSync,
@@ -28,7 +35,7 @@ vi.mock("@/lib/auth/auth-server", () => ({
 }));
 
 vi.mock("@/lib/github/github-app-installation", () => ({
-  verifyGitHubAppInstallationForLogin: mocks.verifyGitHubAppInstallationForLogin,
+  verifyGitHubAppInstallation: mocks.verifyGitHubAppInstallation,
 }));
 
 vi.mock("@/lib/re-exports/logger", () => ({
@@ -47,7 +54,7 @@ describe("GET /api/github-app/setup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getServerGitHubLogin.mockResolvedValue("thedaviddias");
-    mocks.verifyGitHubAppInstallationForLogin.mockResolvedValue({
+    mocks.verifyGitHubAppInstallation.mockResolvedValue({
       accountLogin: "thedaviddias",
       accountType: "User",
     });
@@ -122,11 +129,11 @@ describe("GET /api/github-app/setup", () => {
       "/api/github-app/setup?installation_id=123"
     );
     expect(mocks.fetchServerAuthMutation).not.toHaveBeenCalled();
-    expect(mocks.verifyGitHubAppInstallationForLogin).not.toHaveBeenCalled();
+    expect(mocks.verifyGitHubAppInstallation).not.toHaveBeenCalled();
   });
 
   it("does not link when installation verification fails", async () => {
-    mocks.verifyGitHubAppInstallationForLogin.mockRejectedValueOnce(
+    mocks.verifyGitHubAppInstallation.mockRejectedValueOnce(
       new Error("GitHub App installation does not belong to the signed-in GitHub user.")
     );
 
@@ -139,18 +146,29 @@ describe("GET /api/github-app/setup", () => {
     expect(mocks.fetchServerAuthMutation).not.toHaveBeenCalled();
   });
 
-  it("rejects organization installations until org authorization is supported", async () => {
-    mocks.verifyGitHubAppInstallationForLogin.mockRejectedValueOnce(
-      new Error("Organization GitHub App installations are not supported yet.")
-    );
+  it("claims and redirects to an organization profile for organization installations", async () => {
+    mocks.verifyGitHubAppInstallation.mockResolvedValueOnce({
+      accountLogin: "stackmatch-labs",
+      accountType: "Organization",
+    });
+    mocks.fetchServerAuthMutation.mockReset().mockResolvedValueOnce({
+      organizationLogin: "stackmatch-labs",
+      claimedByLogin: "thedaviddias",
+    });
 
     const response = await GET(makeRequest());
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://stackmatch.dev/settings/account?githubApp=error"
+      "https://stackmatch.dev/stackmatch-labs?githubApp=installed&orgClaim=verified"
     );
-    expect(mocks.fetchServerAuthMutation).not.toHaveBeenCalled();
+    expect(mocks.fetchServerAuthMutation).toHaveBeenCalledWith(
+      mocks.claimOrganizationWithGitHubAppInstallation,
+      {
+        installationId: 123,
+        organizationLogin: "stackmatch-labs",
+      }
+    );
   });
 
   it("returns 400 for an invalid installation_id", async () => {

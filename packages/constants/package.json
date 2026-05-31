@@ -15,6 +15,7 @@
     "./sync": "./src/sync.ts",
     "./notifications": "./src/notifications.ts",
     "./og": "./src/og.ts",
+    "./owner": "./src/owner.ts",
     "./ranking": "./src/ranking.ts",
     "./security": "./src/security.ts",
     "./ui": "./src/ui.ts",

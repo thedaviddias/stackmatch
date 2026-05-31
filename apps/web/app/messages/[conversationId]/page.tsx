@@ -3,7 +3,7 @@ import { ConversationContent } from "./conversation-content";
 
 export const metadata = createMetadata({
   title: "Conversation",
-  description: "Chat with your mutual matches on StackMatch.",
+  description: "Chat with someone you mutually starred this week on StackMatch.",
   path: "/messages",
   noIndex: true,
 });

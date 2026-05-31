@@ -299,7 +299,7 @@ describe("message security", () => {
     });
 
     await expect(getHandler(startConversation)(oneWayCtx, { targetOwner: "bob" })).rejects.toThrow(
-      "mutual matches"
+      "starred each other this week"
     );
 
     const mutualCtx = makeCtx({
@@ -313,6 +313,50 @@ describe("message security", () => {
         isNew: true,
       }
     );
+  });
+
+  it("reports which weekly star is missing before starting a conversation", async () => {
+    await signInAs("alice");
+    const baseRows = makeHighScoreRows("alice");
+
+    await expect(
+      getHandler(canMessageUser)(makeCtx(baseRows), { targetOwner: "bob" })
+    ).resolves.toEqual({
+      canMessage: false,
+      reason: "no_mutual_match",
+      viewerHasStarredTarget: false,
+      targetHasStarredViewer: false,
+    });
+
+    await expect(
+      getHandler(canMessageUser)(
+        makeCtx({
+          ...baseRows,
+          stars: [star("alice", "bob")],
+        }),
+        { targetOwner: "bob" }
+      )
+    ).resolves.toEqual({
+      canMessage: false,
+      reason: "no_mutual_match",
+      viewerHasStarredTarget: true,
+      targetHasStarredViewer: false,
+    });
+
+    await expect(
+      getHandler(canMessageUser)(
+        makeCtx({
+          ...baseRows,
+          stars: [star("bob", "alice")],
+        }),
+        { targetOwner: "bob" }
+      )
+    ).resolves.toEqual({
+      canMessage: false,
+      reason: "no_mutual_match",
+      viewerHasStarredTarget: false,
+      targetHasStarredViewer: true,
+    });
   });
 
   it("hides blocked conversations and prevents continuing them", async () => {

@@ -66,6 +66,17 @@ describe("public owner preview", () => {
     ).toBe(false);
   });
 
+  it("honors public preview for an authorized organization admin", () => {
+    expect(
+      shouldUseOwnerPublicPreview({
+        owner: "stackmatch-labs",
+        viewerLogin: "thedaviddias",
+        viewAs: "public",
+        isAuthorizedOwnerViewer: true,
+      })
+    ).toBe(true);
+  });
+
   it("treats an owner using public preview as a public visitor", () => {
     expect(
       resolveOwnerPageAccess({
@@ -78,6 +89,22 @@ describe("public owner preview", () => {
       isActualOwnerViewer: true,
       isPublicPreview: true,
       isOwnerViewer: false,
+      canViewProfile: true,
+    });
+  });
+
+  it("treats verified organization admins as owner viewers", () => {
+    expect(
+      resolveOwnerPageAccess({
+        owner: "stackmatch-labs",
+        viewerLogin: "thedaviddias",
+        visibility: "public",
+        isAuthorizedOwnerViewer: true,
+      })
+    ).toMatchObject({
+      isActualOwnerViewer: true,
+      isPublicPreview: false,
+      isOwnerViewer: true,
       canViewProfile: true,
     });
   });

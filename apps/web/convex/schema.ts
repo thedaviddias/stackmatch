@@ -289,6 +289,18 @@ export default defineSchema({
     dayCount: v.number(),
   }).index("by_owner_ip", ["owner", "ipHash"]),
 
+  scanSubmissions: defineTable({
+    owner: v.string(),
+    repoFullNames: v.array(v.string()),
+    repoCount: v.number(),
+    submittedByAuthUserId: v.string(),
+    submittedByGitHubLogin: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_submitter_createdAt", ["submittedByAuthUserId", "createdAt"])
+    .index("by_owner_createdAt", ["owner", "createdAt"])
+    .index("by_createdAt", ["createdAt"]),
+
   repoResyncRateLimits: defineTable({
     repoFullName: v.string(),
     ipHash: v.string(),
@@ -317,6 +329,14 @@ export default defineSchema({
     company: v.optional(v.string()),
     followers: v.number(),
     lastUpdated: v.number(),
+    ownerType: v.optional(
+      v.union(
+        v.literal("developer"),
+        v.literal("organization"),
+        v.literal("bot"),
+        v.literal("maintainer")
+      )
+    ),
     isClaimed: v.optional(v.boolean()),
     hasPrivateData: v.optional(v.boolean()),
     /**
@@ -693,6 +713,18 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_login", ["githubLogin"])
+    .index("by_installation", ["installationId"]),
+
+  organizationClaims: defineTable({
+    organizationLogin: v.string(),
+    organizationLoginLower: v.string(),
+    claimedByLogin: v.string(),
+    installationId: v.number(),
+    claimedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_organization", ["organizationLoginLower"])
+    .index("by_claimedBy", ["claimedByLogin"])
     .index("by_installation", ["installationId"]),
 
   userPrivateRepoManifestCache: defineTable({

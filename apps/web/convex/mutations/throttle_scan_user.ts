@@ -1,10 +1,48 @@
+import {
+  ANONYMOUS_SCAN_COOLDOWN_MS,
+  ANONYMOUS_SCAN_DAILY_LIMIT,
+  AUTHENTICATED_SCAN_COOLDOWN_MS,
+  AUTHENTICATED_SCAN_DAILY_LIMIT,
+} from "@stackmatch/constants/sync";
 import { evaluateResyncThrottle } from "@stackmatch/security/throttle";
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { hasValidAnalyzeApiKey } from "../lib/analyze_api_key";
 
+const AUTHENTICATED_SCAN_THROTTLE_IP_HASH = "signed-in";
+
+interface ScanSubmitter {
+  authUserId: string;
+  githubLogin?: string;
+}
+
 function buildScanThrottleOwner(owner: string): string {
   return `scan:${owner.toLowerCase()}`;
+}
+
+function buildAuthenticatedScanThrottleOwner(authUserId: string): string {
+  return `scan-user:${authUserId}`;
+}
+
+export function getScanThrottleScope({
+  owner,
+  ipHash,
+  submitter,
+}: {
+  owner: string;
+  ipHash: string;
+  submitter?: ScanSubmitter;
+}) {
+  const throttleOwner = submitter
+    ? buildAuthenticatedScanThrottleOwner(submitter.authUserId)
+    : buildScanThrottleOwner(owner);
+
+  return {
+    owner: throttleOwner,
+    ipHash: submitter ? AUTHENTICATED_SCAN_THROTTLE_IP_HASH : ipHash,
+    cooldownMs: submitter ? AUTHENTICATED_SCAN_COOLDOWN_MS : ANONYMOUS_SCAN_COOLDOWN_MS,
+    dailyLimit: submitter ? AUTHENTICATED_SCAN_DAILY_LIMIT : ANONYMOUS_SCAN_DAILY_LIMIT,
+  };
 }
 
 export const throttleScanUser = mutation({
@@ -12,21 +50,35 @@ export const throttleScanUser = mutation({
     owner: v.string(),
     ipHash: v.string(),
     apiKey: v.string(),
+    submitter: v.optional(
+      v.object({
+        authUserId: v.string(),
+        githubLogin: v.optional(v.string()),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     if (!hasValidAnalyzeApiKey(args.apiKey)) {
       throw new Error("Unauthorized request");
     }
 
-    const throttleOwner = buildScanThrottleOwner(args.owner);
+    const throttleScope = getScanThrottleScope({
+      owner: args.owner,
+      ipHash: args.ipHash,
+      submitter: args.submitter,
+    });
 
     const existingThrottle = await ctx.db
       .query("resyncRateLimits")
-      .withIndex("by_owner_ip", (q) => q.eq("owner", throttleOwner).eq("ipHash", args.ipHash))
+      .withIndex("by_owner_ip", (q) =>
+        q.eq("owner", throttleScope.owner).eq("ipHash", throttleScope.ipHash)
+      )
       .unique();
 
     const throttle = evaluateResyncThrottle({
       now: Date.now(),
+      cooldownMs: throttleScope.cooldownMs,
+      dailyLimit: throttleScope.dailyLimit,
       state: existingThrottle
         ? {
             lastResyncAt: existingThrottle.lastResyncAt,
@@ -52,8 +104,8 @@ export const throttleScanUser = mutation({
       });
     } else {
       await ctx.db.insert("resyncRateLimits", {
-        owner: throttleOwner,
-        ipHash: args.ipHash,
+        owner: throttleScope.owner,
+        ipHash: throttleScope.ipHash,
         lastResyncAt: throttle.lastResyncAt,
         dayKey: throttle.dayKey,
         dayCount: throttle.dayCount,
