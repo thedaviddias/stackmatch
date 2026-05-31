@@ -10,6 +10,20 @@ if (typeof HTMLCanvasElement !== "undefined") {
   HTMLCanvasElement.prototype.getContext = () => null;
 }
 
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: (query: string): MediaQueryList => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+  }),
+});
+
 // Automatically unmount and clean up after each test
 afterEach(() => {
   cleanup();

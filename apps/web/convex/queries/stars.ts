@@ -1,60 +1,66 @@
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { type QueryCtx, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { getWeekStart } from "../lib/date_helpers";
+import { resolveStackMatchFollowerCount } from "../lib/stackmatch_follow_counts";
 
 const DEFAULT_TOP_STACKERS_LIMIT = 8;
 const STAR_FETCH_LIMIT = 1000;
+
+export async function buildWeeklyTopStackers(ctx: QueryCtx, limit = DEFAULT_TOP_STACKERS_LIMIT) {
+  const weekStart = getWeekStart();
+
+  const stars = await ctx.db
+    .query("stars")
+    .withIndex("by_week", (q) => q.eq("weekStart", weekStart))
+    .take(STAR_FETCH_LIMIT);
+
+  const starrersByTarget = new Map<string, Set<string>>();
+  for (const star of stars) {
+    const starrers = starrersByTarget.get(star.targetOwner) ?? new Set<string>();
+    starrers.add(star.starrerLogin.toLowerCase());
+    starrersByTarget.set(star.targetOwner, starrers);
+  }
+
+  const ranked = [...starrersByTarget.entries()]
+    .map(([owner, starrers]) => [owner, starrers.size] as const)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit);
+
+  const results = [];
+  for (const [owner, starScore] of ranked) {
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_owner", (q) => q.eq("owner", owner))
+      .first();
+
+    if (!profile?.isClaimed) continue;
+
+    const followers = await resolveStackMatchFollowerCount(ctx, owner, profile);
+
+    results.push({
+      owner,
+      avatarUrl: profile.avatarUrl,
+      name: profile.name ?? null,
+      followers,
+      starScore,
+      stars: starScore,
+      memberNumber: profile.memberNumber,
+      joinedAt: profile._creationTime ?? 0,
+    });
+  }
+
+  return results;
+}
 
 /**
  * Public query: returns the top-starred developers for the current week.
  */
 export const getWeeklyTopStackers = query({
   args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = DEFAULT_TOP_STACKERS_LIMIT }) => {
-    const weekStart = getWeekStart();
-
-    const stars = await ctx.db
-      .query("stars")
-      .withIndex("by_week", (q) => q.eq("weekStart", weekStart))
-      .take(STAR_FETCH_LIMIT);
-
-    const starrersByTarget = new Map<string, Set<string>>();
-    for (const star of stars) {
-      const starrers = starrersByTarget.get(star.targetOwner) ?? new Set<string>();
-      starrers.add(star.starrerLogin.toLowerCase());
-      starrersByTarget.set(star.targetOwner, starrers);
-    }
-
-    const ranked = [...starrersByTarget.entries()]
-      .map(([owner, starrers]) => [owner, starrers.size] as const)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, limit);
-
-    const results = [];
-    for (const [owner, starScore] of ranked) {
-      const profile = await ctx.db
-        .query("profiles")
-        .withIndex("by_owner", (q) => q.eq("owner", owner))
-        .first();
-
-      if (!profile?.isClaimed) continue;
-
-      results.push({
-        owner,
-        avatarUrl: profile.avatarUrl,
-        name: profile.name ?? null,
-        followers: profile.followers ?? 0,
-        starScore,
-        stars: starScore,
-        memberNumber: profile.memberNumber,
-        joinedAt: profile._creationTime ?? 0,
-      });
-    }
-
-    return results;
-  },
+  handler: async (ctx, { limit = DEFAULT_TOP_STACKERS_LIMIT }) =>
+    buildWeeklyTopStackers(ctx, limit),
 });
 
 /**

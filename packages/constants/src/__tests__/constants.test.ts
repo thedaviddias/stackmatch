@@ -56,6 +56,7 @@ describe("@stackmatch/constants", () => {
 
   it("keeps ranking package-signal policy available", () => {
     expect(HARD_NOISE_PACKAGE_PREFIXES).toContain("@types/");
+    expect(HARD_NOISE_PACKAGE_PREFIXES).toContain("@babel/");
     expect(LOW_SIGNAL_PACKAGE_NAMES).toContain("eslint");
     expect(LOW_SIGNAL_PACKAGE_NAMES).toContain("typescript");
     expect(LOW_SIGNAL_PACKAGE_NAMES).toContain("lefthook");

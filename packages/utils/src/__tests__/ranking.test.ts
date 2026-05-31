@@ -959,6 +959,12 @@ describe("isNoisePackage", () => {
     expect(isNoisePackage("@types/mdx")).toBe(true);
   });
 
+  it("identifies @babel/* packages as noise", () => {
+    expect(isNoisePackage("@babel/core")).toBe(true);
+    expect(isNoisePackage("@babel/preset-react")).toBe(true);
+    expect(isNoisePackage("@babel/runtime")).toBe(true);
+  });
+
   it("identifies eslint config/plugin packages as noise", () => {
     expect(isNoisePackage("eslint-config-next")).toBe(true);
     expect(isNoisePackage("eslint-config-prettier")).toBe(true);
@@ -1047,6 +1053,9 @@ describe("filterNoisePackages", () => {
       "typescript",
       "@typescript-eslint/parser",
       "prettier-plugin-tailwindcss",
+      "@babel/core",
+      "@babel/preset-react",
+      "@babel/runtime",
     ]);
 
     const filtered = filterNoisePackages(input);

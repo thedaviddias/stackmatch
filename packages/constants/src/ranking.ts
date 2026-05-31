@@ -15,6 +15,7 @@ export const PACKAGE_SIGNAL_POLICIES = {
   npm: {
     hardNoisePackagePrefixes: [
       "@types/",
+      "@babel/",
       "eslint-config-",
       "eslint-plugin-",
       "@typescript-eslint/",

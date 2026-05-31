@@ -421,7 +421,7 @@ describe("computeOwnerMatches", () => {
   });
 
   it("filters noise packages before scoring", () => {
-    // Source has 3 meaningful + 3 noise packages
+    // Source has 3 meaningful + 4 noise packages
     const source = new Set([
       "next",
       "react",
@@ -429,6 +429,7 @@ describe("computeOwnerMatches", () => {
       "@types/react",
       "@types/node",
       "eslint-config-next",
+      "@babel/core",
     ]);
 
     const matches = computeOwnerMatches(
@@ -436,7 +437,7 @@ describe("computeOwnerMatches", () => {
       [
         {
           owner: "alice",
-          // Alice shares all 3 meaningful + has the same noise packages
+          // Alice shares all 3 meaningful packages and has matching noise categories.
           packageSet: new Set([
             "next",
             "react",
@@ -444,6 +445,7 @@ describe("computeOwnerMatches", () => {
             "@types/react",
             "@types/node",
             "eslint-config-next",
+            "@babel/preset-react",
           ]),
           publicRepoCount: 5,
           totalStars: 100,
@@ -458,7 +460,7 @@ describe("computeOwnerMatches", () => {
     expect(matches).toHaveLength(1);
     // sharedPackageCount should only count meaningful packages
     expect(matches[0]?.sharedPackageCount).toBe(3);
-    // @types/* and tooling packages should not inflate the denominator.
+    // @types/*, Babel, and tooling packages should not inflate the denominator.
     expect(matches[0]?.jaccard).toBe(1);
     // sharedPackagesPreview should not include noise
     expect(matches[0]?.sharedPackagesPreview).toEqual(["next", "react", "tailwindcss"]);
@@ -496,7 +498,14 @@ describe("computeOwnerMatches", () => {
 
   it("noise-only overlap does not produce matches", () => {
     // Source and candidate only share noise packages
-    const source = new Set(["next", "react", "@types/react", "@types/node", "eslint-config-next"]);
+    const source = new Set([
+      "next",
+      "react",
+      "@types/react",
+      "@types/node",
+      "eslint-config-next",
+      "@babel/core",
+    ]);
 
     const matches = computeOwnerMatches(
       source,
@@ -504,7 +513,14 @@ describe("computeOwnerMatches", () => {
         {
           owner: "bob",
           // Bob only shares the noise packages, not the meaningful ones
-          packageSet: new Set(["vue", "nuxt", "@types/react", "@types/node", "eslint-config-next"]),
+          packageSet: new Set([
+            "vue",
+            "nuxt",
+            "@types/react",
+            "@types/node",
+            "eslint-config-next",
+            "@babel/core",
+          ]),
           publicRepoCount: 2,
           totalStars: 20,
         },
@@ -609,8 +625,18 @@ describe("computeStackComparison", () => {
       "@types/node",
       "eslint-config-next",
       "eslint-plugin-react",
+      "@babel/core",
     ]);
-    const setB = new Set(["react", "next", "@types/react", "@types/node", "vue", "vite"]);
+    const setB = new Set([
+      "react",
+      "next",
+      "@types/react",
+      "@types/node",
+      "@babel/core",
+      "@babel/preset-react",
+      "vue",
+      "vite",
+    ]);
 
     const result = computeStackComparison(setA, setB);
 
@@ -619,9 +645,9 @@ describe("computeStackComparison", () => {
     expect(result.jaccard).toBe(0.5);
     expect(result.matchPercent).toBe(50);
     expect(result.sharedPackages).toEqual(["next", "react"]);
-    // totalA should exclude the 4 noise packages → 2
+    // totalA should exclude the 5 noise packages → 2
     expect(result.totalA).toBe(2);
-    // totalB should exclude the 2 noise packages → 4
+    // totalB should exclude the 4 noise packages → 4
     expect(result.totalB).toBe(4);
     // uniqueToA should be empty (noise filtered)
     expect(result.uniqueToA).toEqual([]);

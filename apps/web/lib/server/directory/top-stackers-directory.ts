@@ -28,7 +28,7 @@ const getCachedTopStackers = unstable_cache(
       return [];
     }
   },
-  ["top-stackers-directory-base-v1"],
+  ["top-stackers-directory-base-v2"],
   { revalidate: 300 }
 );
 

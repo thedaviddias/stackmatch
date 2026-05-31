@@ -71,9 +71,9 @@ function SyncAlertAction({
         }
       >
         {isLoading ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <Loader2 className="size-3.5 animate-spin" />
         ) : (
-          <RefreshCw className="h-3.5 w-3.5" />
+          <RefreshCw className="size-3.5" />
         )}
         {isLoading ? loadingLabel : label}
       </button>
@@ -117,7 +117,16 @@ function QueuedSyncAlert({
     : "are waiting to start.";
 
   return (
-    <AppAlert severity={alert.severity} title={alert.title} role={alert.ariaRole}>
+    <AppAlert
+      severity={alert.severity}
+      title={
+        <span className="inline-flex items-center gap-2">
+          <Loader2 aria-hidden="true" className="size-3 animate-spin motion-reduce:animate-none" />
+          {alert.title}
+        </span>
+      }
+      role={alert.ariaRole}
+    >
       {state.repoCount} <RepoLabel count={state.repoCount} /> for @{owner} {queuedDescription}
     </AppAlert>
   );

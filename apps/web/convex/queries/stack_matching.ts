@@ -136,7 +136,7 @@ export interface StackComparison {
  * Compare two package sets and return detailed similarity metrics.
  *
  * Uses the Jaccard similarity coefficient: |A ∩ B| / |A ∪ B|.
- * Hard-noise packages (`@types/*` type stubs, lint configs, etc.) are excluded
+ * Hard-noise packages (`@types/*`, `@babel/*`, lint configs, etc.) are excluded
  * before comparison. Low-signal tooling remains visible but contributes less
  * match evidence.
  */

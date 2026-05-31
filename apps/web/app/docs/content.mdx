@@ -11,7 +11,7 @@ Every **stacker** (user or organization) scanned by Stackmatch goes through a mu
 3. **Fingerprint Construction** — We aggregate all discovered packages into a single "stack fingerprint" for the stacker, distinguishing between direct dependencies and devDependencies.
 4. **Similarity Engine** — To find **stackmates**, we compare fingerprints using a modified Jaccard similarity index, weighted by package popularity, package signal strength, and repo-level usage.
 
-Stackmatch removes hard-noise boilerplate such as `@types/*`, eslint config/plugin packages, and prettier config/plugin packages from match scoring. Core tooling such as `eslint`, `prettier`, `typescript`, `vitest`, and `@biomejs/biome` stays visible in stack views, but contributes less match evidence than product or framework dependencies.
+Stackmatch removes hard-noise boilerplate such as `@types/*`, `@babel/*`, eslint config/plugin packages, and prettier config/plugin packages from match scoring. Core tooling such as `eslint`, `prettier`, `typescript`, `vitest`, and `@biomejs/biome` stays visible in stack views, but contributes less match evidence than product or framework dependencies.
 
 ---
 

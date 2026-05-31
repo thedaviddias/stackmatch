@@ -525,6 +525,8 @@ export function getWeightsForWarmth(warmth: WarmthLevel): SignalWeights {
  *
  * - `@types/*` — TypeScript type stubs that inflate overlap without
  *     representing a runtime stack choice
+ * - `@babel/*` — build/transpile plumbing that is redundant with the
+ *     product libraries and frameworks being compiled
  * - `eslint-config-*` / `eslint-plugin-*` / `@eslint/*` / `@typescript-eslint/*`
  *     — lint setup, redundant with the libraries they enforce
  * - `prettier-config-*` / `prettier-plugin-*` — formatter config
@@ -538,8 +540,7 @@ function getSignalPolicy(ecosystem: PackageEcosystem): PackageSignalPolicy {
  * lint/formatter configs, or other boilerplate that doesn't represent a
  * meaningful technology choice.
  *
- * Used at ingestion time for type stubs and at match time for the broader
- * noise list so legacy data cannot affect scoring.
+ * Used at ingestion time and match time so legacy data cannot affect scoring.
  */
 export function isNoisePackage(
   packageName: string,

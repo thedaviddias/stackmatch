@@ -1,3 +1,5 @@
+import { isNoisePackage } from "@stackmatch/utils/ranking";
+
 export type PackageSection = "dependencies" | "devDependencies";
 
 export interface ParsedPackageEntry {
@@ -42,9 +44,7 @@ export function parsePackageManifest(raw: string, sourcePath: string): ParsedPac
       if (!packageName) continue;
       if (typeof rawVersionRange !== "string") continue;
 
-      // Exclude type stubs from stack signals. They describe the TypeScript
-      // environment, but they are too low-signal for package matching.
-      if (packageName.startsWith("@types/")) continue;
+      if (isNoisePackage(packageName)) continue;
 
       const key = `${section}:${packageName}`;
       if (!deduped.has(key)) {

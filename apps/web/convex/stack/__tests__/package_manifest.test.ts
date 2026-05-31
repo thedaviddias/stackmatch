@@ -110,6 +110,31 @@ describe("parsePackageManifest", () => {
     expect(packageNames).not.toContain("@types/mdx");
   });
 
+  it("excludes @babel/* packages from both dependencies and devDependencies", () => {
+    const raw = JSON.stringify({
+      dependencies: {
+        react: "^19.0.0",
+        "@babel/runtime": "^7.28.0",
+      },
+      devDependencies: {
+        "@babel/core": "^7.28.0",
+        "@babel/preset-env": "^7.28.0",
+        "@babel/plugin-transform-runtime": "^7.28.0",
+        vitest: "^4.0.0",
+      },
+    });
+
+    const result = parsePackageManifest(raw, "package.json");
+    const packageNames = result.map((e) => e.packageName);
+
+    expect(packageNames).toContain("react");
+    expect(packageNames).toContain("vitest");
+    expect(packageNames).not.toContain("@babel/runtime");
+    expect(packageNames).not.toContain("@babel/core");
+    expect(packageNames).not.toContain("@babel/preset-env");
+    expect(packageNames).not.toContain("@babel/plugin-transform-runtime");
+  });
+
   it("excludes @types/* even when they are the only packages", () => {
     const raw = JSON.stringify({
       devDependencies: {

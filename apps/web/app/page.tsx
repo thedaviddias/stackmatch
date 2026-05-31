@@ -306,7 +306,7 @@ const getCachedHomeRecentUsers = unstable_cache(
 const getCachedHomeTopStackers = unstable_cache(
   () =>
     safeFetchQuery("weekly top stackers", () => listWeeklyTopStackers(HOME_TOP_STACKERS_LIMIT), []),
-  ["home-weekly-top-stackers-v1"],
+  ["home-weekly-top-stackers-v2"],
   { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
 );
 
