@@ -1,0 +1,33 @@
+Last updated: May 31, 2026
+
+Stackmatch helps developers find people and organizations with similar JavaScript package stacks. This notice explains the data model.
+
+## What We Access
+
+When you sign in with GitHub, Stackmatch uses GitHub OAuth to identify your account and claim your profile. Public repositories are scanned by default. Standard sign-in does not request private repository access.
+
+Stackmatch analyzes public GitHub repository metadata and public `package.json` manifests to build dependency fingerprints. We do not clone or store source code.
+
+Private repository analysis is optional and requires installing the Stackmatch GitHub App, where you choose which repositories to grant access to. Stackmatch does not request GitHub's broad private repository OAuth scope for normal sign-in.
+
+## What We Store
+
+Stackmatch stores the data needed to operate the product:
+
+- GitHub profile details used for your Stackmatch profile.
+- Public repository scan status and package dependency counts.
+- For opt-in private analysis, aggregate dependency package names/counts and sync status keyed to your GitHub login.
+- Stack matches, package leaderboards, stars, follows, messages, notifications, and profile settings created in Stackmatch.
+- Technical abuse-prevention data such as IP-derived hashes and rate-limit records.
+
+## Private Repositories
+
+Private-derived aggregate data stays private unless you explicitly make it public. Clearing private stack data removes private package aggregates and private manifest cache records from Stackmatch. Disconnecting the GitHub App in Stackmatch removes the local installation link; revoke repository access from GitHub settings to fully remove GitHub-side access.
+
+## What We Do Not Store
+
+Stackmatch does not store private repository source code, private file paths, private commit messages, commit SHAs, or private repository names.
+
+## Contact
+
+Stackmatch is operated by [David Dias Digital](https://daviddias.digital). For privacy requests, contact [hello@stackmatch.dev](mailto:hello@stackmatch.dev).

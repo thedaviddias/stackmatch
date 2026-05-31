@@ -1,0 +1,61 @@
+import { HOUR_MS, MINUTE_MS } from "@stackmatch/constants/time";
+
+export const DEFAULT_NOTIFICATION_CATEGORY = "general";
+export const DEFAULT_NOTIFICATION_TYPE = "generic";
+
+export const NOTIFICATION_MIN_DIGEST_WINDOW_MINUTES = 5;
+export const NOTIFICATION_MAX_DIGEST_WINDOW_MINUTES = 24 * 60;
+
+export const NOTIFICATION_MIN_DIGEST_ITEMS = 1;
+export const NOTIFICATION_MAX_DIGEST_ITEMS = 50;
+
+export const NOTIFICATION_MIN_EMAILS_PER_DAY = 0;
+export const NOTIFICATION_MAX_EMAILS_PER_DAY = 100;
+
+export const NOTIFICATION_DEFAULT_DIGEST_WINDOW_MINUTES = 30;
+export const NOTIFICATION_DEFAULT_MAX_DIGEST_ITEMS = 6;
+export const NOTIFICATION_DEFAULT_MAX_EMAILS_PER_DAY = 3;
+
+export const NOTIFICATION_DEDUPE_DEFAULT_WINDOW_MINUTES = 10;
+export const NOTIFICATION_GLOBAL_DAILY_EMAIL_LIMIT_DEFAULT = 500;
+export const NOTIFICATION_GLOBAL_DAILY_EMAIL_LIMIT_MIN = 1;
+export const NOTIFICATION_GLOBAL_DAILY_EMAIL_LIMIT_MAX = 100_000;
+
+export const GLOBAL_NOTIFICATION_BUDGET_OWNER_KEY = "__global__";
+
+const DIGEST_RETRY_BASE_DELAY_MINUTES = 5;
+const DIGEST_RETRY_MAX_DELAY_HOURS = 6;
+const RATE_LIMIT_DEFER_JITTER_MINUTES = 5;
+
+export const DIGEST_RETRY_BASE_DELAY_MS = DIGEST_RETRY_BASE_DELAY_MINUTES * MINUTE_MS;
+export const DIGEST_RETRY_MAX_DELAY_MS = DIGEST_RETRY_MAX_DELAY_HOURS * HOUR_MS;
+export const MAX_DIGEST_RETRY_ATTEMPTS = 5;
+export const DIGEST_DELIVERY_LOCK_MS = DIGEST_RETRY_BASE_DELAY_MS;
+export const RATE_LIMIT_DEFER_JITTER_MS = RATE_LIMIT_DEFER_JITTER_MINUTES * MINUTE_MS;
+export const WAITLIST_ANNOUNCEMENT_DEFAULT_BATCH_SIZE = 100;
+export const WAITLIST_ANNOUNCEMENT_MAX_BATCH_SIZE = 500;
+export const WAITLIST_ANNOUNCEMENT_LOCK_MS = 5 * MINUTE_MS;
+
+export const DIGEST_PRESETS = [
+  {
+    key: "conservative",
+    label: "Conservative",
+    digestWindowMinutes: 60,
+    maxDigestItems: 4,
+    maxEmailsPerDay: 2,
+  },
+  {
+    key: "balanced",
+    label: "Balanced",
+    digestWindowMinutes: NOTIFICATION_DEFAULT_DIGEST_WINDOW_MINUTES,
+    maxDigestItems: NOTIFICATION_DEFAULT_MAX_DIGEST_ITEMS,
+    maxEmailsPerDay: NOTIFICATION_DEFAULT_MAX_EMAILS_PER_DAY,
+  },
+  {
+    key: "fast",
+    label: "Fast",
+    digestWindowMinutes: 10,
+    maxDigestItems: 10,
+    maxEmailsPerDay: 8,
+  },
+] as const;

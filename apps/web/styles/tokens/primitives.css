@@ -1,0 +1,74 @@
+/* Primitives: Raw design values */
+:root {
+  /* Spacing Scale (8pt grid based) */
+  --s-0: 0px;
+  --s-0-5: 0.125rem; /* 2px */
+  --s-1: 0.25rem; /* 4px */
+  --s-1-5: 0.375rem; /* 6px */
+  --s-2: 0.5rem; /* 8px */
+  --s-2-5: 0.625rem; /* 10px */
+  --s-3: 0.75rem; /* 12px */
+  --s-3-5: 0.875rem; /* 14px */
+  --s-4: 1rem; /* 16px */
+  --s-5: 1.25rem; /* 20px */
+  --s-6: 1.5rem; /* 24px */
+  --s-7: 1.75rem; /* 28px */
+  --s-8: 2rem; /* 32px */
+  --s-9: 2.25rem; /* 36px */
+  --s-10: 2.5rem; /* 40px */
+  --s-12: 3rem; /* 48px */
+  --s-14: 3.5rem; /* 56px */
+  --s-16: 4rem; /* 64px */
+  --s-20: 5rem; /* 80px */
+  --s-24: 6rem; /* 96px */
+  --s-28: 7rem; /* 112px */
+  --s-32: 8rem; /* 128px */
+  --s-40: 10rem; /* 160px */
+  --s-48: 12rem; /* 192px */
+  --s-56: 14rem; /* 224px */
+  --s-64: 16rem; /* 256px */
+
+  /* Radius Scale */
+  --r-none: 0px;
+  --r-xs: 0.125rem; /* 2px */
+  --r-sm: 0.25rem; /* 4px */
+  --r-md: 0.375rem; /* 6px */
+  --r-lg: 0.5rem; /* 8px */
+  --r-xl: 0.75rem; /* 12px */
+  --r-2xl: 1rem; /* 16px */
+  --r-3xl: 1.5rem; /* 24px */
+  --r-4xl: 2rem; /* 32px */
+  --r-full: 9999px;
+
+  /* Typography Scale */
+  --f-xs: 0.75rem; /* 12px */
+  --f-sm: 0.875rem; /* 14px */
+  --f-base: 1rem; /* 16px */
+  --f-lg: 1.125rem; /* 18px */
+  --f-xl: 1.25rem; /* 20px */
+  --f-2xl: 1.5rem; /* 24px */
+  --f-3xl: 1.875rem; /* 30px */
+  --f-4xl: 2.25rem; /* 36px */
+  --f-5xl: 3rem; /* 48px */
+  --f-6xl: 3.75rem; /* 60px */
+  --f-7xl: 4.5rem; /* 72px */
+  --f-8xl: 6rem; /* 96px */
+  --f-9xl: 8rem; /* 128px */
+
+  /* Transitions */
+  --t-fast: 150ms ease;
+  --t-normal: 300ms ease;
+  --t-slow: 500ms ease;
+
+  /* Z-Index */
+  --z-hide: -1;
+  --z-base: 0;
+  --z-dock: 10;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-overlay: 1200;
+  --z-modal: 1300;
+  --z-popover: 1400;
+  --z-toast: 1500;
+  --z-tooltip: 1600;
+}

@@ -1,0 +1,32 @@
+pre-commit:
+  parallel: true
+  commands:
+    constants-check:
+      run: pnpm check:constants
+    data-boundary:
+      run: pnpm check:data-boundary
+    no-magic-staged:
+      run: pnpm check:no-magic-staged
+    check-web:
+      run: pnpm check:web
+    folder-size:
+      run: bash scripts/check-folder-size.sh
+
+commit-msg:
+  commands:
+    semantic-commit:
+      run: pnpm check:commit-msg {1}
+
+pre-push:
+  parallel: true
+  commands:
+    constants-check:
+      run: pnpm check:constants
+    data-boundary:
+      run: pnpm check:data-boundary
+    no-magic-changed:
+      run: pnpm check:no-magic-changed
+    check-web:
+      run: pnpm check:web
+    test:
+      run: pnpm turbo test

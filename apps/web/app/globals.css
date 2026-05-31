@@ -1,0 +1,271 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Design Tokens */
+@import "../styles/tokens/primitives.css";
+@import "../styles/tokens/colors.css";
+@import "../styles/tokens/semantic.css";
+@import "../styles/tokens/github.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  /* Sidebar Colors */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Design Theme Tokens */
+  --color-th-accent-1: var(--theme-accent-1);
+  --color-th-accent-2: var(--theme-accent-2);
+  --color-th-accent-3: var(--theme-accent-3);
+  --color-th-accent-1-ink: var(--theme-accent-1-ink);
+  --color-th-accent-2-ink: var(--theme-accent-2-ink);
+  --color-th-accent-1-text: var(--theme-accent-1-text);
+  --color-th-accent-2-text: var(--theme-accent-2-text);
+  --color-th-gradient-from: var(--theme-gradient-from);
+  --color-th-gradient-via: var(--theme-gradient-via);
+  --color-th-gradient-to: var(--theme-gradient-to);
+
+  /* Radii */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Semantic Radii */
+  --radius-card: var(--card-radius);
+  --radius-button: var(--button-radius);
+  --radius-input: var(--input-radius);
+
+  /* Spacing & Layout */
+  --max-width-app: var(--app-max-width);
+  --spacing-header: var(--header-height);
+  --spacing-section: var(--section-gap);
+  --spacing-section-pt: var(--section-padding-top);
+  --spacing-section-pb: var(--section-padding-bottom);
+
+  /* Typography */
+  --font-sans: var(--font-stack-sans);
+  --font-mono: var(--font-stack-mono);
+  --font-display: var(--font-stack-display);
+  --text-hero: var(--text-hero-title);
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Shimmer sweep — horizontal light pass for loading/pending states */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/* Marquee animation */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 80s linear infinite;
+  width: max-content;
+}
+
+.animate-marquee-slow {
+  animation: marquee 100s linear infinite;
+  width: max-content;
+}
+
+.direction-reverse {
+  animation-direction: reverse;
+}
+
+/* Bell ring animation — gentle swing every few seconds */
+@keyframes bell-ring {
+  0%,
+  80%,
+  100% {
+    transform: rotate(0deg);
+  }
+  85% {
+    transform: rotate(12deg);
+  }
+  90% {
+    transform: rotate(-10deg);
+  }
+  95% {
+    transform: rotate(6deg);
+  }
+}
+
+.animate-bell-ring {
+  animation: bell-ring 3s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+/* ─── sugar-high syntax highlighting ────────────────────────────────── */
+.sugar-high {
+  --sh-class: #f4a261;
+  --sh-identifier: #c9d1d9;
+  --sh-sign: #8b949e;
+  --sh-string: #a5d6ff;
+  --sh-keyword: #ff7b72;
+  --sh-comment: #6e7681;
+  --sh-jsxliterals: #7ee787;
+  --sh-property: #d2a8ff;
+  --sh-entity: #ffa657;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  @apply bg-background/60 dark:bg-neutral-900/60 backdrop-blur-xl border border-border shadow-lg;
+}
+
+.glass-badge {
+  @apply bg-foreground/10 dark:bg-white/10 backdrop-blur-sm border border-foreground/5 dark:border-white/5;
+}
+
+/* Light-mode compatibility for legacy dark-only utility classes.
+   Keep this narrow: it only remaps common app surfaces/borders/text while
+   preserving explicit dark variants and accent-button foregrounds. */
+html:not(.dark) :where(.bg-black, .bg-black\/30, .bg-black\/40, .bg-black\/90),
+html:not(.dark)
+  :where(
+    .bg-neutral-800,
+    .bg-neutral-900,
+    .bg-neutral-900\/20,
+    .bg-neutral-900\/30,
+    .bg-neutral-900\/40,
+    .bg-neutral-900\/50,
+    .bg-neutral-900\/80,
+    .bg-neutral-950,
+    .bg-neutral-950\/40,
+    .bg-neutral-950\/50,
+    .bg-neutral-950\/60,
+    .bg-neutral-950\/80,
+    .bg-neutral-950\/95
+  ) {
+  background-color: var(--card);
+}
+
+html:not(.dark) :where(.bg-white\/5, .bg-white\/\[0\.02\], .bg-white\/\[0\.03\]) {
+  background-color: var(--muted);
+}
+
+html:not(.dark) :where(.hover\:bg-white\/5:hover, .hover\:bg-white\/10:hover) {
+  background-color: color-mix(in srgb, var(--muted) 82%, var(--foreground));
+}
+
+html:not(.dark)
+  :where(
+    .border-neutral-700,
+    .border-neutral-800,
+    .border-neutral-800\/50,
+    .border-neutral-900,
+    .border-white\/5,
+    .border-white\/10
+  ) {
+  border-color: var(--border);
+}
+
+html:not(.dark) :where(.text-neutral-300, .text-neutral-400, .text-neutral-500, .text-neutral-600) {
+  color: var(--muted-foreground);
+}
+
+html:not(.dark)
+  :where(.text-white):not(
+    .bg-th-accent-1,
+    .bg-th-accent-2,
+    .bg-destructive,
+    [class*="bg-gradient"],
+    [class*="bg-rose"],
+    [class*="bg-emerald"]
+  ) {
+  color: var(--foreground);
+}
+
+html:not(.dark)
+  :where(
+    .bg-th-accent-1.text-white,
+    .bg-th-accent-2.text-white,
+    .bg-destructive.text-white,
+    [class*="bg-gradient"].text-white,
+    [class*="bg-rose"].text-white,
+    [class*="bg-emerald"].text-white
+  ) {
+  color: #ffffff;
+}
+
+/* 3D Ticket Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: clip;
+  }
+}

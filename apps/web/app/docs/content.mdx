@@ -1,0 +1,47 @@
+Stackmatch helps you find **stackmates** — developers and organizations who share your unique dependency graph. By scanning `package.json` files across GitHub, we build stacker-level stack fingerprints and surface meaningful overlaps.
+
+---
+
+## How It Works
+
+Every **stacker** (user or organization) scanned by Stackmatch goes through a multi-stage aggregation process to identify their core stack.
+
+1. **Repository Discovery** — We identify the top 20 non-fork repositories by star count for a given stacker.
+2. **Manifest Extraction** — We recursively scan these repositories for `package.json` files, identifying both root and nested dependencies.
+3. **Fingerprint Construction** — We aggregate all discovered packages into a single "stack fingerprint" for the stacker, distinguishing between direct dependencies and devDependencies.
+4. **Similarity Engine** — To find **stackmates**, we compare fingerprints using a modified Jaccard similarity index, weighted by package popularity, package signal strength, and repo-level usage.
+
+Stackmatch removes hard-noise boilerplate such as `@types/*`, eslint config/plugin packages, and prettier config/plugin packages from match scoring. Core tooling such as `eslint`, `prettier`, `typescript`, `vitest`, and `@biomejs/biome` stays visible in stack views, but contributes less match evidence than product or framework dependencies.
+
+---
+
+## Data Privacy
+
+Stackmatch uses GitHub OAuth for identity and public repository package analysis.
+
+- **Public by default** — Public repositories are scanned by default. Standard sign-in does not request private repository access.
+- **No source storage** — We parse package manifests to aggregate dependency names and counts. We do not clone or store source code.
+- **Profile control** — You can hide your profile from discovery with Ghost Mode and clear private aggregate data from your profile controls.
+- **Optional private sync** — Private repository analysis requires installing the Stackmatch GitHub App, where you choose which repositories to grant access to.
+- **Private aggregate storage** — For private analysis, Stackmatch stores aggregate dependency package names/counts and sync status keyed to your GitHub login. It does not store private source code, file paths, commit messages, commit SHAs, or private repository names.
+
+---
+
+## Data Scope & Limitations
+
+| Factor | Stackmatch | GitHub Graph |
+| --- | --- | --- |
+| What's counted | Packages in `package.json` | Commits, PRs, Issues |
+| Repository Limit | Top 20 public non-forks | All contributed repos |
+| Analysis Depth | Full monorepo support (nested manifests) | Usually root-level only |
+| Update Frequency | On-demand scan or 24h cache | Real-time |
+
+> Stackmatch focuses on **intent through dependencies**. The packages you choose to build with are the strongest signal of your engineering DNA.
+
+---
+
+## Community
+
+Stackmatch is an MIT-licensed open-source project operated by [David Dias Digital](https://daviddias.digital). The service is built for developers who want better ways to find stackmates, while the source stays open for review, contribution, and community trust.
+
+If you have ideas for new matching algorithms or want to improve the product, share feedback from your profile or reach out through the contact page.

@@ -1,0 +1,244 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json",
+      "**/*.css",
+      "!apps/web/convex/_generated"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "warn",
+          "options": {
+            "maxAllowedComplexity": 15
+          }
+        }
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "@stackmatch/security/crypto": {
+                "importNames": ["INVITE_CODE_ALPHABET", "INVITE_CODE_LENGTH"],
+                "message": "Import invite constants from @stackmatch/constants/invite."
+              },
+              "@stackmatch/security/throttle": {
+                "importNames": ["RESYNC_COOLDOWN_MS", "RESYNC_DAILY_LIMIT"],
+                "message": "Import resync constants from @stackmatch/constants/sync."
+              },
+              "./notification_digests": {
+                "importNames": [
+                  "DEFAULT_NOTIFICATION_CATEGORY",
+                  "DEFAULT_NOTIFICATION_TYPE",
+                  "GLOBAL_NOTIFICATION_BUDGET_OWNER_KEY",
+                  "MAX_DIGEST_RETRY_ATTEMPTS"
+                ],
+                "message": "Import notification constants from @stackmatch/constants/notifications."
+              },
+              "../lib/notification_digests": {
+                "importNames": [
+                  "DEFAULT_NOTIFICATION_CATEGORY",
+                  "DEFAULT_NOTIFICATION_TYPE",
+                  "GLOBAL_NOTIFICATION_BUDGET_OWNER_KEY",
+                  "MAX_DIGEST_RETRY_ATTEMPTS"
+                ],
+                "message": "Import notification constants from @stackmatch/constants/notifications."
+              },
+              "../../lib/notification_digests": {
+                "importNames": [
+                  "DEFAULT_NOTIFICATION_CATEGORY",
+                  "DEFAULT_NOTIFICATION_TYPE",
+                  "GLOBAL_NOTIFICATION_BUDGET_OWNER_KEY",
+                  "MAX_DIGEST_RETRY_ATTEMPTS"
+                ],
+                "message": "Import notification constants from @stackmatch/constants/notifications."
+              },
+              "./resync_throttle": {
+                "importNames": ["RESYNC_COOLDOWN_MS", "RESYNC_DAILY_LIMIT"],
+                "message": "Import resync constants from @stackmatch/constants/sync."
+              },
+              "../lib/resync_throttle": {
+                "importNames": ["RESYNC_COOLDOWN_MS", "RESYNC_DAILY_LIMIT"],
+                "message": "Import resync constants from @stackmatch/constants/sync."
+              },
+              "../../lib/resync_throttle": {
+                "importNames": ["RESYNC_COOLDOWN_MS", "RESYNC_DAILY_LIMIT"],
+                "message": "Import resync constants from @stackmatch/constants/sync."
+              },
+              "./invite_code": {
+                "importNames": ["INVITE_CODE_ALPHABET", "INVITE_CODE_LENGTH"],
+                "message": "Import invite constants from @stackmatch/constants/invite."
+              },
+              "../lib/invite_code": {
+                "importNames": ["INVITE_CODE_ALPHABET", "INVITE_CODE_LENGTH"],
+                "message": "Import invite constants from @stackmatch/constants/invite."
+              },
+              "../../lib/invite_code": {
+                "importNames": ["INVITE_CODE_ALPHABET", "INVITE_CODE_LENGTH"],
+                "message": "Import invite constants from @stackmatch/constants/invite."
+              }
+            }
+          }
+        },
+        "useFilenamingConvention": {
+          "level": "error",
+          "options": {
+            "strictCase": true,
+            "requireAscii": true,
+            "filenameCases": ["kebab-case"]
+          }
+        }
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConsole": "error"
+      }
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": false,
+      "tailwindDirectives": true
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "es5"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/web/app/api/og/**", "apps/web/lib/og/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          },
+          "performance": {
+            "noImgElement": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/app/layout.tsx"],
+      "linter": {
+        "rules": {
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/convex/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": {
+              "level": "warn",
+              "options": {
+                "maxAllowedComplexity": 30
+              }
+            }
+          },
+          "style": {
+            "useFilenamingConvention": {
+              "level": "error",
+              "options": {
+                "strictCase": true,
+                "requireAscii": true,
+                "filenameCases": ["snake_case"]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["scripts/**", "apps/web/lib/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": {
+              "level": "warn",
+              "options": {
+                "maxAllowedComplexity": 30
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/convex/**", "scripts/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/logger/src/index.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          },
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
+}

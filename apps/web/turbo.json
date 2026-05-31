@@ -1,0 +1,36 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": [
+        "ANALYZE_API_KEY",
+        "BETTER_AUTH_SECRET",
+        "CONVEX_DEPLOY_KEY",
+        "CONVEX_SITE_URL",
+        "FLAGS_SECRET",
+        "GITHUB_TOKEN",
+        "KV_REST_API_READ_ONLY_TOKEN",
+        "KV_REST_API_TOKEN",
+        "KV_REST_API_URL",
+        "KV_URL",
+        "REDIS_URL",
+        "RESEND_API_KEY",
+        "SENTRY_AUTH_TOKEN",
+        "SENTRY_ORG",
+        "SENTRY_PROJECT",
+        "SENTRY_PUBLIC_KEY",
+        "SENTRY_VERCEL_LOG_DRAIN_URL",
+        "SENTRY_OTLP_TRACES_URL",
+        "NEXT_PUBLIC_CONVEX_URL",
+        "NEXT_PUBLIC_CONVEX_SITE_URL",
+        "NEXT_PUBLIC_SENTRY_DSN",
+        "NEXT_PUBLIC_SITE_URL",
+        "NEXT_PUBLIC_VERCEL_ENV",
+        "NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA",
+        "NEXT_PUBLIC_BASE_URL"
+      ]
+    }
+  }
+}

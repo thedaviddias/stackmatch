@@ -1,0 +1,9 @@
+{
+  "name": "@stackmatch/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "base.json"
+  ],
+  "description": "Shared TypeScript compiler configuration for all packages"
+}

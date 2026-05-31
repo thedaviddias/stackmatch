@@ -1,0 +1,4 @@
+{
+  "extends": "@stackmatch/tsconfig/base.json",
+  "include": ["src"]
+}

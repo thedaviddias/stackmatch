@@ -1,0 +1,19 @@
+{
+  "name": "@stackmatch/security",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./throttle": "./src/throttle.ts",
+    "./input": "./src/input.ts",
+    "./crypto": "./src/crypto.ts"
+  },
+  "dependencies": {
+    "@stackmatch/constants": "workspace:*"
+  },
+  "devDependencies": {
+    "@stackmatch/tsconfig": "workspace:*",
+    "vitest": "^4.1.7"
+  },
+  "description": "Input validation, rate-limit evaluation, and cryptographic utilities"
+}

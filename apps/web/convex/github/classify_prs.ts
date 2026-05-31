@@ -1,0 +1,422 @@
+"use node";
+
+import type { PaginationResult } from "convex/server";
+import { v } from "convex/values";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalAction } from "../_generated/server";
+import {
+  AI_REVIEW_LOGIN_CLASSIFICATION_PATTERNS,
+  AI_REVIEW_PR_BODY_CLASSIFICATION_PATTERNS,
+  AI_REVIEW_PR_BRANCH_CLASSIFICATION_PATTERNS,
+  type AttributionClassification,
+} from "../classification/attribution_mappings";
+import { buildDetailedBreakdowns } from "../classification/detailed_breakdown";
+import { extractPRNumber } from "../classification/known_bots";
+import {
+  aggregatePrAttribution,
+  type PrAttributionAggregateInput,
+} from "../classification/pr_attribution";
+import { extractRateLimitInfo, getGitHubHeaders } from "./github_api";
+import { computeStatsFromCommits } from "./stats_computation";
+
+/** Maximum number of individual PR fetches per repo to cap API usage. */
+const MAX_PR_FETCHES_PER_REPO = 50;
+
+/**
+ * Post-processing step: checks PR metadata for squash/merge commits.
+ *
+ * Problem: When a PR created by an AI agent (Copilot, Devin, etc.) is
+ * squash-merged, the resulting commit has the human as the author.
+ * The original AI attribution is lost.
+ *
+ * Solution: After all commits are fetched, we:
+ * 1. Find commits that reference PR numbers (squash merges, merge commits)
+ * 2. Batch-fetch PR metadata from GitHub API (with pacing and rate-limit checks)
+ * 3. If the PR was created by a bot, reclassify the commit
+ * 4. If the PR body/branch/labels contain AI markers, reclassify as ai-assisted
+ * 5. Finalize: recompute stats and mark repo as synced
+ */
+export const classifyPRs = internalAction({
+  args: {
+    repoId: v.id("repos"),
+    owner: v.string(),
+    name: v.string(),
+    totalCommits: v.number(),
+  },
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Pipeline intentionally combines cache lookup, API fetch, rate-limit handling, and reclassification in one action.
+  handler: async (ctx, args) => {
+    const token = process.env.GITHUB_TOKEN;
+    const prAttributionInputs: PrAttributionAggregateInput[] = [];
+
+    // Only attempt PR classification if we have a token
+    if (token) {
+      try {
+        // 1. Get all commits classified as "human" for this repo
+        const humanCommits = (await ctx.runQuery(
+          internal.github.classify_prs_helpers.getHumanCommits,
+          { repoId: args.repoId }
+        )) as Array<{
+          _id: Id<"commits">;
+          message: string;
+          fullMessage?: string;
+        }>;
+
+        // 2. Extract PR numbers from commit messages
+        const prCommitMap = new Map<number, Id<"commits">[]>();
+        for (const commit of humanCommits) {
+          const msg = commit.fullMessage ?? commit.message;
+          const prNumber = extractPRNumber(msg);
+          if (prNumber) {
+            const existing = prCommitMap.get(prNumber) ?? [];
+            existing.push(commit._id);
+            prCommitMap.set(prNumber, existing);
+          }
+        }
+
+        if (prCommitMap.size > 0) {
+          // 3. Fetch PR metadata from GitHub and classify
+          //    - Check cached PR metadata first to avoid re-fetching
+          //    - Cap at MAX_PR_FETCHES_PER_REPO to limit API usage
+          //    - Sort descending (newest PRs first — most likely to be AI-generated)
+          //    - Add pacing between requests to avoid rate-limit bursts
+          const reclassifications: Array<{
+            commitId: Id<"commits">;
+            classification: string;
+          }> = [];
+
+          // Load cached PR metadata for this repo
+          const cachedPRs = await ctx.runQuery(
+            internal.github.classify_prs_helpers.getCachedPRMetadata,
+            { repoId: args.repoId }
+          );
+          const cachedPRMap = new Map(cachedPRs.map((pr) => [pr.prNumber, pr]));
+
+          // Sort PR numbers descending (newest first)
+          const prNumbers = [...prCommitMap.keys()].sort((a, b) => b - a);
+
+          let fetchCount = 0;
+          for (const prNumber of prNumbers) {
+            try {
+              let prData: PRData | null = null;
+
+              // Check cache first
+              const cached = cachedPRMap.get(prNumber);
+              if (cached) {
+                prData = {
+                  number: prNumber,
+                  user: { login: cached.authorLogin, type: cached.authorType },
+                  body: cached.body ?? null,
+                  labels: cached.labels.map((name) => ({ name })),
+                  head: { ref: cached.branchName ?? "" },
+                };
+              } else if (fetchCount < MAX_PR_FETCHES_PER_REPO) {
+                // Fetch from GitHub with rate-limit awareness
+                const result = await fetchPRWithRateLimit(token, args.owner, args.name, prNumber);
+
+                if (result.rateLimited) {
+                  console.log(
+                    `[classifyPRs] Rate limited at PR #${prNumber} for ${args.owner}/${args.name}, proceeding with partial classifications`
+                  );
+                  break;
+                }
+
+                prData = result.prData;
+                fetchCount++;
+
+                // Cache the PR metadata for future resyncs
+                if (prData) {
+                  await ctx.runMutation(internal.github.classify_prs_helpers.cachePRMetadata, {
+                    repoId: args.repoId,
+                    prNumber,
+                    authorLogin: prData.user.login,
+                    authorType: prData.user.type,
+                    body: prData.body?.slice(0, 500) ?? undefined,
+                    branchName: prData.head?.ref ?? undefined,
+                    labels: prData.labels.map((l) => l.name),
+                  });
+                }
+
+                // Pacing between API calls
+                const delay =
+                  result.rateLimitInfo &&
+                  result.rateLimitInfo.remaining !== null &&
+                  result.rateLimitInfo.remaining < 100
+                    ? 500
+                    : 100;
+                await new Promise((resolve) => setTimeout(resolve, delay));
+              }
+
+              if (!prData) continue;
+
+              const commitIds = prCommitMap.get(prNumber) ?? [];
+              const classification = classifyPRAuthor(prData);
+
+              if (classification && commitIds.length > 0) {
+                prAttributionInputs.push({
+                  classification,
+                  login: prData.user?.login ?? null,
+                  body: prData.body ?? null,
+                  branch: prData.head?.ref ?? null,
+                  labels: prData.labels.map((label) => label.name),
+                  commitCount: commitIds.length,
+                });
+
+                for (const commitId of commitIds) {
+                  reclassifications.push({ commitId, classification });
+                }
+              }
+            } catch {
+              // Skip individual PR fetch errors (e.g., 404 for deleted PRs)
+            }
+          }
+
+          // 4. Batch-update commit classifications
+          if (reclassifications.length > 0) {
+            await ctx.runMutation(internal.github.classify_prs_helpers.reclassifyCommits, {
+              reclassifications,
+            });
+          }
+        }
+      } catch {
+        // PR classification is best-effort — don't block finalization
+      }
+    }
+
+    // 5. Compute repo stats — paginated reads to stay under 16 MB limit.
+    //    Each page reads ~500 commits (~500 KB), well under the 16 MB cap.
+    //    Stats are computed in action memory (no transaction limit).
+    await ctx.runMutation(internal.github.ingest_repo.updateSyncProgress, {
+      repoId: args.repoId,
+      syncStage: "computing_stats",
+    });
+
+    const allCommits: Doc<"commits">[] = [];
+    let isDone = false;
+    let cursor: string | null = null;
+    while (!isDone) {
+      const result: PaginationResult<Doc<"commits">> = await ctx.runQuery(
+        internal.github.ingest_commits.getCommitsBatch,
+        {
+          repoId: args.repoId,
+          paginationOpts: { numItems: 500, cursor },
+        }
+      );
+      allCommits.push(...result.page);
+      isDone = result.isDone;
+      cursor = result.continueCursor;
+    }
+
+    // Compute stats in action memory (pure functions, no Convex transaction)
+    const { weeklyStats, dailyStats, contributorStats } = computeStatsFromCommits(allCommits);
+    const { toolBreakdown, botBreakdown } = buildDetailedBreakdowns(allCommits);
+    const prAttribution = aggregatePrAttribution(prAttributionInputs, Date.now());
+
+    // Write pre-computed results (lean mutation — only deletes old stats + inserts new)
+    await ctx.runMutation(internal.github.ingest_commits.writeRepoStats, {
+      repoId: args.repoId,
+      weeklyStats,
+      dailyStats,
+      contributorStats,
+      toolBreakdown,
+      botBreakdown,
+      prAttribution,
+    });
+
+    // 6. Clean up individual commits — stats are now aggregated,
+    // GitHub remains the source of truth for raw commit data
+    await ctx.runMutation(internal.github.ingest_commits.deleteRepoCommits, {
+      repoId: args.repoId,
+    });
+
+    // 7. Rebuild owner-level package/language/topic aggregates so lookup
+    //    tables (ownerPackages, ownerLanguages, ownerTopics) stay in sync.
+    await ctx.runMutation(internal.stack.ingest_repo.rebuildOwnerPackages, {
+      owner: args.owner,
+    });
+
+    // 8. Mark synced and conditionally recompute global stats.
+    //    Only recompute global stats when the LAST repo for this owner finishes,
+    //    preventing write conflicts from concurrent mutations on the same rows.
+    const { hasMorePending } = await ctx.runMutation(internal.github.ingest_repo.markSynced, {
+      repoId: args.repoId,
+      totalCommits: args.totalCommits,
+    });
+
+    if (!hasMorePending) {
+      await ctx.runMutation(internal.mutations.recompute_global_stats.recomputeGlobalStats, {});
+    }
+  },
+});
+
+// ─── PR data fetching ─────────────────────────────────────────────────
+
+export interface PRData {
+  number: number;
+  user: {
+    login: string;
+    type: string; // "User" | "Bot" | "Organization"
+  };
+  body: string | null;
+  labels: Array<{ name: string }>;
+  head: {
+    ref: string; // Branch name
+  };
+}
+
+interface FetchPRResult {
+  prData: PRData | null;
+  rateLimited: boolean;
+  rateLimitInfo: import("./github_api").GitHubRateLimitInfo | null;
+}
+
+async function fetchPRWithRateLimit(
+  token: string,
+  owner: string,
+  name: string,
+  prNumber: number
+): Promise<FetchPRResult> {
+  const url = `https://api.github.com/repos/${owner}/${name}/pulls/${prNumber}`;
+  const response = await fetch(url, {
+    headers: getGitHubHeaders(token),
+  });
+
+  const rateLimitInfo = extractRateLimitInfo(response);
+
+  if (rateLimitInfo.isRateLimited) {
+    return { prData: null, rateLimited: true, rateLimitInfo };
+  }
+
+  if (!response.ok) {
+    return { prData: null, rateLimited: false, rateLimitInfo };
+  }
+
+  const prData: PRData = await response.json();
+  return { prData, rateLimited: false, rateLimitInfo };
+}
+
+// ─── PR classification patterns ───────────────────────────────────────
+
+// Bot author patterns for PR creators
+const PR_BOT_PATTERNS: Array<{ pattern: RegExp; classification: AttributionClassification }> = [
+  { pattern: /cursor[- ]?agent/i, classification: "cursor" },
+  { pattern: /copilot-swe-agent/i, classification: "copilot" },
+  { pattern: /copilot/i, classification: "copilot" },
+  { pattern: /devin-ai-integration/i, classification: "devin" },
+  { pattern: /devin/i, classification: "devin" },
+  { pattern: /sweep/i, classification: "ai-assisted" },
+  { pattern: /gemini-code-assist/i, classification: "gemini" },
+  { pattern: /amazon-q-developer/i, classification: "ai-assisted" },
+  { pattern: /chatgpt-codex-connector/i, classification: "openai-codex" },
+  { pattern: /codex/i, classification: "openai-codex" },
+  { pattern: /aider/i, classification: "aider" },
+  ...AI_REVIEW_LOGIN_CLASSIFICATION_PATTERNS,
+  { pattern: /sentry-bot/i, classification: "other-bot" },
+  { pattern: /sentry\[bot\]/i, classification: "other-bot" },
+  { pattern: /\[bot\]$/i, classification: "other-bot" },
+];
+
+// PR body patterns that indicate AI involvement
+const PR_BODY_AI_PATTERNS: Array<{
+  pattern: RegExp;
+  classification: AttributionClassification;
+}> = [
+  { pattern: /Generated with \[?Cursor\]?/i, classification: "cursor" },
+  { pattern: /\[Cursor\]/i, classification: "cursor" },
+  { pattern: /Generated with \[?Claude Code\]?/i, classification: "claude" },
+  { pattern: /Generated with \[?Claude\]?/i, classification: "claude" },
+  { pattern: /Generated by \[?GitHub Copilot\]?/i, classification: "copilot" },
+  { pattern: /Generated by \[?Copilot\]?/i, classification: "copilot" },
+  { pattern: /Created by \[?Devin\]?/i, classification: "devin" },
+  { pattern: /\baider[:/]\s/im, classification: "aider" },
+  { pattern: /Generated (?:with|by) \[?Gemini\]?/i, classification: "gemini" },
+  { pattern: /gemini-code-assist/i, classification: "gemini" },
+  { pattern: /Generated (?:with|by) \[?(?:OpenAI )?Codex\]?/i, classification: "openai-codex" },
+  { pattern: /Generated by \[?Windsurf\]?/i, classification: "ai-assisted" },
+  ...AI_REVIEW_PR_BODY_CLASSIFICATION_PATTERNS,
+  { pattern: /\bAI[- ]generated\b/i, classification: "ai-assisted" },
+  {
+    pattern: /Co-authored-by:.*(?:claude|copilot|cursor|codex|aider|anthropic|openai|cursoragent)/i,
+    classification: "ai-assisted",
+  },
+  { pattern: /\ud83e\udd16 Generated with/i, classification: "ai-assisted" },
+];
+
+// Branch name patterns that indicate AI agent involvement
+const PR_BRANCH_AI_PATTERNS: Array<{
+  pattern: RegExp;
+  classification: AttributionClassification;
+}> = [
+  { pattern: /^cursor\//i, classification: "cursor" },
+  { pattern: /^copilot\//i, classification: "copilot" },
+  { pattern: /^devin\//i, classification: "devin" },
+  { pattern: /^codex\//i, classification: "openai-codex" },
+  { pattern: /^openai-codex\//i, classification: "openai-codex" },
+  { pattern: /^aider\//i, classification: "aider" },
+  { pattern: /^gemini\//i, classification: "gemini" },
+  { pattern: /^sweep\//i, classification: "ai-assisted" },
+  { pattern: /^amazon-q\//i, classification: "ai-assisted" },
+  { pattern: /^windsurf\//i, classification: "ai-assisted" },
+  ...AI_REVIEW_PR_BRANCH_CLASSIFICATION_PATTERNS,
+  { pattern: /^ai[-/]/i, classification: "ai-assisted" },
+];
+
+// PR label patterns that indicate AI involvement
+const PR_LABEL_AI_PATTERNS: RegExp[] = [/ai[- ]generated/i, /copilot/i, /automated/i];
+
+/**
+ * Determines if a PR was created by or with AI assistance.
+ * Returns the classification string if AI-involved, null otherwise.
+ *
+ * Checks (in priority order):
+ * 1. PR author is a bot account → specific classification
+ * 2. PR author login matches known AI patterns → specific classification
+ * 3. PR branch name matches AI patterns → "ai-assisted"
+ * 4. PR body contains AI markers → "ai-assisted"
+ * 5. PR labels indicate AI → "ai-assisted"
+ */
+export function classifyPRAuthor(pr: PRData): AttributionClassification | null {
+  // 1. Bot account type
+  if (pr.user.type === "Bot") {
+    for (const { pattern, classification } of PR_BOT_PATTERNS) {
+      if (pattern.test(pr.user.login)) {
+        return classification;
+      }
+    }
+    return "other-bot";
+  }
+
+  // 2. Known AI bot login patterns (some don't register as "Bot" type)
+  for (const { pattern, classification } of PR_BOT_PATTERNS) {
+    if (pattern.test(pr.user.login)) {
+      return classification;
+    }
+  }
+
+  // 3. Branch name patterns
+  const branchName = pr.head?.ref ?? "";
+  for (const { pattern, classification } of PR_BRANCH_AI_PATTERNS) {
+    if (pattern.test(branchName)) {
+      return classification;
+    }
+  }
+
+  // 4. PR body AI markers
+  const body = pr.body ?? "";
+  for (const { pattern, classification } of PR_BODY_AI_PATTERNS) {
+    if (pattern.test(body)) {
+      return classification;
+    }
+  }
+
+  // 5. PR labels
+  for (const label of pr.labels) {
+    for (const pattern of PR_LABEL_AI_PATTERNS) {
+      if (pattern.test(label.name)) {
+        return "ai-assisted";
+      }
+    }
+  }
+
+  return null;
+}

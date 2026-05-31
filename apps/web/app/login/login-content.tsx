@@ -1,0 +1,632 @@
+"use client";
+
+import { ROUTES } from "@stackmatch/config";
+import { Eye, EyeOff, Hash, Lock, Shield, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { useSession } from "@/components/providers/session-provider";
+import { ButtonCustom } from "@/components/ui/button";
+import { AppAlert } from "@/components/ui/feedback/app-alert";
+import { api } from "@/data/api";
+import { useAction, useMutation, useQuery } from "@/data/react";
+import { authClient } from "@/lib/auth/auth-client";
+import { buildLoginUrl, getReturnToFromCurrentLocation } from "@/lib/auth/login-url";
+import { getWebAlert } from "@/lib/feedback/alert-registry";
+import { buildProfileRedirectUrl, isValidGitHubLogin } from "@/lib/leaderboard/login-redirect";
+import { getI18n } from "@/lib/re-exports/i18n";
+import { logger } from "@/lib/re-exports/logger";
+import { clearPendingReferral, getPendingReferral } from "@/lib/storage/pending-referral";
+import { clearPendingStar, getPendingStar } from "@/lib/storage/pending-star";
+
+const i18n = getI18n();
+
+type SessionData = ReturnType<typeof useSession>["session"];
+type ToggleStarMutation = (args: { targetOwner: string }) => Promise<{
+  isMatch: boolean;
+  starred: boolean;
+}>;
+type ClaimProfileMutation = () => Promise<unknown>;
+type RedeemInviteMutation = (args: { code: string }) => Promise<{ referrerOwner: string }>;
+type RepairGitHubLoginAction = () => Promise<string | null>;
+
+const LOGIN_RESOLUTION_WAIT_MS = 5000;
+const GITHUB_AVATAR_USER_ID_PATTERN =
+  /^https:\/\/avatars\.githubusercontent\.com\/u\/[0-9]+(?:\?.*)?$/;
+
+function hasGitHubAvatarUserId(avatarUrl: string | null | undefined) {
+  return Boolean(avatarUrl && GITHUB_AVATAR_USER_ID_PATTERN.test(avatarUrl));
+}
+
+function shouldStartGitHubLoginRepair({
+  session,
+  isPending,
+  resolvedLogin,
+  hasStarted,
+}: {
+  session: SessionData;
+  isPending: boolean;
+  resolvedLogin: string | null | undefined;
+  hasStarted: boolean;
+}) {
+  if (!session?.user || isPending || hasStarted || isValidGitHubLogin(resolvedLogin)) {
+    return false;
+  }
+
+  if (resolvedLogin === undefined) {
+    return hasGitHubAvatarUserId(session.user.image);
+  }
+
+  return true;
+}
+
+function getSignInErrorMessage(result: unknown): string | null {
+  if (!result || typeof result !== "object" || !("error" in result)) return null;
+
+  const { error } = result as { error?: unknown };
+  if (!error) return null;
+  if (typeof error === "string") return error;
+
+  if (typeof error === "object") {
+    const errorRecord = error as Record<string, unknown>;
+    if (typeof errorRecord.message === "string" && errorRecord.message.trim()) {
+      return errorRecord.message;
+    }
+    if (typeof errorRecord.statusText === "string" && errorRecord.statusText.trim()) {
+      return errorRecord.statusText;
+    }
+  }
+
+  return i18n.pages.login.signInError;
+}
+
+function processPendingReferral(
+  referralProcessed: boolean,
+  setReferralProcessed: (value: boolean) => void,
+  redeemInviteCode: RedeemInviteMutation
+) {
+  const pendingReferral = getPendingReferral();
+  if (!pendingReferral || referralProcessed) return;
+
+  setReferralProcessed(true);
+  clearPendingReferral();
+
+  redeemInviteCode({ code: pendingReferral.code })
+    .then((result) => {
+      toast.success(i18n.feedback.login.referralWelcome(result.referrerOwner));
+    })
+    .catch((error: unknown) => {
+      const message =
+        error && typeof error === "object" && "data" in error && typeof error.data === "string"
+          ? error.data
+          : null;
+      if (message) {
+        toast.error(message);
+      }
+    });
+}
+
+async function processPendingStarFlow(
+  username: string,
+  returnTo: string | null,
+  pendingStarProcessed: boolean,
+  setPendingStarProcessed: (value: boolean) => void,
+  toggleStar: ToggleStarMutation,
+  router: ReturnType<typeof useRouter>
+) {
+  const pendingStar = getPendingStar();
+
+  if (!pendingStar) {
+    router.replace(returnTo ?? buildProfileRedirectUrl(username));
+    return;
+  }
+
+  if (pendingStar.targetOwner === username) {
+    clearPendingStar();
+    router.replace(returnTo ?? buildProfileRedirectUrl(username));
+    return;
+  }
+
+  if (pendingStarProcessed) return;
+
+  setPendingStarProcessed(true);
+  clearPendingStar();
+
+  try {
+    const result = await toggleStar({ targetOwner: pendingStar.targetOwner });
+    if (result.isMatch) {
+      toast.success(i18n.feedback.login.matchSuccess(pendingStar.targetOwner));
+    } else {
+      toast.success(i18n.feedback.login.starSuccess(pendingStar.targetOwner));
+    }
+    router.replace(ROUTES.owner(pendingStar.targetOwner));
+  } catch {
+    toast.error(i18n.feedback.login.starFailed);
+    router.replace(buildProfileRedirectUrl(username));
+  }
+}
+
+function usePostLoginRedirectFlow({
+  session,
+  isPending,
+  resolvedLogin,
+  toggleStar,
+  claimProfile,
+  redeemInviteCode,
+  router,
+  returnTo,
+}: {
+  session: SessionData;
+  isPending: boolean;
+  resolvedLogin: string | null | undefined;
+  toggleStar: ToggleStarMutation;
+  claimProfile: ClaimProfileMutation;
+  redeemInviteCode: RedeemInviteMutation;
+  router: ReturnType<typeof useRouter>;
+  returnTo: string | null;
+}) {
+  const [pendingStarProcessed, setPendingStarProcessed] = useState(false);
+  const [referralProcessed, setReferralProcessed] = useState(false);
+  const [profileClaimed, setProfileClaimed] = useState(false);
+  const profileClaimStartedRef = useRef(false);
+  const [profileClaimError, setProfileClaimError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This flow coordinates claim, referral, pending-star, and redirect state in one effect.
+    async function runPostLoginFlow() {
+      if (!session?.user || isPending) return;
+      if (!isValidGitHubLogin(resolvedLogin)) return;
+      if (profileClaimError) return;
+      if (profileClaimStartedRef.current && !profileClaimed) return;
+
+      try {
+        if (!profileClaimed) {
+          profileClaimStartedRef.current = true;
+          await claimProfile();
+          if (cancelled) return;
+          setProfileClaimed(true);
+        }
+
+        if (cancelled) return;
+        processPendingReferral(referralProcessed, setReferralProcessed, redeemInviteCode);
+        await processPendingStarFlow(
+          resolvedLogin,
+          returnTo,
+          pendingStarProcessed,
+          setPendingStarProcessed,
+          toggleStar,
+          router
+        );
+      } catch (error) {
+        if (cancelled) return;
+        logger.error("Failed to claim profile:", error);
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : i18n.pages.login.claimProfileError;
+        profileClaimStartedRef.current = false;
+        setProfileClaimError(message);
+        toast.error(message);
+      }
+    }
+
+    void runPostLoginFlow();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    session,
+    isPending,
+    resolvedLogin,
+    profileClaimed,
+    profileClaimError,
+    claimProfile,
+    referralProcessed,
+    redeemInviteCode,
+    returnTo,
+    pendingStarProcessed,
+    toggleStar,
+    router,
+  ]);
+
+  return profileClaimError;
+}
+
+function useLoginResolutionTimeout({
+  session,
+  isPending,
+  resolvedLogin,
+}: {
+  session: SessionData;
+  isPending: boolean;
+  resolvedLogin: string | null | undefined;
+}) {
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!session?.user || isPending) return;
+    if (resolvedLogin === undefined) {
+      const timer = window.setTimeout(() => setTimedOut(true), LOGIN_RESOLUTION_WAIT_MS);
+      return () => window.clearTimeout(timer);
+    }
+
+    setTimedOut(false);
+  }, [session, isPending, resolvedLogin]);
+
+  return timedOut;
+}
+
+function useGitHubLoginSelfRepair({
+  session,
+  isPending,
+  resolvedLogin,
+  repairGitHubLogin,
+}: {
+  session: SessionData;
+  isPending: boolean;
+  resolvedLogin: string | null | undefined;
+  repairGitHubLogin: RepairGitHubLoginAction;
+}) {
+  const [repairedLogin, setRepairedLogin] = useState<string | null>(null);
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repairCompleted, setRepairCompleted] = useState(false);
+  const repairStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      !shouldStartGitHubLoginRepair({
+        session,
+        isPending,
+        resolvedLogin,
+        hasStarted: repairStartedRef.current,
+      })
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    repairStartedRef.current = true;
+    setIsRepairing(true);
+
+    repairGitHubLogin()
+      .then((login) => {
+        if (cancelled) return;
+        setRepairedLogin(isValidGitHubLogin(login) ? login : null);
+      })
+      .catch((error: unknown) => {
+        logger.error("Failed to repair GitHub login:", error);
+        if (cancelled) return;
+        setRepairedLogin(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setRepairCompleted(true);
+        setIsRepairing(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, isPending, resolvedLogin, repairGitHubLogin]);
+
+  return { repairedLogin, isRepairing, repairCompleted };
+}
+
+function LoginLoader({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/5 border-t-pink-500 shadow-[0_0_20px_rgba(236,72,153,0.2)]" />
+      <p className="animate-pulse text-sm font-black uppercase tracking-widest text-neutral-500">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function LoginRecovery({ message }: { message: string }) {
+  const alert = getWebAlert("login.recovery");
+
+  return (
+    <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/10 text-red-200">
+        <Shield className="h-5 w-5" />
+      </div>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold text-white">{i18n.pages.login.claimIssueHeading}</h1>
+        <AppAlert
+          severity={alert.severity}
+          role={alert.ariaRole}
+          variant="inline"
+          className="border-transparent bg-transparent p-0"
+          bodyClassName="text-sm leading-relaxed text-neutral-400"
+        >
+          {message}
+        </AppAlert>
+      </div>
+      <div className="flex flex-wrap justify-center gap-3">
+        <ButtonCustom type="button" onClick={() => authClient.signOut()} className="rounded-xl">
+          Sign out
+        </ButtonCustom>
+        <ButtonCustom
+          type="button"
+          variant="ghost"
+          onClick={() => window.location.reload()}
+          className="rounded-xl"
+        >
+          Try again
+        </ButtonCustom>
+      </div>
+    </div>
+  );
+}
+
+function LoginHeader() {
+  return (
+    <div className="text-center">
+      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="text-white"
+          role="img"
+          aria-label={i18n.a11y.login.githubIcon}
+        >
+          <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+        </svg>
+      </div>
+      <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        {i18n.pages.login.heading}
+      </h1>
+      <p className="mt-4 text-lg leading-relaxed text-neutral-400">{i18n.pages.login.subheading}</p>
+    </div>
+  );
+}
+
+function LoginCallToAction({
+  errorMessage,
+  isSigningIn,
+  onSignIn,
+}: {
+  errorMessage: string | null;
+  isSigningIn: boolean;
+  onSignIn: () => void;
+}) {
+  const alert = getWebAlert("login.sign-in-error");
+
+  return (
+    <div className="mt-10 flex flex-col items-center gap-4">
+      <ButtonCustom
+        aria-busy={isSigningIn}
+        aria-disabled={isSigningIn}
+        onClick={onSignIn}
+        size="lg"
+        className="rounded-xl"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          role="img"
+          aria-hidden="true"
+        >
+          <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+        </svg>
+        {isSigningIn ? i18n.pages.login.signingIn : i18n.actions.login.continueWithGitHub}
+      </ButtonCustom>
+      {errorMessage ? (
+        <AppAlert
+          severity={alert.severity}
+          title={alert.title}
+          role="alert"
+          variant="inline"
+          className="max-w-md rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-center text-sm text-red-200"
+        >
+          {errorMessage}
+        </AppAlert>
+      ) : null}
+      <p className="text-xs text-neutral-600">{i18n.pages.login.signInNotice}</p>
+    </div>
+  );
+}
+
+function LoginPrivacyDetails() {
+  return (
+    <div className="mt-14 space-y-4">
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
+        {i18n.pages.login.howItWorksHeading}
+      </h2>
+
+      <div className="space-y-3">
+        <PrivacyItem
+          icon={<Eye className="h-5 w-5" />}
+          title={i18n.pages.login.privacyItems[0]?.title ?? ""}
+          description={i18n.pages.login.privacyItems[0]?.description ?? ""}
+        />
+        <PrivacyItem
+          icon={<Hash className="h-5 w-5" />}
+          title={i18n.pages.login.privacyItems[1]?.title ?? ""}
+          description={i18n.pages.login.privacyItems[1]?.description ?? ""}
+        />
+        <PrivacyItem
+          icon={<EyeOff className="h-5 w-5" />}
+          title={i18n.pages.login.privacyItems[2]?.title ?? ""}
+          description={i18n.pages.login.privacyItems[2]?.description ?? ""}
+        />
+        <PrivacyItem
+          icon={<Lock className="h-5 w-5" />}
+          title={i18n.pages.login.privacyItems[3]?.title ?? ""}
+          description={i18n.pages.login.privacyItems[3]?.description ?? ""}
+        />
+        <PrivacyItem
+          icon={<Shield className="h-5 w-5" />}
+          title={i18n.pages.login.privacyItems[4]?.title ?? ""}
+          description={i18n.pages.login.privacyItems[4]?.description ?? ""}
+        />
+        <PrivacyItem
+          icon={<ShieldCheck className="h-5 w-5" />}
+          title={i18n.pages.login.privacyItems[5]?.title ?? ""}
+          description={i18n.pages.login.privacyItems[5]?.description ?? ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Login page content with privacy explanation.
+ *
+ * This page is the entry point for GitHub OAuth. It explains exactly
+ * what data we access, how we process it, and what we store.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: LoginContent owns the auth state machine and render states for this route.
+export function LoginContent() {
+  const { session, isPending } = useSession();
+  const myGitHubLogin = useQuery(api.auth.getMyGitHubLogin, session?.user ? {} : "skip");
+  const profileOwnerByAvatar = useQuery(
+    api.queries.users.getProfileOwnerByAvatarUrl,
+    session?.user?.image && !myGitHubLogin ? { avatarUrl: session.user.image } : "skip"
+  );
+  const router = useRouter();
+  const toggleStar = useMutation(api.mutations.stars.toggleStar);
+  const claimProfile = useMutation(api.mutations.profiles.claimProfile);
+  const redeemInviteCode = useMutation(api.mutations.invite_codes.redeemInviteCode);
+  const repairGitHubLogin = useAction(api.auth.repairMyGitHubLogin);
+  const resolvedLoginFromQueries = myGitHubLogin ?? profileOwnerByAvatar;
+  const loginRepair = useGitHubLoginSelfRepair({
+    session,
+    isPending,
+    resolvedLogin: resolvedLoginFromQueries,
+    repairGitHubLogin,
+  });
+  const resolvedLogin = resolvedLoginFromQueries ?? loginRepair.repairedLogin;
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+  const [isReturnToReady, setIsReturnToReady] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const isResolvingLogin = Boolean(
+    session?.user &&
+      (myGitHubLogin === undefined ||
+        (!myGitHubLogin && session.user.image && profileOwnerByAvatar === undefined) ||
+        (resolvedLoginFromQueries === null && !loginRepair.repairCompleted) ||
+        loginRepair.isRepairing)
+  );
+  const hasInvalidResolvedLogin =
+    Boolean(session?.user) &&
+    resolvedLogin !== undefined &&
+    (resolvedLogin !== null || loginRepair.repairCompleted) &&
+    !isValidGitHubLogin(resolvedLogin);
+
+  useEffect(() => {
+    setReturnTo(getReturnToFromCurrentLocation());
+    setIsReturnToReady(true);
+  }, []);
+
+  const profileClaimError = usePostLoginRedirectFlow({
+    session,
+    isPending: isPending || !isReturnToReady || isResolvingLogin,
+    resolvedLogin,
+    toggleStar,
+    claimProfile,
+    redeemInviteCode,
+    router,
+    returnTo,
+  });
+  const loginResolutionTimedOut = useLoginResolutionTimeout({
+    session,
+    isPending: isPending || !isReturnToReady,
+    resolvedLogin,
+  });
+
+  const handleSignIn = async () => {
+    setSignInError(null);
+    setIsSigningIn(true);
+
+    try {
+      const result = await authClient.signIn.social({
+        provider: "github",
+        callbackURL: buildLoginUrl(returnTo),
+      });
+      const message = getSignInErrorMessage(result);
+      if (message) {
+        setSignInError(message);
+        toast.error(message);
+      }
+    } catch (error) {
+      logger.error("GitHub sign-in failed:", error);
+      const message =
+        error instanceof Error && error.message ? error.message : i18n.pages.login.signInError;
+      setSignInError(message);
+      toast.error(message);
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  if (isSigningIn) {
+    return <LoginLoader label={i18n.pages.login.signingIn} />;
+  }
+
+  if (profileClaimError) {
+    return <LoginRecovery message={profileClaimError} />;
+  }
+
+  if (hasInvalidResolvedLogin) {
+    return <LoginRecovery message={i18n.pages.login.resolveLoginError} />;
+  }
+
+  if (session?.user && loginResolutionTimedOut) {
+    return <LoginRecovery message={i18n.pages.login.resolveLoginError} />;
+  }
+
+  if (!isReturnToReady || isPending || (session?.user && isResolvingLogin)) {
+    return <LoginLoader label={i18n.pages.login.loading} />;
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl py-16 sm:py-24">
+      <ErrorBoundary level="widget">
+        <LoginHeader />
+      </ErrorBoundary>
+
+      <ErrorBoundary level="widget">
+        <LoginCallToAction
+          errorMessage={signInError}
+          isSigningIn={isSigningIn}
+          onSignIn={handleSignIn}
+        />
+      </ErrorBoundary>
+
+      <ErrorBoundary level="section">
+        <LoginPrivacyDetails />
+      </ErrorBoundary>
+    </div>
+  );
+}
+
+function PrivacyItem({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex gap-4 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/5 text-neutral-400">
+        {icon}
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <p className="mt-0.5 text-sm leading-relaxed text-neutral-400">{description}</p>
+      </div>
+    </div>
+  );
+}

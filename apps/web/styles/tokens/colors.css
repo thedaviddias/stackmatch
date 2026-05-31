@@ -1,0 +1,187 @@
+/* Design theme colors and core theme definitions */
+:root {
+  color-scheme: light;
+
+  /* BASE LIGHT THEME (WCAG AAA Compliant) */
+  --primary: #ff0080;
+  --primary-gradient: linear-gradient(135deg, #d9006c 0%, #b3125f 100%);
+  --secondary-gradient: linear-gradient(135deg, #2563eb 0%, #0f766e 100%);
+  --radius: 0.625rem;
+  --background: #fbfbf8;
+  --foreground: #09090b; /* 19.1:1 contrast */
+  --card: #f4f4f5;
+  --card-foreground: #09090b;
+  --popover: #fbfbf8;
+  --popover-foreground: #09090b;
+  --primary-foreground: #ffffff;
+  --secondary: #e4e4e7;
+  --secondary-foreground: #18181b;
+  --muted: #e4e4e7;
+  --muted-foreground: #52525b; /* 7.1:1 contrast (AAA Normal Text) */
+  --accent: #e4e4e7;
+  --accent-foreground: #18181b;
+  --destructive: #d92d20;
+  --border: #71717a; /* 4.8:1 contrast (AAA UI Components) */
+  --input: #71717a;
+  --ring: #18181b;
+  --chart-1: #f43f5e;
+  --chart-2: #fb923c;
+  --chart-3: #0ea5e9;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #3f3f46;
+  --sidebar-primary: #18181b;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: #71717a;
+  --sidebar-ring: #a1a1aa;
+
+  /* ── Design theme tokens (default = Neon) ────────────────────────── */
+  --theme-accent-1: #d9006c; /* Darkened for Light Mode AAA */
+  --theme-accent-2: #7928ca;
+  --theme-accent-3: #4c1d95;
+  --theme-accent-1-ink: #ffffff;
+  --theme-accent-2-ink: #ffffff;
+  --theme-accent-1-text: #d9006c;
+  --theme-accent-2-text: #7928ca;
+  --theme-gradient-from: #d9006c;
+  --theme-gradient-via: #7928ca;
+  --theme-gradient-to: #4c1d95;
+  --theme-orb-1: rgba(217, 0, 108, 0.08);
+  --theme-orb-2: rgba(121, 40, 202, 0.06);
+  --theme-orb-3: rgba(76, 29, 149, 0.05);
+  --theme-hover-glow: 255, 0, 128;
+  --theme-hover-border: rgba(217, 0, 108, 0.4);
+  --theme-selection-bg: rgba(217, 0, 108, 0.2);
+
+  /* ── Layout tokens ────────────────────────────────────────────── */
+  --app-max-width: 80rem;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* BASE DARK THEME (WCAG AAA Compliant) */
+  --background: #07070a;
+  --foreground: #fafafa; /* 20.1:1 contrast */
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #09090b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --secondary: #18181b;
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa; /* 7.4:1 contrast (AAA Normal Text) */
+  --accent: #18181b;
+  --accent-foreground: #fafafa;
+  --destructive: #ef4444;
+  --border: #52525b; /* 3.2:1 contrast (AA UI Components) */
+  --input: #52525b;
+  --ring: #d4d4d8;
+  --chart-1: #2563eb;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --sidebar: #09090b;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #18181b;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #3b82f6;
+
+  /* ── Design theme tokens (Neon Overrides for Dark) ────────────────── */
+  --theme-accent-1: #ff0080;
+  --theme-accent-2: #a855f7;
+  --theme-accent-3: #c084fc;
+  --theme-accent-1-ink: #09090b;
+  --theme-accent-2-ink: #09090b;
+  --theme-accent-1-text: #ff0080;
+  --theme-accent-2-text: #a855f7;
+  --theme-gradient-from: #ff0080;
+  --theme-gradient-via: #a855f7;
+  --theme-gradient-to: #c084fc;
+  --theme-orb-1: rgba(255, 0, 128, 0.1);
+  --theme-orb-2: rgba(168, 85, 247, 0.1);
+  --theme-orb-3: rgba(192, 132, 252, 0.1);
+}
+
+/* ── Design theme overrides ────────────────────────────────────────── */
+
+/* GitHub — Primer Light */
+[data-theme="github"] {
+  --background: #ffffff;
+  --foreground: #24292f;
+  --card: #f6f8fa;
+  --card-foreground: #24292f;
+  --popover: #ffffff;
+  --popover-foreground: #24292f;
+  --primary: #0969da;
+  --primary-foreground: #ffffff;
+  --secondary: #eaeef2;
+  --secondary-foreground: #24292f;
+  --muted: #eaeef2;
+  --muted-foreground: #57606a;
+  --accent: #0969da;
+  --accent-foreground: #ffffff;
+  --border: #8c959f;
+  --input: #8c959f;
+  --ring: #0969da;
+
+  /* Theme-specific tokens */
+  --theme-accent-1: #1a7f37;
+  --theme-accent-2: #0969da;
+  --theme-accent-3: #cf222e;
+  --theme-accent-1-text: #116329;
+  --theme-accent-2-text: #0969da;
+  --theme-gradient-from: #1a7f37;
+  --theme-gradient-via: #2da44e;
+  --theme-gradient-to: #1a7f37;
+  --theme-orb-1: rgba(26, 127, 55, 0.08);
+  --theme-orb-2: rgba(9, 105, 218, 0.08);
+  --theme-orb-3: rgba(207, 34, 46, 0.08);
+  --theme-hover-glow: 26, 127, 55;
+  --theme-hover-border: rgba(140, 149, 159, 0.9);
+  --theme-selection-bg: rgba(9, 105, 218, 0.18);
+}
+
+.dark[data-theme="github"] {
+  --background: #0d1117;
+  --foreground: #c9d1d9;
+  --card: #161b22;
+  --card-foreground: #f0f6fc;
+  --popover: #161b22;
+  --popover-foreground: #c9d1d9;
+  --primary: #58a6ff;
+  --primary-foreground: #ffffff;
+  --secondary: #21262d;
+  --secondary-foreground: #c9d1d9;
+  --muted: #0d1117;
+  --muted-foreground: #8b949e;
+  --accent: #1f6feb;
+  --accent-foreground: #ffffff;
+  --border: #30363d;
+  --input: #0d1117;
+  --ring: #1f6feb;
+
+  --theme-accent-1: #238636;
+  --theme-accent-2: #1f6feb;
+  --theme-accent-3: #f85149;
+  --theme-accent-1-text: #3fb950;
+  --theme-accent-2-text: #58a6ff;
+  --theme-gradient-from: #238636;
+  --theme-gradient-via: #2ea043;
+  --theme-gradient-to: #3fb950;
+  --theme-orb-1: rgba(35, 134, 54, 0.05);
+  --theme-orb-2: rgba(31, 111, 235, 0.05);
+  --theme-orb-3: rgba(248, 81, 73, 0.05);
+  --theme-hover-glow: 35, 134, 54;
+  --theme-hover-border: rgba(48, 54, 61, 0.8);
+  --theme-selection-bg: rgba(31, 111, 235, 0.3);
+}

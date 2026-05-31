@@ -1,0 +1,41 @@
+/* Semantic: Usage-based design values mapping primitives to context */
+:root {
+  /* Layout Semantic */
+  --header-height: var(--s-16);
+  --sidebar-width: var(--s-64);
+  --container-max-width: var(--app-max-width);
+  --container-padding-x: var(--s-4);
+  --container-padding-x-tablet: var(--s-6);
+  --container-padding-x-desktop: var(--s-8);
+
+  /* Section Spacing */
+  --section-gap: var(--s-32);
+  --section-padding-top: var(--s-20);
+  --section-padding-top-tablet: var(--s-32);
+  --section-padding-bottom: var(--s-24);
+
+  /* Card Semantic */
+  --card-radius: var(--s-6); /* ~24px, matches 3xl roughly */
+  --card-padding: var(--s-6);
+  --card-border: 1px solid oklch(1 0 0 / 0.1);
+  --card-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  --card-hover-y: -6px;
+
+  /* Form Semantic */
+  --input-radius: var(--r-md);
+  --button-radius: var(--r-full);
+
+  /* Typography Semantic */
+  --text-hero-title: var(--f-5xl);
+  --text-hero-title-tablet: var(--f-7xl);
+  --text-hero-description: var(--f-xl);
+  --text-section-title: var(--f-2xl);
+  --text-section-title-tablet: var(--f-3xl);
+
+  /* Color Semantic (Mapping current globals.css variables to these would be next) */
+  --bg-app: var(--background);
+  --text-app: var(--foreground);
+  --border-default: var(--border);
+  --accent-brand: var(--primary);
+  --accent-secondary: var(--secondary);
+}

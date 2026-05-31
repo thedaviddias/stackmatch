@@ -1,0 +1,322 @@
+"use client";
+
+import {
+  DEVELOPERS_DIRECTORY_PAGE_SIZE,
+  DEVELOPERS_DIRECTORY_SORT_OPTIONS,
+} from "@stackmatch/constants/directory";
+import { useDebouncedSearchInput } from "@stackmatch/hooks/use-debounced-search-input";
+import { useInfiniteLoadMore } from "@stackmatch/hooks/use-infinite-load-more";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { CalendarDays, Loader2, Search, Star, Users } from "lucide-react";
+import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
+import { useMemo } from "react";
+import { UserCard, type UserCardMetric } from "@/components/cards/user-card";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { isOwnerOnline, usePresenceByOwners } from "@/components/presence/use-presence-by-owners";
+import { CompactOwnerScanForm } from "@/components/stackmatch/forms/compact-owner-scan-form";
+import type { DeveloperDirectoryItem } from "@/lib/directory/developers-directory";
+import { formatCompactNumber, formatJoinDate } from "@/lib/storage/utils";
+
+type DevelopersDirectorySort = "joined" | "followers" | "stars";
+
+interface DevelopersDirectoryApiResponse {
+  items: DeveloperDirectoryItem[];
+  nextCursor: number | null;
+  total: number;
+}
+
+const LOADING_SKELETON_IDS = [
+  "developers-skeleton-1",
+  "developers-skeleton-2",
+  "developers-skeleton-3",
+  "developers-skeleton-4",
+  "developers-skeleton-5",
+  "developers-skeleton-6",
+  "developers-skeleton-7",
+  "developers-skeleton-8",
+] as const;
+
+export function dedupeDevelopers(items: DeveloperDirectoryItem[]): DeveloperDirectoryItem[] {
+  const seen = new Set<string>();
+  const deduped: DeveloperDirectoryItem[] = [];
+
+  for (const item of items) {
+    const key = item.owner.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(item);
+  }
+
+  return deduped;
+}
+
+async function fetchDevelopersDirectoryPage({
+  pageParam,
+  sort,
+  query,
+}: {
+  pageParam: number;
+  sort: DevelopersDirectorySort;
+  query: string;
+}): Promise<DevelopersDirectoryApiResponse> {
+  const params = new URLSearchParams({
+    cursor: String(pageParam),
+    limit: String(DEVELOPERS_DIRECTORY_PAGE_SIZE),
+    sort,
+  });
+
+  if (query.trim().length > 0) {
+    params.set("q", query.trim());
+  }
+
+  const response = await fetch(`/api/developers?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error("Failed to load developers directory");
+  }
+
+  return await response.json();
+}
+
+interface DevelopersDirectoryResultsProps {
+  isLoading: boolean;
+  isError: boolean;
+  isFetchingNextPage: boolean;
+  hasNextPage: boolean | undefined;
+  onRetry: () => void;
+  total: number;
+  items: DeveloperDirectoryItem[];
+  sortMode: DevelopersDirectorySort;
+  loadMoreRef: { current: HTMLDivElement | null };
+  searchQuery: string;
+}
+
+function getDeveloperDirectoryMetric(
+  item: DeveloperDirectoryItem,
+  sortMode: DevelopersDirectorySort
+): UserCardMetric {
+  if (sortMode === "followers") {
+    return {
+      label: "Followers",
+      value: formatCompactNumber(item.followers),
+      icon: Users,
+    };
+  }
+
+  if (sortMode === "stars") {
+    return {
+      label: "Stars",
+      value: formatCompactNumber(item.totalStars),
+      icon: Star,
+    };
+  }
+
+  return {
+    label: "Joined",
+    value: formatJoinDate(item.firstIndexedAt),
+    icon: CalendarDays,
+  };
+}
+
+function DevelopersDirectoryResults({
+  isLoading,
+  isError,
+  isFetchingNextPage,
+  hasNextPage,
+  onRetry,
+  total,
+  items,
+  sortMode,
+  loadMoreRef,
+  searchQuery,
+}: DevelopersDirectoryResultsProps) {
+  const presenceByOwner = usePresenceByOwners(items.map((item) => item.owner));
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {LOADING_SKELETON_IDS.map((skeletonId) => (
+          <div
+            key={skeletonId}
+            className="h-[320px] animate-pulse rounded-3xl border border-border bg-muted dark:border-neutral-800 dark:bg-neutral-900/40"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
+        <p className="font-semibold text-red-200">Unable to load developers right now.</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 rounded-lg border border-neutral-700 bg-black/40 px-4 py-2 text-sm font-semibold text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (total === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-neutral-800 p-16 text-center">
+        <Users className="mx-auto size-10 text-neutral-500" />
+        <h3 className="mt-4 text-lg font-bold text-white">No developers found</h3>
+        <p className="mt-2 text-sm text-neutral-400">
+          Search only browses indexed profiles. Scan a GitHub owner to build a new stack profile.
+        </p>
+        <CompactOwnerScanForm defaultOwner={searchQuery} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {items.map((item) => (
+          <UserCard
+            key={item.owner}
+            owner={item.owner}
+            avatarUrl={item.avatarUrl}
+            displayName={item.displayName ?? undefined}
+            repoCount={item.repoCount}
+            isSyncing={item.isSyncing}
+            isOnline={isOwnerOnline(presenceByOwner, item.owner)}
+            power={item.power}
+            starsCount={item.starsCount}
+            metric={getDeveloperDirectoryMetric(item, sortMode)}
+          />
+        ))}
+      </div>
+
+      <div ref={loadMoreRef} className="h-px" />
+
+      <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+        {isFetchingNextPage ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Loading more developers...
+          </>
+        ) : hasNextPage ? (
+          "Scroll to load more"
+        ) : (
+          "End of results"
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function DevelopersDirectoryContent() {
+  const [sortMode, setSortMode] = useQueryState(
+    "sort",
+    parseAsStringLiteral(DEVELOPERS_DIRECTORY_SORT_OPTIONS)
+      .withDefault("joined")
+      .withOptions({ scroll: false })
+  );
+  const [searchParam, setSearchParam] = useQueryState(
+    "q",
+    parseAsString.withDefault("").withOptions({ scroll: false })
+  );
+  const [searchInput, setSearchInput] = useDebouncedSearchInput(searchParam, setSearchParam);
+
+  const directoryQuery = useInfiniteQuery({
+    queryKey: ["developers-directory-v2", { sort: sortMode, q: searchParam }],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      fetchDevelopersDirectoryPage({
+        pageParam,
+        sort: sortMode,
+        query: searchParam,
+      }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    retry: 1,
+    staleTime: 15 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+  });
+
+  const items = useMemo(
+    () => dedupeDevelopers(directoryQuery.data?.pages.flatMap((page) => page.items) ?? []),
+    [directoryQuery.data]
+  );
+
+  const total = directoryQuery.data?.pages[0]?.total ?? 0;
+
+  const loadMoreRef = useInfiniteLoadMore({
+    hasNextPage: directoryQuery.hasNextPage,
+    isFetchingNextPage: directoryQuery.isFetchingNextPage,
+    fetchNextPage: directoryQuery.fetchNextPage,
+  });
+
+  return (
+    <section className="space-y-6">
+      <ErrorBoundary level="widget">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                All Developers
+              </h2>
+              <p className="mt-1 text-sm font-medium text-neutral-400">
+                Browse every indexed owner on Stackmatch. {total.toLocaleString("en-US")} listed.
+              </p>
+            </div>
+
+            <div className="inline-flex rounded-lg border border-neutral-800 bg-black p-1">
+              {DEVELOPERS_DIRECTORY_SORT_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => {
+                    void setSortMode(option);
+                  }}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
+                    sortMode === option
+                      ? "bg-white text-black"
+                      : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label
+            htmlFor="developers-search"
+            className="flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-950/50 px-4 py-3"
+          >
+            <Search className="h-4 w-4 text-neutral-500" />
+            <input
+              id="developers-search"
+              type="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search by owner or display name"
+              className="w-full bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+            />
+          </label>
+        </div>
+      </ErrorBoundary>
+
+      <ErrorBoundary level="section">
+        <DevelopersDirectoryResults
+          isLoading={directoryQuery.isLoading}
+          isError={directoryQuery.isError}
+          isFetchingNextPage={directoryQuery.isFetchingNextPage}
+          hasNextPage={directoryQuery.hasNextPage}
+          onRetry={() => {
+            void directoryQuery.refetch();
+          }}
+          total={total}
+          items={items}
+          sortMode={sortMode}
+          loadMoreRef={loadMoreRef}
+          searchQuery={searchParam}
+        />
+      </ErrorBoundary>
+    </section>
+  );
+}
