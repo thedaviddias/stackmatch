@@ -30,8 +30,17 @@ type ToggleStarMutation = (args: { targetOwner: string }) => Promise<{
 type ClaimProfileMutation = () => Promise<unknown>;
 type RedeemInviteMutation = (args: { code: string }) => Promise<{ referrerOwner: string }>;
 type RepairGitHubLoginAction = () => Promise<string | null>;
+type LoginRepairState = {
+  repairedLogin: string | null;
+  status: "idle" | "repairing" | "completed";
+};
+type LoginTimeoutState = {
+  key: string | null;
+  timedOut: boolean;
+};
 
 const LOGIN_RESOLUTION_WAIT_MS = 5000;
+const PROFILE_SCAN_ENDPOINT = "/api/scan/resync-user";
 const GITHUB_AVATAR_USER_ID_PATTERN =
   /^https:\/\/avatars\.githubusercontent\.com\/u\/[0-9]+(?:\?.*)?$/;
 
@@ -147,6 +156,19 @@ async function processPendingStarFlow(
   }
 }
 
+async function queueProfileScan(owner: string) {
+  const response = await fetch(PROFILE_SCAN_ENDPOINT, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ owner }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Profile scan queue failed with ${response.status}`);
+  }
+}
+
 function usePostLoginRedirectFlow({
   session,
   isPending,
@@ -186,6 +208,11 @@ function usePostLoginRedirectFlow({
         if (!profileClaimed) {
           profileClaimStartedRef.current = true;
           await claimProfile();
+          try {
+            await queueProfileScan(resolvedLogin);
+          } catch (scanError) {
+            logger.error("Failed to queue profile scan after login:", scanError);
+          }
           if (cancelled) return;
           setProfileClaimed(true);
         }
@@ -244,19 +271,31 @@ function useLoginResolutionTimeout({
   isPending: boolean;
   resolvedLogin: string | null | undefined;
 }) {
-  const [timedOut, setTimedOut] = useState(false);
+  const timeoutKey =
+    session?.user && !isPending && resolvedLogin === undefined
+      ? `${session.user.name ?? ""}:${session.user.image ?? ""}`
+      : null;
+  const [timeoutState, setTimeoutState] = useState<LoginTimeoutState>({
+    key: null,
+    timedOut: false,
+  });
+
+  if (timeoutState.key !== timeoutKey) {
+    setTimeoutState({ key: timeoutKey, timedOut: false });
+  }
 
   useEffect(() => {
-    if (!session?.user || isPending) return;
-    if (resolvedLogin === undefined) {
-      const timer = window.setTimeout(() => setTimedOut(true), LOGIN_RESOLUTION_WAIT_MS);
-      return () => window.clearTimeout(timer);
-    }
+    if (!timeoutKey) return;
 
-    setTimedOut(false);
-  }, [session, isPending, resolvedLogin]);
+    const timer = window.setTimeout(() => {
+      setTimeoutState((state) =>
+        state.key === timeoutKey ? { key: timeoutKey, timedOut: true } : state
+      );
+    }, LOGIN_RESOLUTION_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [timeoutKey]);
 
-  return timedOut;
+  return timeoutState.key === timeoutKey && timeoutState.timedOut;
 }
 
 function useGitHubLoginSelfRepair({
@@ -270,49 +309,52 @@ function useGitHubLoginSelfRepair({
   resolvedLogin: string | null | undefined;
   repairGitHubLogin: RepairGitHubLoginAction;
 }) {
-  const [repairedLogin, setRepairedLogin] = useState<string | null>(null);
-  const [isRepairing, setIsRepairing] = useState(false);
-  const [repairCompleted, setRepairCompleted] = useState(false);
+  const [repairState, setRepairState] = useState<LoginRepairState>({
+    repairedLogin: null,
+    status: "idle",
+  });
   const repairStartedRef = useRef(false);
+  const shouldStartRepair = shouldStartGitHubLoginRepair({
+    session,
+    isPending,
+    resolvedLogin,
+    hasStarted: repairStartedRef.current,
+  });
+
+  if (shouldStartRepair && repairState.status === "idle") {
+    repairStartedRef.current = true;
+    setRepairState({ repairedLogin: null, status: "repairing" });
+  }
 
   useEffect(() => {
-    if (
-      !shouldStartGitHubLoginRepair({
-        session,
-        isPending,
-        resolvedLogin,
-        hasStarted: repairStartedRef.current,
-      })
-    ) {
-      return;
-    }
+    if (repairState.status !== "repairing") return;
 
     let cancelled = false;
-    repairStartedRef.current = true;
-    setIsRepairing(true);
 
     repairGitHubLogin()
       .then((login) => {
         if (cancelled) return;
-        setRepairedLogin(isValidGitHubLogin(login) ? login : null);
+        setRepairState({
+          repairedLogin: isValidGitHubLogin(login) ? login : null,
+          status: "completed",
+        });
       })
       .catch((error: unknown) => {
         logger.error("Failed to repair GitHub login:", error);
         if (cancelled) return;
-        setRepairedLogin(null);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setRepairCompleted(true);
-        setIsRepairing(false);
+        setRepairState({ repairedLogin: null, status: "completed" });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [session, isPending, resolvedLogin, repairGitHubLogin]);
+  }, [repairState.status, repairGitHubLogin]);
 
-  return { repairedLogin, isRepairing, repairCompleted };
+  return {
+    repairedLogin: repairState.repairedLogin,
+    isRepairing: repairState.status === "repairing",
+    repairCompleted: repairState.status === "completed",
+  };
 }
 
 function LoginLoader({ label }: { label: string }) {

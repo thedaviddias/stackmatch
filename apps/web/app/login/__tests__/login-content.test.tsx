@@ -7,6 +7,8 @@ import { LoginContent } from "../login-content";
 
 const mocks = vi.hoisted(() => ({
   claimProfile: vi.fn(async () => undefined),
+  fetch: vi.fn(),
+  loggerError: vi.fn(),
   repairGitHubLogin: vi.fn(async () => null as string | null),
   replace: vi.fn(),
   signInSocial: vi.fn(),
@@ -49,11 +51,13 @@ vi.mock("@/lib/storage/pending-referral", () => ({
   clearPendingReferral: vi.fn(),
 }));
 vi.mock("@/lib/re-exports/logger", () => ({
-  logger: { error: vi.fn() },
+  logger: { error: mocks.loggerError },
 }));
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
+
+vi.stubGlobal("fetch", mocks.fetch);
 
 afterEach(() => {
   cleanup();
@@ -63,6 +67,7 @@ afterEach(() => {
   mocks.useMutation.mockReturnValue(mocks.claimProfile);
   mocks.useAction.mockReturnValue(mocks.repairGitHubLogin);
   mocks.claimProfile.mockResolvedValue(undefined);
+  mocks.fetch.mockResolvedValue({ ok: true, status: 200 } as Response);
   mocks.repairGitHubLogin.mockResolvedValue(null);
   window.history.replaceState(null, "", "/");
 });
@@ -71,6 +76,7 @@ mocks.useSession.mockReturnValue({ session: null, isPending: false, error: null 
 mocks.useQuery.mockReturnValue(null);
 mocks.useMutation.mockReturnValue(mocks.claimProfile);
 mocks.useAction.mockReturnValue(mocks.repairGitHubLogin);
+mocks.fetch.mockResolvedValue({ ok: true, status: 200 } as Response);
 
 describe("LoginContent accessibility — signed out state", () => {
   it("should have no axe violations", async () => {
@@ -181,6 +187,17 @@ describe("LoginContent post-auth claiming", () => {
     render(<LoginContent />);
 
     await waitFor(() => expect(mocks.claimProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mocks.fetch).toHaveBeenCalledWith(
+        "/api/scan/resync-user",
+        expect.objectContaining({
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ owner: "thedaviddias" }),
+        })
+      )
+    );
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/thedaviddias"));
     expect(mocks.replace).not.toHaveBeenCalledWith("/David%20Dias");
   });
@@ -224,8 +241,43 @@ describe("LoginContent post-auth claiming", () => {
 
     await waitFor(() => expect(mocks.repairGitHubLogin).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mocks.claimProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mocks.fetch).toHaveBeenCalledWith(
+        "/api/scan/resync-user",
+        expect.objectContaining({
+          body: JSON.stringify({ owner: "thedaviddias" }),
+        })
+      )
+    );
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/thedaviddias"));
     expect(mocks.replace).not.toHaveBeenCalledWith("/David%20Dias");
+  });
+
+  it("still redirects when queueing the profile scan fails", async () => {
+    mocks.useSession.mockReturnValue({
+      session: {
+        user: {
+          name: "David Dias",
+          image: "https://avatars.githubusercontent.com/u/123?v=4",
+        },
+      },
+      isPending: false,
+      error: null,
+    });
+    mocks.useQuery.mockImplementation((_query: unknown, args: unknown) =>
+      args === "skip" ? undefined : "thedaviddias"
+    );
+    mocks.fetch.mockResolvedValueOnce({ ok: false, status: 404 } as Response);
+
+    render(<LoginContent />);
+
+    await waitFor(() => expect(mocks.claimProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/thedaviddias"));
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      "Failed to queue profile scan after login:",
+      expect.any(Error)
+    );
   });
 
   it("starts legacy repair from the GitHub avatar while login queries are still pending", async () => {
