@@ -40,9 +40,8 @@ export function SessionProvider({
 }) {
   const { data: session, isPending, error } = authClient.useSession();
   const shouldUseInitialSession =
-    initialSession !== undefined && initialSession !== null && isPending;
-  const effectiveSession =
-    session === null && shouldUseInitialSession ? (initialSession as SessionData) : session;
+    initialSession !== undefined && initialSession !== null && isPending && session == null;
+  const effectiveSession = shouldUseInitialSession ? (initialSession as SessionData) : session;
   const effectiveIsPending = isPending && !shouldUseInitialSession;
 
   return (

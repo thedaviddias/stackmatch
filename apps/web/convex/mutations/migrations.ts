@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { type ActionCtx, action, internalMutation, mutation } from "../_generated/server";
 import { hasValidAnalyzeApiKey } from "../lib/analyze_api_key";
+import { fetchGitHubLoginByUserId } from "../lib/github_login_lookup";
 import { claimProfileForLogin, isClaimedProfile } from "../lib/profile_claims";
 
 const AUTH_USER_BACKFILL_DEFAULT_LIMIT = 50;
@@ -11,7 +12,6 @@ const AUTH_USER_BACKFILL_MIN_LIMIT = 1;
 const GITHUB_LOGIN_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 const GITHUB_AVATAR_ID_PATTERN =
   /^https:\/\/avatars\.githubusercontent\.com\/u\/([0-9]+)(?:\?.*)?$/;
-const GITHUB_API_VERSION = "2022-11-28";
 
 function requireModule<T>(value: T | undefined, name: string): T {
   if (!value) {
@@ -71,25 +71,6 @@ function getAuthUserName(user: AuthUserBackfillRow, login: string): string {
 function getGitHubUserIdFromAvatar(avatarUrl: string | null | undefined): string | null {
   if (!avatarUrl) return null;
   return GITHUB_AVATAR_ID_PATTERN.exec(avatarUrl)?.[1] ?? null;
-}
-
-async function fetchGitHubLoginByUserId(githubUserId: string): Promise<string | null> {
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "stackmatch",
-    "X-GitHub-Api-Version": GITHUB_API_VERSION,
-  };
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  }
-
-  const response = await fetch(`https://api.github.com/user/${githubUserId}`, { headers });
-  if (!response.ok) return null;
-
-  const data = (await response.json()) as { id?: unknown; login?: unknown };
-  if (String(data.id) !== githubUserId) return null;
-  if (typeof data.login !== "string" || !GITHUB_LOGIN_PATTERN.test(data.login)) return null;
-  return data.login;
 }
 
 async function resolveBackfillLogin(

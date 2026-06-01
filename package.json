@@ -18,6 +18,8 @@
     "check:no-magic-changed": "node scripts/check-no-magic-numbers-changed.mjs --base=origin/main",
     "check:no-magic-staged": "node scripts/check-no-magic-numbers-changed.mjs --staged",
     "check:folders": "bash scripts/check-folder-size.sh",
+    "convex:prod": "node scripts/convex-production.mjs",
+    "backfill:auth-profiles:prod": "node scripts/convex-production.mjs backfill-auth-profiles",
     "verify": "bash scripts/verify.sh",
     "verify:quick": "bash scripts/verify.sh --no-build",
     "clean": "bash scripts/clean.sh",

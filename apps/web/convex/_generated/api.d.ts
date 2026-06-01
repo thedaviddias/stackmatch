@@ -41,6 +41,7 @@ import type * as lib_auth_helpers from "../lib/auth_helpers.js";
 import type * as lib_date_helpers from "../lib/date_helpers.js";
 import type * as lib_directory_cache from "../lib/directory_cache.js";
 import type * as lib_feature_gates from "../lib/feature_gates.js";
+import type * as lib_github_login_lookup from "../lib/github_login_lookup.js";
 import type * as lib_invite_code from "../lib/invite_code.js";
 import type * as lib_moderation from "../lib/moderation.js";
 import type * as lib_notification_digests from "../lib/notification_digests.js";
@@ -179,6 +180,7 @@ declare const fullApi: ApiFromModules<{
   "lib/date_helpers": typeof lib_date_helpers;
   "lib/directory_cache": typeof lib_directory_cache;
   "lib/feature_gates": typeof lib_feature_gates;
+  "lib/github_login_lookup": typeof lib_github_login_lookup;
   "lib/invite_code": typeof lib_invite_code;
   "lib/moderation": typeof lib_moderation;
   "lib/notification_digests": typeof lib_notification_digests;

@@ -7,6 +7,7 @@ import type { DataModel } from "./_generated/dataModel";
 import { action, query } from "./_generated/server";
 import authConfig from "./auth.config";
 import { buildTrustedOrigins, resolveGitHubLogin } from "./lib/auth_helpers";
+import { fetchGitHubLoginByUserId } from "./lib/github_login_lookup";
 import { claimProfileForLogin } from "./lib/profile_claims";
 
 const authFunctions = internal.auth as unknown as AuthFunctions;
@@ -218,25 +219,6 @@ function getUniqueStringFields(value: unknown, fields: string[]): string[] {
 function getGitHubUserIdFromAvatar(avatarUrl: string | null | undefined): string | null {
   if (!avatarUrl) return null;
   return GITHUB_AVATAR_ID_PATTERN.exec(avatarUrl)?.[1] ?? null;
-}
-
-async function fetchGitHubLoginByUserId(githubUserId: string): Promise<string | null> {
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "stackmatch",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  }
-
-  const response = await fetch(`https://api.github.com/user/${githubUserId}`, { headers });
-  if (!response.ok) return null;
-
-  const data = (await response.json()) as { id?: unknown; login?: unknown };
-  if (String(data.id) !== githubUserId) return null;
-  if (typeof data.login !== "string" || !GITHUB_LOGIN_PATTERN.test(data.login)) return null;
-  return data.login;
 }
 
 /**

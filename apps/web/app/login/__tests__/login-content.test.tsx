@@ -101,6 +101,15 @@ describe("LoginContent accessibility — signed out state", () => {
     expect(button).toBeInTheDocument();
   });
 
+  it("shows a loader instead of sign-in controls while auth is loading", () => {
+    mocks.useSession.mockReturnValue({ session: null, isPending: true, error: null });
+
+    render(<LoginContent />);
+
+    expect(screen.getByText(/claiming stackmatch profile/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /continue with github/i })).not.toBeInTheDocument();
+  });
+
   it("should mark the decorative GitHub SVG as aria-hidden", () => {
     const { container } = render(<LoginContent />);
     // The SVG inside the button should be aria-hidden (decorative next to text)
