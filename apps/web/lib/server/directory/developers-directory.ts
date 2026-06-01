@@ -28,6 +28,7 @@ function mapRowsToDirectoryItems(
     isSyncing: row.isSyncing,
     profileStatus: row.profileStatus ?? profileStatus,
     claimedAt: row.claimedAt,
+    ownerType: row.profile?.ownerType,
   }));
 }
 

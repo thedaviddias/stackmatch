@@ -1,3 +1,4 @@
+import type { OwnerType } from "@stackmatch/constants/owner";
 import { api } from "@/data/api";
 import { fetchQuery } from "@/data/server";
 import type { DiscoveryDataPort } from "../port";
@@ -32,6 +33,7 @@ type RawUserRow = {
     avatarUrl?: string;
     stackScore?: number;
     topStacks?: string[];
+    ownerType?: OwnerType;
   };
 };
 
@@ -43,6 +45,7 @@ function mapProfile(row: RawUserRow) {
       avatarUrl: row.profile.avatarUrl,
       stackScore: row.profile.stackScore,
       topStacks: row.profile.topStacks,
+      ownerType: row.profile.ownerType,
     };
   }
   if (row.displayName || row.followers !== undefined) {
@@ -52,6 +55,7 @@ function mapProfile(row: RawUserRow) {
       avatarUrl: row.avatarUrl,
       stackScore: row.power ?? 0,
       topStacks: [],
+      ownerType: undefined,
     };
   }
   return undefined;

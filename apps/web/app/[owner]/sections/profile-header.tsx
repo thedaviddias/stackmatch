@@ -121,6 +121,7 @@ interface ProfileHeaderProps {
     hydrating: boolean;
     ownershipPending?: boolean;
     claimed: boolean;
+    organizationVerified?: boolean;
   };
   shareUrl: string;
   profile: {
@@ -167,6 +168,7 @@ export function ProfileHeader({
   const isOwnershipPending = state.ownershipPending ?? false;
   const isClaimed = state.claimed;
   const isOrganization = profile?.ownerType === OWNER_TYPE_ORGANIZATION;
+  const isOrganizationVerified = isOrganization && state.organizationVerified === true;
   const profileImage =
     profile?.avatarUrl ?? ROUTES.external.githubAvatar(owner, PROFILE_AVATAR_SIZE);
   const { data: hasAiVsHumanProfile } = useAiVsHumanProfile(owner);
@@ -251,13 +253,13 @@ export function ProfileHeader({
                     Organization
                   </span>
                 )}
-                {!isOwnershipPending && !isHydrating && isOrganization && isClaimed && (
+                {!isOwnershipPending && !isHydrating && isOrganizationVerified && (
                   <span
                     data-theme-label="status"
                     className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300"
                   >
                     <CheckCircle2 className="size-3" />
-                    Verified
+                    Verified Organization
                   </span>
                 )}
                 {!isOwnershipPending && !isHydrating && isOwnerViewer && (

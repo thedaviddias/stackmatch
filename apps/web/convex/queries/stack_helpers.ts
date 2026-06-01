@@ -1,4 +1,5 @@
 import { PROFILE_REPORT_STATUS_DISMISSED } from "@stackmatch/constants/moderation";
+import { OWNER_TYPE_DEVELOPER } from "@stackmatch/constants/owner";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
@@ -292,6 +293,7 @@ export function buildCandidateFromProfile(
           lastUpdated: profile.lastUpdated,
           locationCity: profile.locationCity,
           locationCountryCode: profile.locationCountryCode,
+          ownerType: profile.ownerType ?? OWNER_TYPE_DEVELOPER,
         }
       : undefined,
     languageSet: profile?.topLanguages ? new Set(profile.topLanguages) : undefined,

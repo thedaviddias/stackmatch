@@ -1,6 +1,7 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
+import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import {
   MATCH_CARD_MOBILE_TOP_STACK_LIMIT,
   MATCH_CARD_TOP_STACK_LIMIT,
@@ -9,7 +10,15 @@ import { HOUR_MS } from "@stackmatch/constants/time";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
 import { useQuery } from "@tanstack/react-query";
 import { cva } from "class-variance-authority";
-import { BadgeCheck, CircleDashed, Handshake, Loader2, Star, Trophy } from "lucide-react";
+import {
+  BadgeCheck,
+  Building2,
+  CircleDashed,
+  Handshake,
+  Loader2,
+  Star,
+  Trophy,
+} from "lucide-react";
 import Image from "next/image";
 import { type ComponentType, useMemo, useState } from "react";
 import { LinkCustom } from "@/components/ui/link";
@@ -54,6 +63,7 @@ interface UserCardProps {
   metric?: UserCardMetric;
   profileStatus?: UserCardProfileStatus;
   stackDataStatus?: UserCardStackDataStatus;
+  ownerType?: OwnerType;
 }
 
 const MAX_STACK_SCORE = 100;
@@ -73,7 +83,7 @@ function ProfileStatusBadge({ status }: { status?: UserCardProfileStatus }) {
       className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300"
     >
       <ProfileStatusIcon className="size-2.5" />
-      Claimed
+      Verified
     </span>
   );
 }
@@ -88,6 +98,20 @@ function StackDataStatusBadge({ status }: { status?: UserCardStackDataStatus }) 
     >
       <CircleDashed className="size-2.5" />
       No stack data yet
+    </span>
+  );
+}
+
+function OwnerTypeBadge({ ownerType }: { ownerType?: OwnerType }) {
+  if (ownerType !== OWNER_TYPE_ORGANIZATION) return null;
+
+  return (
+    <span
+      data-theme-label="owner-type"
+      className="inline-flex items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300"
+    >
+      <Building2 className="size-2.5" />
+      Org
     </span>
   );
 }
@@ -109,14 +133,22 @@ function MatchMetaBadges({
   matchScore,
   profileStatus,
   stackDataStatus,
+  ownerType,
 }: {
   matchScore?: number;
   profileStatus?: UserCardProfileStatus;
   stackDataStatus?: UserCardStackDataStatus;
+  ownerType?: OwnerType;
 }) {
   const hasVisibleProfileStatus = profileStatus === "claimed";
+  const hasOwnerTypeBadge = ownerType === OWNER_TYPE_ORGANIZATION;
 
-  if (matchScore === undefined && !hasVisibleProfileStatus && stackDataStatus !== "missing") {
+  if (
+    matchScore === undefined &&
+    !hasVisibleProfileStatus &&
+    stackDataStatus !== "missing" &&
+    !hasOwnerTypeBadge
+  ) {
     return null;
   }
 
@@ -134,6 +166,7 @@ function MatchMetaBadges({
         </div>
       )}
       <ProfileStatusBadge status={profileStatus} />
+      <OwnerTypeBadge ownerType={ownerType} />
       <StackDataStatusBadge status={stackDataStatus} />
     </div>
   );
@@ -225,6 +258,7 @@ export function UserCard({
   metric,
   profileStatus,
   stackDataStatus,
+  ownerType,
 }: UserCardProps) {
   const [showFallbackAvatar, setShowFallbackAvatar] = useState(false);
 
@@ -286,6 +320,7 @@ export function UserCard({
             matchScore={initialMatchScore}
             profileStatus={profileStatus}
             stackDataStatus={stackDataStatus}
+            ownerType={ownerType}
           />
         </div>
 

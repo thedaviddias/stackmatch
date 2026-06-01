@@ -111,8 +111,15 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col gap-4 border-t border-border pt-6 text-xs font-semibold text-muted-foreground sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
           <p>
-            Copyright © {siteConfig.copyrightYear} {siteConfig.ownerName}. All rights reserved.
-            Source code available under the MIT License.
+            <a
+              href={siteConfig.ownerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-foreground dark:hover:text-white"
+            >
+              Copyright © {siteConfig.copyrightYear} {siteConfig.ownerName}
+            </a>
+            . All rights reserved. Source code available under the MIT License.
           </p>
           <div className="flex items-center gap-2">
             <ThemeSelector />

@@ -43,6 +43,14 @@ describe("convexDiscoveryDataPort", () => {
         firstIndexedAt: 1,
         lastIndexedAt: 2,
         isSyncing: false,
+        profile: {
+          name: "The Octocat",
+          followers: 42,
+          avatarUrl: "https://github.com/octocat-profile.png",
+          stackScore: 33,
+          topStacks: ["react"],
+          ownerType: "organization",
+        },
       },
     ]);
 
@@ -56,6 +64,7 @@ describe("convexDiscoveryDataPort", () => {
       expect.anything()
     );
     expect(rows[0]?.owner).toBe("octocat");
+    expect(rows[0]?.profile?.ownerType).toBe("organization");
   });
 
   it("loads developers directory rows from the directory query", async () => {

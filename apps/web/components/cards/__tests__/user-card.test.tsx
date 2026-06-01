@@ -216,7 +216,7 @@ describe("UserCard", () => {
       />
     );
 
-    expect(screen.getByText("Claimed")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
 
     rerender(
       <QueryClientProvider
@@ -267,7 +267,7 @@ describe("UserCard", () => {
       />
     );
 
-    expect(screen.getByText("Claimed")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
     expect(screen.getByText("No stack data yet")).toBeInTheDocument();
 
     rerender(
@@ -290,5 +290,39 @@ describe("UserCard", () => {
 
     expect(screen.queryByText("Indexed")).not.toBeInTheDocument();
     expect(screen.queryByText("No stack data yet")).not.toBeInTheDocument();
+  });
+
+  it("shows a compact organization badge without changing developer cards", () => {
+    const { rerender } = renderUserCard(
+      <UserCard
+        owner="snowflakedb"
+        avatarUrl="https://github.com/snowflakedb.png"
+        displayName="Snowflake Computing"
+        repoCount={12}
+        ownerType="organization"
+      />
+    );
+
+    expect(screen.getByText("Org")).toBeInTheDocument();
+
+    rerender(
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+          })
+        }
+      >
+        <UserCard
+          owner="octocat"
+          avatarUrl="https://github.com/octocat.png"
+          displayName="Octo Cat"
+          repoCount={12}
+          ownerType="developer"
+        />
+      </QueryClientProvider>
+    );
+
+    expect(screen.queryByText("Org")).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import type { OwnerType } from "@stackmatch/constants/owner";
 import type { AffinityData, NegativeSignalData, QualityData } from "@stackmatch/types/ranking";
 import { computeLocationProximityWithStructured } from "@stackmatch/utils/location";
 import {
@@ -33,6 +34,7 @@ export interface CandidateOwner {
     lastUpdated?: number;
     locationCity?: string;
     locationCountryCode?: string;
+    ownerType?: OwnerType;
   };
   /** Quality data for Layer 2 scoring (optional — defaults to neutral if missing). */
   qualityData?: QualityData;
@@ -74,6 +76,7 @@ export interface OwnerMatch {
     lastUpdated?: number;
     locationCity?: string;
     locationCountryCode?: string;
+    ownerType?: OwnerType;
   };
 }
 

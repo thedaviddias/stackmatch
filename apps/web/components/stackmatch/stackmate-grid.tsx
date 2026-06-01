@@ -1,6 +1,7 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
+import type { OwnerType } from "@stackmatch/constants/owner";
 import { MATCH_PREVIEW_COUNT } from "@stackmatch/constants/social";
 import { ChevronDown, Lock, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -40,6 +41,8 @@ export interface Stackmate {
     locationCity?: string;
     /** ISO 3166-1 alpha-2 country code for location-based matching. */
     locationCountryCode?: string;
+    /** Normalized GitHub owner type used for organization differentiation. */
+    ownerType?: OwnerType;
   } | null;
 }
 
@@ -132,6 +135,7 @@ export function StackmateGrid({
                 topStacks={match.profile?.topStacks}
                 starsCount={match.starsCount}
                 profileStatus={getProfileStatus(match)}
+                ownerType={match.profile?.ownerType}
               />
             </div>
             {match.isBlurred && (

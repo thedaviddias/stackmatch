@@ -179,16 +179,33 @@ describe("ProfileHeader", () => {
 
   it("renders organization positioning without personal follow or message actions", () => {
     render(
-      <ProfileHeader {...baseProps} profile={{ ...baseProps.profile, ownerType: "organization" }} />
+      <ProfileHeader
+        {...baseProps}
+        state={{ ...baseProps.state, organizationVerified: true }}
+        profile={{ ...baseProps.profile, ownerType: "organization" }}
+      />
     );
 
     expect(screen.getByText("Organization")).toBeInTheDocument();
-    expect(screen.getByText("Verified")).toBeInTheDocument();
+    expect(screen.getByText("Verified Organization")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /view organization ecosystem/i })).toHaveAttribute(
       "href",
       "#ecosystem"
     );
     expect(screen.queryByRole("button", { name: /follow/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /message/i })).not.toBeInTheDocument();
+  });
+
+  it("shows organization identity before the organization is verified", () => {
+    render(
+      <ProfileHeader
+        {...baseProps}
+        state={{ ...baseProps.state, claimed: false }}
+        profile={{ ...baseProps.profile, ownerType: "organization" }}
+      />
+    );
+
+    expect(screen.getByText("Organization")).toBeInTheDocument();
+    expect(screen.queryByText("Verified Organization")).not.toBeInTheDocument();
   });
 });

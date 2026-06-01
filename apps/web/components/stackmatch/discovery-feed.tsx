@@ -237,6 +237,7 @@ function HorizontalCard({
         mobileTopStackLimit={mobileTopStackLimit}
         starsCount={match.starsCount}
         profileStatus={getProfileStatus(match)}
+        ownerType={match.profile?.ownerType}
       />
       {metaLabel && (
         <div className="mt-2 flex items-center gap-1 px-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground dark:text-neutral-500">

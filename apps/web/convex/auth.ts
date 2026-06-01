@@ -36,6 +36,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
         overrideUserInfoOnSignIn: true,
         mapProfileToUser: (profile) => ({
           username: profile.login,
+          displayUsername: profile.login,
         }),
       },
     },
@@ -105,6 +106,10 @@ function getStringField(value: unknown, field: string): string | null {
   return typeof fieldValue === "string" && fieldValue.trim() ? fieldValue : null;
 }
 
+function getUniqueStringFields(value: unknown, fields: string[]): string[] {
+  return Array.from(new Set(fields.flatMap((field) => getStringField(value, field) ?? [])));
+}
+
 function getGitHubUserIdFromAvatar(avatarUrl: string | null | undefined): string | null {
   if (!avatarUrl) return null;
   return GITHUB_AVATAR_ID_PATTERN.exec(avatarUrl)?.[1] ?? null;
@@ -146,21 +151,30 @@ export const repairMyGitHubLogin = action({
       return existingUsername;
     }
 
-    const userId = getStringField(user, "_id");
-    if (!userId) return null;
+    const userIds = getUniqueStringFields(user, ["_id", "id"]);
+    if (userIds.length === 0) return null;
 
-    const account = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "account",
-      where: [
-        { field: "userId", value: userId },
-        { field: "providerId", value: "github" },
-      ],
-    });
+    let account: unknown = null;
+    let authUserIdForPatch: string | null = null;
+    for (const userId of userIds) {
+      account = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "account",
+        where: [
+          { field: "userId", value: userId },
+          { field: "providerId", value: "github" },
+        ],
+      });
+      if (account) {
+        authUserIdForPatch = userId;
+        break;
+      }
+    }
 
     const accountGitHubUserId = getStringField(account, "accountId");
     const avatarGitHubUserId = getGitHubUserIdFromAvatar(getStringField(user, "image"));
     const githubUserId = accountGitHubUserId ?? avatarGitHubUserId;
-    if (!githubUserId) return null;
+    authUserIdForPatch ??= userIds[0] ?? null;
+    if (!githubUserId || !authUserIdForPatch) return null;
 
     const login = await fetchGitHubLoginByUserId(githubUserId);
     if (!login) return null;
@@ -168,7 +182,7 @@ export const repairMyGitHubLogin = action({
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
         model: "user",
-        where: [{ field: "_id", value: userId }],
+        where: [{ field: "_id", value: authUserIdForPatch }],
         update: {
           username: login,
           displayUsername: login,

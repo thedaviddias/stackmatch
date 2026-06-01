@@ -150,6 +150,7 @@ describe("computeOwnerMatches", () => {
             isClaimed: true,
             joinedAt: 1_700_000_000_000,
             indexedAt: 1_699_000_000_000,
+            ownerType: "organization",
           },
         },
       ],
@@ -163,6 +164,7 @@ describe("computeOwnerMatches", () => {
       isClaimed: true,
       joinedAt: 1_700_000_000_000,
       indexedAt: 1_699_000_000_000,
+      ownerType: "organization",
     });
   });
 

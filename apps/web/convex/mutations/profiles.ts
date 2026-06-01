@@ -154,8 +154,8 @@ export const upsertProfile = internalMutation({
       x: args.x,
       location: args.location,
       company: args.company,
-      ownerType: args.ownerType,
       lastUpdated: Date.now(),
+      ...(args.ownerType !== undefined ? { ownerType: args.ownerType } : {}),
     };
 
     if (existing) {

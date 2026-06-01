@@ -22,6 +22,9 @@ describe("Footer", () => {
       "Copyright © 2026 David Dias Digital. All rights reserved. Source code available under the MIT License."
     );
     expect(
+      screen.getByRole("link", { name: "Copyright © 2026 David Dias Digital" })
+    ).toHaveAttribute("href", "https://daviddias.digital");
+    expect(
       screen.queryByRole("link", { name: "A David Dias Digital project" })
     ).not.toBeInTheDocument();
     expect(screen.queryByText("hello@stackmatch.dev")).not.toBeInTheDocument();

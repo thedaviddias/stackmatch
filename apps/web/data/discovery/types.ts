@@ -1,4 +1,7 @@
+import { OWNER_TYPES } from "@stackmatch/constants/owner";
 import { z } from "zod";
+
+export const DiscoveryOwnerTypeSchema = z.enum(OWNER_TYPES);
 
 export const DiscoveryStackLeaderboardEntrySchema = z.object({
   packageName: z.string().min(1),
@@ -26,6 +29,7 @@ export const DiscoveryIndexedUserProfileSchema = z
     avatarUrl: z.string().optional(),
     stackScore: z.coerce.number().nonnegative().optional(),
     topStacks: z.array(z.string()).optional(),
+    ownerType: DiscoveryOwnerTypeSchema.optional(),
   })
   .optional();
 

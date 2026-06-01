@@ -48,7 +48,7 @@ export function WeeklyPickCard({ match }: WeeklyPickCardProps) {
   const profileStatus =
     match.profile?.isClaimed === true
       ? {
-          label: "Claimed",
+          label: "Verified",
           icon: BadgeCheck,
           className: "text-emerald-700 dark:text-emerald-300",
         }

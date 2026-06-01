@@ -7,6 +7,7 @@ import {
   DIRECTORY_MAX_LIMIT,
   DIRECTORY_MIN_LIMIT,
 } from "@stackmatch/constants/directory";
+import type { OwnerType } from "@stackmatch/constants/owner";
 
 export type DevelopersDirectoryView = "indexed" | "claimed";
 export type DevelopersDirectorySort = "joined" | "followers" | "stars";
@@ -26,6 +27,7 @@ export interface DeveloperDirectoryItem {
   isSyncing: boolean;
   profileStatus: DeveloperDirectoryProfileStatus;
   claimedAt?: number;
+  ownerType?: OwnerType;
 }
 
 export interface DevelopersDirectoryPage {

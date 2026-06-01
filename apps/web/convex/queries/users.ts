@@ -1,3 +1,4 @@
+import { OWNER_TYPE_DEVELOPER } from "@stackmatch/constants/owner";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
@@ -94,6 +95,7 @@ function buildClaimedProfileDirectoryRow(
       avatarUrl: profile.avatarUrl,
       stackScore: indexed?.power ?? profile.stackScore ?? 0,
       topStacks: profile.topPackages ?? [],
+      ownerType: profile.ownerType ?? OWNER_TYPE_DEVELOPER,
     },
   };
 }
@@ -142,6 +144,7 @@ export async function buildDevelopersDirectoryRows(
             avatarUrl: profile.avatarUrl,
             stackScore: row.power,
             topStacks: profile.topPackages ?? [],
+            ownerType: profile.ownerType ?? OWNER_TYPE_DEVELOPER,
           }
         : undefined,
     };
@@ -306,6 +309,7 @@ export const getIndexedUsersWithProfilesHandler = async (
                 avatarUrl: profile.avatarUrl,
                 stackScore: score,
                 topStacks,
+                ownerType: profile.ownerType ?? OWNER_TYPE_DEVELOPER,
               }
             : undefined,
         };

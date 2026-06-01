@@ -462,6 +462,7 @@ function OwnerPageLoadedContent({
               hydrating: isHydrating,
               ownershipPending: isOwnershipPending,
               claimed: Boolean(data.isClaimed),
+              organizationVerified: Boolean(data.orgClaim),
               online: ownerIsOnline,
             }}
             shareUrl={shareUrl}

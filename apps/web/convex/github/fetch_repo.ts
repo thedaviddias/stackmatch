@@ -1,11 +1,11 @@
 "use node";
 
-import { normalizeGitHubOwnerType } from "@stackmatch/constants/owner";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { detectAiConfigs } from "./ai_detection";
 import { extractRateLimitInfo, getGitHubHeaders, getRetryDelayMs } from "./github_api";
+import { hydrateOwnerProfileFromGitHub } from "./owner_profile";
 
 const MAX_RETRIES = 3;
 
@@ -108,6 +108,11 @@ export const fetchRepo = internalAction({
       console.log(
         `[fetchRepo] ${args.owner}/${args.name} not modified (ETag match), skipping to commits`
       );
+      try {
+        await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token });
+      } catch {
+        // Best-effort profile owner type backfill.
+      }
       await ctx.scheduler.runAfter(0, internal.github.fetch_commits.fetchCommits, {
         repoId: args.repoId,
         owner: args.owner,
@@ -171,24 +176,7 @@ export const fetchRepo = internalAction({
 
     // ── Fetch user profile (non-critical) ────────────────────────────
     try {
-      const userResponse = await fetch(`https://api.github.com/users/${args.owner}`, {
-        headers: getGitHubHeaders(token),
-      });
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        await ctx.runMutation(internal.mutations.profiles.upsertProfile, {
-          owner: args.owner,
-          name: userData.name ?? undefined,
-          avatarUrl: userData.avatar_url,
-          followers: userData.followers ?? 0,
-          bio: userData.bio ?? undefined,
-          website: userData.blog ?? undefined,
-          x: userData.twitter_username ?? undefined,
-          location: userData.location ?? undefined,
-          company: userData.company ?? undefined,
-          ownerType: normalizeGitHubOwnerType(userData.type),
-        });
-      }
+      await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token, force: true });
     } catch (err) {
       console.error("Failed to fetch user profile:", err);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
+import type { OwnerType } from "@stackmatch/constants/owner";
 import { UserCard } from "@/components/cards/user-card";
 import { SectionGrid } from "@/components/layout/section-grid";
 import { isOwnerOnline, usePresenceByOwners } from "@/components/presence/use-presence-by-owners";
@@ -18,6 +19,7 @@ interface RecentlyJoinedItem {
     name?: string | null;
     stackScore?: number;
     topStacks?: string[];
+    ownerType?: OwnerType;
   };
 }
 
@@ -45,6 +47,7 @@ export function RecentlyJoinedCards({ users, viewAllLabel }: RecentlyJoinedCards
             topStacks={user.profile?.topStacks}
             starsCount={user.starsCount}
             profileStatus={user.profileStatus}
+            ownerType={user.profile?.ownerType}
           />
         ))}
       </SectionGrid>

@@ -122,7 +122,7 @@ describe("WeeklyPickCard", () => {
   it("only shows a profile status badge when the weekly pick is claimed", () => {
     const { rerender } = render(<WeeklyPickCard match={makeMatch()} />);
 
-    expect(screen.getByText("Claimed")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
 
     rerender(
       <WeeklyPickCard
@@ -140,7 +140,7 @@ describe("WeeklyPickCard", () => {
       />
     );
 
-    expect(screen.queryByText("Claimed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Verified")).not.toBeInTheDocument();
     expect(screen.queryByText("Indexed")).not.toBeInTheDocument();
     expect(screen.getByText("72% Match")).toBeInTheDocument();
   });

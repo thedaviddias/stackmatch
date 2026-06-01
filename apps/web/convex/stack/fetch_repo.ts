@@ -1,11 +1,11 @@
 "use node";
 
-import { normalizeGitHubOwnerType } from "@stackmatch/constants/owner";
 import { anyApi } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 
 import { internalAction } from "../_generated/server";
+import { hydrateOwnerProfileFromGitHub } from "../github/owner_profile";
 import { buildStackRepoMetadataHeaders, canShortCircuitNotModified } from "./fetch_repo_cache";
 
 const NOT_MODIFIED_STATUS = 304;
@@ -52,6 +52,12 @@ export const fetchRepo = internalAction({
     });
 
     if (response.status === NOT_MODIFIED_STATUS) {
+      try {
+        await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token });
+      } catch {
+        // Best-effort profile owner type backfill.
+      }
+
       if (canShortCircuitNotModified(repo)) {
         await ctx.runMutation(markSyncedFn, {
           repoId: args.repoId,
@@ -92,27 +98,7 @@ export const fetchRepo = internalAction({
     const etag = response.headers.get("ETag") ?? undefined;
 
     try {
-      const userResponse = await fetch(`https://api.github.com/users/${args.owner}`, {
-        headers: {
-          Authorization: `token ${token}`,
-          Accept: "application/vnd.github.v3+json",
-        },
-      });
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        await ctx.runMutation(internal.mutations.profiles.upsertProfile, {
-          owner: args.owner,
-          name: userData.name ?? undefined,
-          avatarUrl: userData.avatar_url,
-          followers: userData.followers ?? 0,
-          bio: userData.bio ?? undefined,
-          website: userData.blog ?? undefined,
-          x: userData.twitter_username ?? undefined,
-          location: userData.location ?? undefined,
-          company: userData.company ?? undefined,
-          ownerType: normalizeGitHubOwnerType(userData.type),
-        });
-      }
+      await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token, force: true });
     } catch {
       // Best-effort profile hydration.
     }

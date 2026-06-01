@@ -176,6 +176,47 @@ interface OwnerPageDataResult {
   };
 }
 
+export function mergeFreshOwnerIdentityIntoCachedPageData(
+  pageData: OwnerPageDataResult,
+  {
+    currentProfile,
+    organizationClaim,
+    isOwnerViewer,
+  }: {
+    currentProfile: Doc<"profiles"> | null | undefined;
+    organizationClaim: Doc<"organizationClaims"> | null | undefined;
+    isOwnerViewer: boolean;
+  }
+): OwnerPageDataResult {
+  const joinedAt = getProfileJoinedAt(currentProfile ?? undefined);
+  const profile =
+    pageData.profile && currentProfile
+      ? {
+          ...pageData.profile,
+          ownerType: currentProfile.ownerType ?? pageData.profile.ownerType ?? OWNER_TYPE_DEVELOPER,
+          isClaimed: joinedAt != null,
+          joinedAt,
+        }
+      : pageData.profile;
+
+  return {
+    ...pageData,
+    profile,
+    isClaimed: Boolean(
+      currentProfile?.isClaimed ||
+        currentProfile?.hasPrivateData ||
+        organizationClaim ||
+        isOwnerViewer
+    ),
+    orgClaim: organizationClaim
+      ? {
+          claimedByLogin: organizationClaim.claimedByLogin,
+          claimedAt: organizationClaim.claimedAt,
+        }
+      : undefined,
+  };
+}
+
 const OWNER_MATCH_SHARED_PACKAGE_PREVIEW_LIMIT = 5;
 const OWNER_MATCHES_DEFAULT_LIMIT = 30;
 const GLOBAL_LEADERBOARD_DEFAULT_LIMIT = 100;
@@ -1464,7 +1505,14 @@ async function buildOwnerPageData(
   if (canUsePublicDataCache) {
     const cached = await getFreshOwnerPageDataCache(ctx, owner, weekStart);
     if (cached) {
-      const pageData = cached.pageData as OwnerPageDataResult;
+      const pageData = mergeFreshOwnerIdentityIntoCachedPageData(
+        cached.pageData as OwnerPageDataResult,
+        {
+          currentProfile,
+          organizationClaim,
+          isOwnerViewer: access.isOwnerViewer,
+        }
+      );
       const { isStarredByViewer } = await getOwnerStarSummary(ctx, {
         owner,
         viewerLogin,

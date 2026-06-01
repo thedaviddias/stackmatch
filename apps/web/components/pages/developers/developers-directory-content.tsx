@@ -122,7 +122,7 @@ function getDeveloperDirectoryMetric(
 
   if (viewMode === "claimed") {
     return {
-      label: "Claimed",
+      label: "Verified",
       value: formatJoinDate(item.claimedAt ?? item.firstIndexedAt),
       icon: CalendarDays,
     };
@@ -185,7 +185,7 @@ function DevelopersDirectoryResults({
         <h3 className="mt-4 text-lg font-bold text-white">No developers found</h3>
         <p className="mt-2 text-sm text-neutral-400">
           {viewMode === "claimed"
-            ? "Search only browses claimed profiles. Sign in with GitHub to claim a Stackmatch profile."
+            ? "Search only browses verified profiles. Sign in with GitHub to claim a Stackmatch profile."
             : "Search only browses indexed profiles. Scan a GitHub owner to build a new stack profile."}
         </p>
         {viewMode === "indexed" && <CompactOwnerScanForm defaultOwner={searchQuery} />}
@@ -210,6 +210,7 @@ function DevelopersDirectoryResults({
             metric={getDeveloperDirectoryMetric(item, viewMode, sortMode)}
             profileStatus={item.profileStatus}
             stackDataStatus={viewMode === "claimed" && item.repoCount === 0 ? "missing" : undefined}
+            ownerType={item.ownerType}
           />
         ))}
       </div>
@@ -292,7 +293,7 @@ export function DevelopersDirectoryContent() {
               </h2>
               <p className="mt-1 text-sm font-medium text-neutral-400">
                 {viewMode === "claimed"
-                  ? "Browse public profiles claimed by Stackmatch members."
+                  ? "Browse public profiles verified by Stackmatch members."
                   : "Browse public owners with indexed stack data."}{" "}
                 {total.toLocaleString("en-US")} listed.
               </p>
