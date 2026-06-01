@@ -60,6 +60,8 @@ class ResizeObserverMock {
 
 const HYDRATION_WARNING_PATTERN =
   /hydration|encountered two children with the same key|unique "key"|same key/i;
+const AVATAR_MARQUEE_HANDLE_COUNT = 16;
+const EXPECTED_PADDED_AVATAR_COUNT = 64;
 
 async function expectHydratesWithoutReactWarnings(ui: ReactElement) {
   const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -111,6 +113,18 @@ describe("hydration hardening", () => {
     await expectHydratesWithoutReactWarnings(
       <DeveloperAvatarMarquee handles={["octocat", "OCTOCAT", "shadcn", "shadcn"]} />
     );
+  });
+
+  it("pads avatar marquee loops to avoid empty track space", () => {
+    const container = document.createElement("div");
+    const handles = Array.from(
+      { length: AVATAR_MARQUEE_HANDLE_COUNT },
+      (_unused, index) => `stacker-${index}`
+    );
+
+    container.innerHTML = renderToString(<DeveloperAvatarMarquee handles={handles} />);
+
+    expect(container.querySelectorAll("img")).toHaveLength(EXPECTED_PADDED_AVATAR_COUNT);
   });
 
   it("hydrates duplicate collaboration graph handles without duplicate key warnings", async () => {

@@ -63,6 +63,15 @@ const FALLBACK_COMMUNITY_HANDLES = [
 const EMPTY_HANDLES: string[] = [];
 const FALLBACK_AVATAR_USER_ID_OFFSET = 1_000;
 const GITHUB_AVATAR_SIZE = 64;
+const MIN_MARQUEE_ITEMS_PER_LOOP = 16;
+const MARQUEE_LOOP_CYCLES = ["first", "second"] as const;
+
+interface MarqueeLoopItem {
+  handle: string;
+  key: string;
+}
+
+const EMPTY_MARQUEE_LOOP_ITEMS: MarqueeLoopItem[] = [];
 
 function dedupeHandles(handles: string[]): string[] {
   const seen = new Set<string>();
@@ -76,6 +85,18 @@ function dedupeHandles(handles: string[]): string[] {
   }
 
   return deduped;
+}
+
+function buildMarqueeLoop(handles: string[]): MarqueeLoopItem[] {
+  if (handles.length === 0) return EMPTY_MARQUEE_LOOP_ITEMS;
+
+  const repeatCount = Math.ceil(MIN_MARQUEE_ITEMS_PER_LOOP / handles.length);
+  return Array.from({ length: repeatCount }, (_unused, repeatIndex) =>
+    handles.map((handle) => ({
+      handle,
+      key: `${repeatIndex}-${handle.toLowerCase()}`,
+    }))
+  ).flat();
 }
 
 function MarqueeAvatar({ handle, index }: { handle: string; index: number }) {
@@ -111,19 +132,23 @@ function AvatarMarquee({
   speed?: "normal" | "slow";
 }) {
   const animationClass = speed === "slow" ? "animate-marquee-slow" : "animate-marquee";
+  const loopHandles = buildMarqueeLoop(handles);
 
   return (
-    <div className="flex w-full overflow-hidden motion-reduce:overflow-x-auto no-scrollbar [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)] min-h-[80px] sm:min-h-[96px]">
+    <div
+      aria-hidden="true"
+      className="flex w-full overflow-hidden motion-reduce:overflow-x-auto no-scrollbar [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)] min-h-[80px] sm:min-h-[96px]"
+    >
       <div
         className={`flex gap-4 py-4 ${animationClass} motion-reduce:animate-none ${reverse ? "direction-reverse" : ""}`}
       >
-        {["first", "second"].flatMap((cycle, cycleIndex) =>
-          handles.map((handle, handleIndex) => {
-            const avatarIndex = cycleIndex * handles.length + handleIndex;
+        {MARQUEE_LOOP_CYCLES.flatMap((cycle, cycleIndex) =>
+          loopHandles.map((item, handleIndex) => {
+            const avatarIndex = cycleIndex * loopHandles.length + handleIndex;
             return (
               <MarqueeAvatar
-                key={`marquee-${reverse ? "rev" : "fwd"}-${cycle}-${handle.toLowerCase()}`}
-                handle={handle}
+                key={`marquee-${reverse ? "rev" : "fwd"}-${cycle}-${item.key}`}
+                handle={item.handle}
                 index={avatarIndex}
               />
             );
