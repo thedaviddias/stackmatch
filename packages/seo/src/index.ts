@@ -261,7 +261,17 @@ export function createWebPageJsonLd({
   };
 }
 
-function toSameAsUrl(value: string | undefined): string | undefined {
+function toWebsiteUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  return `https://${value}`;
+}
+
+function toXProfileUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
 
   if (value.startsWith("http://") || value.startsWith("https://")) {
@@ -296,7 +306,7 @@ export function createOwnerProfileJsonLd({
   const entityType = isOrganization ? "Organization" : "Person";
   const entityId = `${profileUrl}#${isOrganization ? "organization" : "person"}`;
   const displayName = name || `@${owner}`;
-  const sameAs = [`https://github.com/${owner}`, toSameAsUrl(website), toSameAsUrl(x)].filter(
+  const sameAs = [`https://github.com/${owner}`, toWebsiteUrl(website), toXProfileUrl(x)].filter(
     (url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index
   );
 
