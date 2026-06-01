@@ -263,6 +263,90 @@ describe("buildDevelopersDirectoryRows", () => {
     });
   });
 
+  it("exposes organization owner type from cached directory rows", async () => {
+    const ctx = createMockQueryCtx({
+      developerDirectoryCache: [
+        {
+          _id: "dir:tailscale",
+          owner: "tailscale",
+          avatarUrl: "https://github.com/tailscale.png",
+          displayName: "Tailscale",
+          followers: 0,
+          ownerType: "organization",
+          repoCount: 12,
+          power: 88,
+          totalStars: 200,
+          starsCount: 5,
+          firstIndexedAt: 2,
+          lastIndexedAt: 5,
+          isSyncing: false,
+        },
+      ],
+      profiles: [],
+    });
+
+    const rows = await buildDevelopersDirectoryRows(ctx, 10);
+
+    expect(rows[0]).toMatchObject({
+      owner: "tailscale",
+      profile: {
+        ownerType: "organization",
+      },
+    });
+  });
+
+  it("keeps private profile details hidden while allowing cached owner type badges", async () => {
+    const ctx = createMockQueryCtx({
+      developerDirectoryCache: [
+        {
+          _id: "dir:private-org",
+          owner: "private-org",
+          avatarUrl: "https://github.com/private-org.png",
+          displayName: "Cached Org",
+          followers: 10,
+          ownerType: "organization",
+          repoCount: 1,
+          power: 12,
+          totalStars: 2,
+          firstIndexedAt: 2,
+          lastIndexedAt: 5,
+          isSyncing: false,
+        },
+      ],
+      profiles: [
+        {
+          _id: "profile:private-org",
+          _creationTime: 1,
+          owner: "private-org",
+          avatarUrl: "https://github.com/private-org-private.png",
+          followers: 99,
+          lastUpdated: 4,
+          isClaimed: true,
+          claimedAt: 3,
+          name: "Private Org Name",
+          visibility: "private",
+          ownerType: "organization",
+        },
+      ],
+    });
+
+    const rows = await buildDevelopersDirectoryRows(ctx, 10);
+
+    expect(rows[0]).toMatchObject({
+      owner: "private-org",
+      displayName: "Cached Org",
+      followers: 10,
+      profileStatus: "indexed",
+      profile: {
+        ownerType: "organization",
+      },
+    });
+    expect(rows[0]?.profile).not.toMatchObject({
+      name: "Private Org Name",
+      avatarUrl: "https://github.com/private-org-private.png",
+    });
+  });
+
   it("keeps indexed status for private claimed profiles in the public indexed directory", async () => {
     const ctx = createMockQueryCtx({
       developerDirectoryCache: [

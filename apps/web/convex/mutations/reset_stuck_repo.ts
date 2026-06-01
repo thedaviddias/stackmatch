@@ -15,6 +15,7 @@ export const resetStuckRepo = internalMutation({
       syncStatus: "pending",
       syncStage: undefined,
       syncCommitsFetched: undefined,
+      syncLastProgressAt: Date.now(),
     });
   },
 });

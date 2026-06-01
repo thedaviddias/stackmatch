@@ -43,10 +43,7 @@ async function fetchPackageStackData(packageName: string) {
   try {
     return await fetchQuery(api.queries.stack.getPackagePageData, { packageName });
   } catch (error) {
-    logger.warn("Failed to load package stack data", {
-      packageName,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error("Failed to load package stack data", error, { packageName });
     return null;
   }
 }

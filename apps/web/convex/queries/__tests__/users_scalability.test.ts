@@ -142,4 +142,63 @@ describe("getIndexedUsersWithProfiles scalability and reliability", () => {
     expect(result[0]?.owner).toBe("good-user");
     expect(result[1]?.owner).toBe("another-good-user");
   });
+
+  it("uses cached owner type when an indexed user has no public profile", async () => {
+    const mockCtx = {
+      db: {
+        query: vi.fn().mockImplementation((table) => {
+          if (table === "indexedUsersCache") {
+            return {
+              withIndex: vi.fn().mockReturnValue({
+                order: vi.fn().mockReturnValue({
+                  take: vi.fn().mockResolvedValue([
+                    {
+                      owner: "tailscale",
+                      avatarUrl: "https://github.com/tailscale.png",
+                      ownerType: "organization",
+                      firstIndexedAt: 1,
+                      lastIndexedAt: 2,
+                      totalCommits: 0,
+                      totalStars: 0,
+                    },
+                  ]),
+                }),
+              }),
+            };
+          }
+          if (table === "profiles") {
+            return {
+              withIndex: vi.fn().mockReturnValue({
+                unique: vi.fn().mockResolvedValue(null),
+              }),
+            };
+          }
+          if (table === "stars") {
+            return {
+              withIndex: vi.fn().mockReturnValue({
+                take: vi.fn().mockResolvedValue([]),
+              }),
+            };
+          }
+          if (table === "ownerPackages") {
+            return {
+              withIndex: vi.fn().mockReturnValue({
+                take: vi.fn().mockResolvedValue([]),
+              }),
+            };
+          }
+          throw new Error(`Unexpected table ${String(table)}`);
+        }),
+      },
+    } as unknown as QueryCtx;
+
+    const result = await getIndexedUsersWithProfilesHandler(mockCtx, {});
+
+    expect(result[0]).toMatchObject({
+      owner: "tailscale",
+      profile: {
+        ownerType: "organization",
+      },
+    });
+  });
 });

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppAlert } from "@/components/ui/feedback/app-alert";
 import { getWebAlertTitle } from "@/lib/feedback/alert-registry";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { postJson } from "@/lib/post-json";
 
 export function OwnerLookupForm() {
@@ -30,6 +31,7 @@ export function OwnerLookupForm() {
       await postJson<{ queued: number }>("/api/scan/user", { owner: normalizedOwner });
       router.push(`/${encodeURIComponent(normalizedOwner)}`);
     } catch (submitError) {
+      captureUserActionError("owner_lookup_scan", submitError, { owner: normalizedOwner });
       setError(
         submitError instanceof Error
           ? submitError.message

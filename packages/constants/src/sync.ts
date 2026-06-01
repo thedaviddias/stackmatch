@@ -19,6 +19,9 @@ export const GITHUB_PUBLIC_REPOS_NOT_FOUND_CACHE_TTL_MS = MINUTE_MS;
 export const SYNC_STUCK_REPO_THRESHOLD_MS =
   RESYNC_COOLDOWN_MS + GITHUB_PUBLIC_REPOS_CACHE_TTL_MS;
 
+/** How often the background job checks for interrupted public repo sync queues. */
+export const SYNC_RECOVERY_CRON_INTERVAL_MINUTES = 5;
+
 /** Public stack package scans older than this are eligible for background refresh. */
 export const STACK_PACKAGE_STALE_WINDOW_MS = DAY_MS;
 

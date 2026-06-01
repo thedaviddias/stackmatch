@@ -13,6 +13,7 @@ import {
 import { api } from "@/data/api";
 import { useMutation } from "@/data/react";
 import { buildLoginUrlForCurrentLocation } from "@/lib/auth/login-url";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { savePendingStar } from "@/lib/storage/pending-star";
 import { cn } from "@/lib/storage/utils";
 
@@ -117,6 +118,7 @@ export function StarButton({
     } catch (error) {
       setStarred(wasStarred);
       applyStarDelta(-optimisticDelta);
+      captureUserActionError("toggle_star", error, { targetOwner, wasStarred });
       toast.error(error instanceof Error ? error.message : "Failed to update star");
     } finally {
       setIsLoading(false);

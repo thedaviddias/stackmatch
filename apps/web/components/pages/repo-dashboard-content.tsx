@@ -20,6 +20,7 @@ import { api } from "@/data/api";
 import { useQuery } from "@/data/react";
 import type { FunctionReturnType } from "@/data/server-types";
 import { getWebAlert, getWebAlertTitle } from "@/lib/feedback/alert-registry";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { postJson } from "@/lib/post-json";
 import { trackEvent } from "@/lib/storage/tracking";
 import { getSyncStageLabel } from "@/lib/sync/sync-progress";
@@ -100,7 +101,8 @@ export function RepoDashboardContent({
         setRequestError(getWebAlertTitle("repo.analysis.rate-limited"));
         setRequesting(false);
       }
-    } catch {
+    } catch (error) {
+      captureUserActionError("analyze_repo", error, { owner, repo: repoName });
       setRequestError(getWebAlertTitle("repo.analysis.request-failed"));
       setRequesting(false);
     }
@@ -116,6 +118,7 @@ export function RepoDashboardContent({
       await postJson("/api/analyze/resync-repo", { owner, name: repoName });
       trackEvent("resync_repo", { owner, repo: repoName });
     } catch (error) {
+      captureUserActionError("resync_repo", error, { owner, repo: repoName });
       setResyncError(
         error instanceof Error ? error.message : getWebAlertTitle("repo.analysis.resync-failed")
       );

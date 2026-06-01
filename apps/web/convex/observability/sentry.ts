@@ -30,3 +30,31 @@ export const reportScanFailure = internalAction({
     });
   },
 });
+
+export const reportBackgroundFailure = internalAction({
+  args: {
+    area: v.string(),
+    action: v.string(),
+    error: v.string(),
+    owner: v.optional(v.string()),
+    targetOwner: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    await captureConvexSentryEvent({
+      message: "Convex background side effect failed",
+      level: "error",
+      tags: {
+        area: args.area,
+        action: args.action,
+        ...(args.owner ? { owner: args.owner } : {}),
+        ...(args.targetOwner ? { targetOwner: args.targetOwner } : {}),
+      },
+      extra: {
+        owner: args.owner,
+        targetOwner: args.targetOwner,
+        error: args.error,
+      },
+      fingerprint: ["convex-background-side-effect-failed", args.area, args.action],
+    });
+  },
+});

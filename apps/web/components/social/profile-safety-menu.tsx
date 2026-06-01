@@ -20,6 +20,7 @@ import {
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
 import { buildLoginUrlForCurrentLocation } from "@/lib/auth/login-url";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 
 const REPORT_DETAILS_ROWS = 4;
 
@@ -64,6 +65,10 @@ export function ProfileSafetyMenu({ targetOwner, className }: ProfileSafetyMenuP
         toast.success(`Blocked @${targetOwner}`);
       }
     } catch (error) {
+      captureUserActionError("toggle_profile_block", error, {
+        targetOwner,
+        blocked: Boolean(safetyStatus?.blocked),
+      });
       toast.error(error instanceof Error ? error.message : "Failed to update block");
     } finally {
       setIsSubmitting(false);
@@ -87,6 +92,7 @@ export function ProfileSafetyMenu({ targetOwner, className }: ProfileSafetyMenuP
         result.alreadyReported ? "You already reported this profile." : "Report submitted."
       );
     } catch (error) {
+      captureUserActionError("report_profile", error, { targetOwner, reason, alsoBlock });
       toast.error(error instanceof Error ? error.message : "Failed to submit report");
     } finally {
       setIsSubmitting(false);

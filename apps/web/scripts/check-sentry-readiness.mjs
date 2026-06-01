@@ -4,15 +4,19 @@ const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
 const REQUIRED_RUNTIME_ENV = ["NEXT_PUBLIC_SENTRY_DSN"];
+const REQUIRED_CONVEX_ENV = ["SENTRY_DSN"];
 const REQUIRED_SOURCE_MAP_ENV = ["SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT"];
 
 const missingRuntimeEnv = getMissingEnv(REQUIRED_RUNTIME_ENV);
+const missingConvexEnv = getMissingEnv(REQUIRED_CONVEX_ENV);
 const missingSourceMapEnv = getMissingEnv(REQUIRED_SOURCE_MAP_ENV);
-const hasMissingEnv = missingRuntimeEnv.length > 0 || missingSourceMapEnv.length > 0;
+const hasMissingEnv =
+  missingRuntimeEnv.length > 0 || missingConvexEnv.length > 0 || missingSourceMapEnv.length > 0;
 
 if (!hasMissingEnv) {
   console.log("Sentry readiness check passed.");
   console.log("- Production error capture DSN is configured.");
+  console.log("- Convex background error capture DSN is configured.");
   console.log("- Source map upload credentials are configured.");
   process.exit(EXIT_SUCCESS);
 }
@@ -27,9 +31,13 @@ if (missingSourceMapEnv.length > 0) {
   console.error(`Missing source map upload env: ${missingSourceMapEnv.join(", ")}`);
 }
 
+if (missingConvexEnv.length > 0) {
+  console.error(`Missing Convex background error capture env: ${missingConvexEnv.join(", ")}`);
+}
+
 console.error("Set these in Vercel Project Settings for preview and production.");
 console.error(
-  "Also set SENTRY_DSN in Convex env so background scan worker failures are captured."
+  "Also set SENTRY_DSN in Convex env so background scan worker and side-effect failures are captured."
 );
 process.exit(EXIT_FAILURE);
 

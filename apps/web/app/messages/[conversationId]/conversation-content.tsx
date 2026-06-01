@@ -13,6 +13,7 @@ import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
 import type { Id } from "@/data/server-types";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 
 const CONVERSATION_SKELETON_KEYS = [
   "conversation-row-1",
@@ -66,6 +67,7 @@ export function ConversationContent() {
       });
       setBody("");
     } catch (error) {
+      captureUserActionError("send_message", error, { conversationId });
       toast.error(error instanceof Error ? error.message : "Failed to send message");
     } finally {
       setIsSending(false);

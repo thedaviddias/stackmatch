@@ -13,6 +13,7 @@ import {
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
 import { buildLoginUrlForCurrentLocation } from "@/lib/auth/login-url";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { cn } from "@/lib/storage/utils";
 
 interface FollowButtonProps {
@@ -54,6 +55,7 @@ export function FollowButton({ targetOwner, viewerStackScore = 0, className }: F
         toast.success(`Following @${targetOwner}`);
       }
     } catch (error) {
+      captureUserActionError("toggle_follow", error, { targetOwner });
       toast.error(error instanceof Error ? error.message : "Failed to update follow");
     } finally {
       setIsLoading(false);

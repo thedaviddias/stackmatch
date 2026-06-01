@@ -43,9 +43,7 @@ export async function getBaseDevelopersDirectory(
 
     return mapRowsToDirectoryItems(rows, params.view === "claimed" ? "claimed" : "indexed");
   } catch (error) {
-    logger.warn("Failed to load developers directory base rows", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error("Failed to load developers directory base rows", error);
     return [];
   }
 }

@@ -57,10 +57,13 @@ export const updateMetadata = internalMutation({
 export const setSyncing = internalMutation({
   args: { repoId: v.id("repos") },
   handler: async (ctx, args) => {
+    const now = Date.now();
     await ctx.db.patch(args.repoId, {
       syncStatus: "syncing",
       syncStage: "scanning_packages",
       syncCommitsFetched: 0,
+      syncLastProgressAt: now,
+      syncPipeline: "stack",
       syncError: undefined,
     });
   },
@@ -73,12 +76,12 @@ export const updateSyncProgress = internalMutation({
     syncCommitsFetched: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const patch: Record<string, string | number | undefined> = {};
+    const patch: Record<string, string | number | undefined> = {
+      syncLastProgressAt: Date.now(),
+    };
     if (args.syncStage !== undefined) patch.syncStage = args.syncStage;
     if (args.syncCommitsFetched !== undefined) patch.syncCommitsFetched = args.syncCommitsFetched;
-    if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(args.repoId, patch);
-    }
+    await ctx.db.patch(args.repoId, patch);
   },
 });
 
@@ -154,6 +157,7 @@ export const markSynced = internalMutation({
       lastSyncedAt: Date.now(),
       syncStage: undefined,
       syncCommitsFetched: undefined,
+      syncLastProgressAt: undefined,
       scannedPackageCount: args.packageCount,
       scannedManifestCount: args.manifestCount,
       ...(args.packageManifestFingerprint !== undefined
@@ -181,6 +185,7 @@ export const markError = internalMutation({
       syncError: args.error,
       syncStage: undefined,
       syncCommitsFetched: undefined,
+      syncLastProgressAt: undefined,
     });
 
     if (repo) {

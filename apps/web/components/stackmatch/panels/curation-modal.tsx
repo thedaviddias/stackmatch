@@ -19,6 +19,7 @@ import { ButtonCustom } from "@/components/ui/button";
 import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation } from "@/data/react";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 
 interface Repo {
   repoId: string;
@@ -152,7 +153,8 @@ export function CurationModal({ isOpen, onClose, repos }: CurationModalProps) {
       // @ts-expect-error repoId is string in component, Id<"repos"> in Convex
       await toggleExclusion({ repoId, isExcluded: !currentExcluded });
       toast.success(currentExcluded ? "Repository included" : "Repository excluded");
-    } catch (_error) {
+    } catch (error) {
+      captureUserActionError("toggle_repo_exclusion", error, { repoId, currentExcluded });
       toast.error("Failed to update repository settings");
     }
   };

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useSession } from "@/components/providers/session-provider";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 
 const CITY_DROPDOWN_BLUR_DELAY_MS = 200;
 
@@ -81,6 +82,10 @@ export function LocationSettings() {
       });
       toast.success("Location updated");
     } catch (err) {
+      captureUserActionError("update_location", err, {
+        hasCountry: Boolean(selectedCountry),
+        hasCity: Boolean(selectedCity),
+      });
       toast.error(err instanceof Error ? err.message : "Failed to update location");
     } finally {
       setIsSaving(false);
@@ -98,7 +103,8 @@ export function LocationSettings() {
         locationCity: undefined,
       });
       toast.success("Location cleared");
-    } catch {
+    } catch (err) {
+      captureUserActionError("clear_location", err);
       toast.error("Failed to clear location");
     } finally {
       setIsSaving(false);

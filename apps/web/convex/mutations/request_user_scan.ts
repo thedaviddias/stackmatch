@@ -147,6 +147,13 @@ export const requestUserScan = mutation({
           patch.syncStatus = "pending";
           patch.syncError = undefined;
         }
+        if (existing.syncStatus === "pending" || existing.syncStatus === "error") {
+          patch.requestedAt = submittedAt;
+          patch.syncLastProgressAt = submittedAt;
+        }
+        if (existing.syncStatus !== "syncing") {
+          patch.syncPipeline = "stack";
+        }
         if (repo.pushedAt !== undefined) {
           patch.pushedAt = repo.pushedAt;
         }
@@ -169,7 +176,9 @@ export const requestUserScan = mutation({
         defaultBranch: "main",
         githubId: 0,
         syncStatus: "pending",
+        syncPipeline: "stack",
         requestedAt: submittedAt,
+        syncLastProgressAt: submittedAt,
         ...(repo.pushedAt !== undefined ? { pushedAt: repo.pushedAt } : {}),
       });
 

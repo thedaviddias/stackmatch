@@ -46,10 +46,13 @@ export const updateMetadata = internalMutation({
 export const setSyncing = internalMutation({
   args: { repoId: v.id("repos") },
   handler: async (ctx, args) => {
+    const now = Date.now();
     await ctx.db.patch(args.repoId, {
       syncStatus: "syncing",
       syncStage: "fetching_commits",
       syncCommitsFetched: 0,
+      syncLastProgressAt: now,
+      syncPipeline: "github",
     });
   },
 });
@@ -61,12 +64,12 @@ export const updateSyncProgress = internalMutation({
     syncCommitsFetched: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const patch: Record<string, string | number | undefined> = {};
+    const patch: Record<string, string | number | undefined> = {
+      syncLastProgressAt: Date.now(),
+    };
     if (args.syncStage !== undefined) patch.syncStage = args.syncStage;
     if (args.syncCommitsFetched !== undefined) patch.syncCommitsFetched = args.syncCommitsFetched;
-    if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(args.repoId, patch);
-    }
+    await ctx.db.patch(args.repoId, patch);
   },
 });
 
@@ -80,6 +83,7 @@ export const markSynced = internalMutation({
       totalCommitsFetched: args.totalCommits,
       syncStage: undefined,
       syncCommitsFetched: undefined,
+      syncLastProgressAt: undefined,
     });
 
     // Check for more pending repos and trigger next if any
@@ -118,6 +122,8 @@ export const markQueued = internalMutation({
     await ctx.db.patch(args.repoId, {
       syncStatus: "queued",
       syncError: args.reason,
+      syncLastProgressAt: Date.now(),
+      syncPipeline: "github",
     });
   },
 });
@@ -131,6 +137,7 @@ export const markError = internalMutation({
       syncError: args.error,
       syncStage: undefined,
       syncCommitsFetched: undefined,
+      syncLastProgressAt: undefined,
     });
 
     // Even on error, move to the next pending repo so the queue doesn't stall

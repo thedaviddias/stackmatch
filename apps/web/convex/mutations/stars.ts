@@ -28,6 +28,32 @@ const enqueueForOwnerFn = requireModule(
 
 const STAR_DUPLICATE_CLEANUP_LIMIT = 100;
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function reportBackgroundFailure(
+  ctx: MutationCtx,
+  args: {
+    action: string;
+    owner: string;
+    targetOwner: string;
+    error: unknown;
+  }
+): Promise<void> {
+  try {
+    await ctx.scheduler.runAfter(0, internal.observability.sentry.reportBackgroundFailure, {
+      area: "stars",
+      action: args.action,
+      owner: args.owner,
+      targetOwner: args.targetOwner,
+      error: getErrorMessage(args.error),
+    });
+  } catch (reportError) {
+    console.error("[toggleStar] Failed to report background failure to Sentry", reportError);
+  }
+}
+
 async function syncTargetStarCounter(ctx: MutationCtx, targetOwner: string): Promise<void> {
   const [targetProfile, allTargetStars] = await Promise.all([
     ctx.db
@@ -132,6 +158,12 @@ export const toggleStar = mutation({
       });
     } catch (notificationError) {
       console.error("[toggleStar] Failed to enqueue notification", notificationError);
+      await reportBackgroundFailure(ctx, {
+        action: "enqueue_notification",
+        owner: githubLogin,
+        targetOwner,
+        error: notificationError,
+      });
     }
 
     try {
@@ -143,6 +175,12 @@ export const toggleStar = mutation({
       });
     } catch (feedError) {
       console.error("[toggleStar] Failed to create feed event", feedError);
+      await reportBackgroundFailure(ctx, {
+        action: "create_feed_event",
+        owner: githubLogin,
+        targetOwner,
+        error: feedError,
+      });
     }
 
     return {

@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { useAdminStatus } from "./admin-shell";
 
 const ADMIN_PROFILE_AVATAR_SIZE = 48;
@@ -170,6 +171,10 @@ export function AdminProfilesContent() {
       });
       toast.success("Profile visibility updated.");
     } catch (error) {
+      captureUserActionError("admin_set_profile_visibility", error, {
+        owner: selectedProfile.owner,
+        visibility,
+      });
       toast.error(error instanceof Error ? error.message : "Failed to update profile visibility");
     } finally {
       setBusyAction(null);
@@ -186,6 +191,7 @@ export function AdminProfilesContent() {
       });
       toast.success(`${result.queued} failed repos queued for retry.`);
     } catch (error) {
+      captureUserActionError("admin_retry_failed_repos", error, { owner: selectedProfile.owner });
       toast.error(error instanceof Error ? error.message : "Failed to retry repos");
     } finally {
       setBusyAction(null);
@@ -203,6 +209,10 @@ export function AdminProfilesContent() {
       });
       toast.success(result.started ? "Repository retry started." : "Repository queued for retry.");
     } catch (error) {
+      captureUserActionError("admin_retry_repo", error, {
+        owner: selectedProfile.owner,
+        repoName,
+      });
       toast.error(error instanceof Error ? error.message : "Failed to retry repository");
     } finally {
       setBusyAction(null);

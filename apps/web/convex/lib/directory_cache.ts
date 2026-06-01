@@ -191,6 +191,7 @@ export async function insertOwnerCacheRows(params: {
         `https://github.com/${aggregate.owner}.png?size=${PROFILE_AVATAR_SIZE}`,
       displayName: profile?.name ?? null,
       followers: profile?.followers ?? 0,
+      ...(profile?.ownerType ? { ownerType: profile.ownerType } : {}),
       repoCount: aggregate.repoCount,
       power,
       totalStars: aggregate.totalStars,
@@ -206,6 +207,7 @@ export async function insertOwnerCacheRows(params: {
     await ctx.db.insert("indexedUsersCache", {
       owner: aggregate.owner,
       avatarUrl: `https://github.com/${aggregate.owner}.png?size=${PROFILE_AVATAR_SIZE}`,
+      ...(profile?.ownerType ? { ownerType: profile.ownerType } : {}),
       repoCount: aggregate.repoCount,
       totalStars: aggregate.totalStars,
       totalCommits: aggregate.totalCommits,

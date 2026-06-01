@@ -25,6 +25,7 @@ import { api } from "@/data/api";
 import { useQuery } from "@/data/react";
 import type { FunctionReturnType } from "@/data/server-types";
 import { getWebAlertTitle } from "@/lib/feedback/alert-registry";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { postJson } from "@/lib/post-json";
 import { cn, getBaseUrl } from "@/lib/storage/utils";
 import { getSyncStageLabel } from "@/lib/sync/sync-progress";
@@ -226,6 +227,7 @@ function useOwnerStatus(owner: string, initialStatus?: StatusMessage | null) {
       await postJson<{ queued: number }>("/api/scan/resync-user", { owner });
       setStatus({ text: getWebAlertTitle("profile.status.reindex-queued"), type: "success" });
     } catch (error) {
+      captureUserActionError("owner_page_retry_indexing", error, { owner });
       setStatus({
         text: error instanceof Error ? error.message : "Failed to queue re-index.",
         type: "error",

@@ -144,9 +144,7 @@ const getCachedLanguages = unstable_cache(
     try {
       return await listDistinctLanguages();
     } catch (error) {
-      logger.warn("Failed to load search languages", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error("Failed to load search languages", error);
       return [];
     }
   },
@@ -159,9 +157,7 @@ const getCachedTopics = unstable_cache(
     try {
       return await listDistinctTopics();
     } catch (error) {
-      logger.warn("Failed to load search topics", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error("Failed to load search topics", error);
       return [];
     }
   },

@@ -13,6 +13,7 @@ import {
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
 import { buildLoginUrlForCurrentLocation } from "@/lib/auth/login-url";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { cn } from "@/lib/storage/utils";
 
 interface MessageButtonProps {
@@ -146,6 +147,7 @@ export function MessageButton({
       const result = await startConversation({ targetOwner });
       router.push(`/messages/${result.conversationId}`);
     } catch (error) {
+      captureUserActionError("start_conversation", error, { targetOwner });
       toast.error(error instanceof Error ? error.message : "Failed to start conversation");
     } finally {
       setIsLoading(false);

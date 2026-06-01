@@ -20,6 +20,7 @@ export const requestUserAnalysis = mutation({
     }
 
     const limitedRepos = args.repos.slice(0, 20);
+    const submittedAt = Date.now();
     const results = [];
 
     for (const repo of limitedRepos) {
@@ -36,6 +37,13 @@ export const requestUserAnalysis = mutation({
         if (existing.syncStatus === "error") {
           patch.syncStatus = "pending";
           patch.syncError = undefined;
+        }
+        if (existing.syncStatus === "pending" || existing.syncStatus === "error") {
+          patch.requestedAt = submittedAt;
+          patch.syncLastProgressAt = submittedAt;
+        }
+        if (existing.syncStatus !== "syncing") {
+          patch.syncPipeline = "github";
         }
         // Always refresh pushedAt so the sync queue stays in latest-first order
         if (repo.pushedAt !== undefined) {
@@ -56,7 +64,9 @@ export const requestUserAnalysis = mutation({
         defaultBranch: "main",
         githubId: 0,
         syncStatus: "pending",
-        requestedAt: Date.now(),
+        syncPipeline: "github",
+        requestedAt: submittedAt,
+        syncLastProgressAt: submittedAt,
         ...(repo.pushedAt !== undefined ? { pushedAt: repo.pushedAt } : {}),
       });
 

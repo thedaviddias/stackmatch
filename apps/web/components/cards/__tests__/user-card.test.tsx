@@ -121,6 +121,24 @@ describe("UserCard", () => {
     expect(screen.getByText("88%")).toBeInTheDocument();
   });
 
+  it("shows public package parsing in the top stack area while syncing without packages", () => {
+    renderUserCard(
+      <UserCard
+        owner="octocat"
+        avatarUrl="https://github.com/octocat.png"
+        displayName="Octo Cat"
+        repoCount={0}
+        isSyncing
+        power={0}
+        topStacks={[]}
+      />
+    );
+
+    expect(screen.getByText("Top Stack")).toBeInTheDocument();
+    expect(screen.getByText(/Parsing public packages/)).toBeInTheDocument();
+    expect(screen.getByText(/Scanning/)).toBeInTheDocument();
+  });
+
   it("limits top stack badges by default and shows responsive hidden counts", () => {
     renderUserCard(
       <UserCard

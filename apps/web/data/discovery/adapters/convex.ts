@@ -12,6 +12,7 @@ import type {
 type RawUserRow = {
   owner: string;
   avatarUrl: string;
+  ownerType?: OwnerType;
   repoCount?: number;
   power?: number;
   totalStars?: number;
@@ -45,17 +46,17 @@ function mapProfile(row: RawUserRow) {
       avatarUrl: row.profile.avatarUrl,
       stackScore: row.profile.stackScore,
       topStacks: row.profile.topStacks,
-      ownerType: row.profile.ownerType,
+      ownerType: row.profile.ownerType ?? row.ownerType,
     };
   }
-  if (row.displayName || row.followers !== undefined) {
+  if (row.displayName || row.followers !== undefined || row.ownerType !== undefined) {
     return {
       name: row.displayName ?? null,
       followers: row.followers ?? 0,
       avatarUrl: row.avatarUrl,
       stackScore: row.power ?? 0,
       topStacks: [],
-      ownerType: undefined,
+      ownerType: row.ownerType,
     };
   }
   return undefined;

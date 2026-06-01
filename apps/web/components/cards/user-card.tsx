@@ -190,18 +190,37 @@ function TopStackOverflowChip({ count, className }: { count: number; className?:
 
 function TopStackChips({
   topStacks,
+  isSyncing,
   topStackLimit = MATCH_CARD_TOP_STACK_LIMIT,
   mobileTopStackLimit = MATCH_CARD_MOBILE_TOP_STACK_LIMIT,
 }: {
   topStacks?: string[];
+  isSyncing?: boolean;
   topStackLimit?: number;
   mobileTopStackLimit?: number;
 }) {
   const desktopLimit = Math.max(0, topStackLimit);
   const mobileLimit = Math.min(desktopLimit, Math.max(0, mobileTopStackLimit));
+  const hasRawTopStacks = (topStacks?.length ?? 0) > 0;
   const cardTopStacks = topStacks?.filter((stack) => !isLowSignalPackage(stack)) ?? [];
   const visibleTopStacks = cardTopStacks.slice(0, desktopLimit);
-  if (visibleTopStacks.length === 0) return null;
+  if (visibleTopStacks.length === 0) {
+    if (!isSyncing || hasRawTopStacks) return null;
+
+    return (
+      <div className="mt-4">
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
+            Top Stack
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2 py-1 text-[10px] font-black text-muted-foreground dark:border-neutral-800 dark:bg-white/[0.04] dark:text-neutral-400">
+          <Loader2 className="size-3 animate-spin" />
+          Parsing public packages&hellip;
+        </span>
+      </div>
+    );
+  }
 
   const hiddenDesktopTopStackCount = Math.max(0, cardTopStacks.length - desktopLimit);
   const hiddenMobileTopStackCount = Math.max(0, cardTopStacks.length - mobileLimit);
@@ -326,6 +345,7 @@ export function UserCard({
 
         <TopStackChips
           topStacks={topStacks}
+          isSyncing={isSyncing}
           topStackLimit={topStackLimit}
           mobileTopStackLimit={mobileTopStackLimit}
         />

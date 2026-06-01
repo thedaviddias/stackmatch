@@ -21,7 +21,7 @@ interface EqBuilder {
   eq(field: string, value: unknown): EqBuilder;
 }
 
-function profile(owner = DEFAULT_OWNER, visibility?: string): TestRow {
+function profile(owner = DEFAULT_OWNER, visibility?: string, ownerType?: string): TestRow {
   return {
     _id: `profile:${owner}`,
     owner,
@@ -30,6 +30,7 @@ function profile(owner = DEFAULT_OWNER, visibility?: string): TestRow {
     followers: 42,
     lastUpdated: 1,
     ...(visibility ? { visibility } : {}),
+    ...(ownerType ? { ownerType } : {}),
   };
 }
 
@@ -225,6 +226,30 @@ describe("refreshOwnerDirectoryCacheForOwner", () => {
       repoCount: 0,
       power: 0,
       isSyncing: true,
+    });
+  });
+
+  it("writes organization owner type into directory and indexed cache rows", async () => {
+    const { ctx, tables } = createMockCtx({
+      profiles: [profile("tailscale", undefined, "organization")],
+      repos: [repo({ owner: "tailscale", stars: 5 })],
+      repoWeeklyStats: [],
+      stars: [],
+      ownerPackages: [],
+      developerDirectoryCache: [],
+      indexedUsersCache: [],
+    });
+
+    const result = await refreshOwnerDirectoryCacheForOwner(ctx, "tailscale");
+
+    expect(result).toEqual({ dirInserted: 1, idxInserted: 1 });
+    expect(tables.developerDirectoryCache?.[0]).toMatchObject({
+      owner: "tailscale",
+      ownerType: "organization",
+    });
+    expect(tables.indexedUsersCache?.[0]).toMatchObject({
+      owner: "tailscale",
+      ownerType: "organization",
     });
   });
 

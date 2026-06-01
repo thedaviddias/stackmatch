@@ -9,6 +9,7 @@ import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
 import { getWebAlertTitle } from "@/lib/feedback/alert-registry";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { ApiRequestError, postJson } from "@/lib/post-json";
 import { trackEvent } from "@/lib/storage/tracking";
 import { cn } from "@/lib/storage/utils";
@@ -458,6 +459,7 @@ function useOwnerActionsPanelProps({
         type: "success",
       });
     } catch (error) {
+      captureUserActionError("public_resync", error, { owner });
       if (
         error instanceof ApiRequestError &&
         error.status === TOO_MANY_REQUESTS_STATUS &&
@@ -483,7 +485,11 @@ function useOwnerActionsPanelProps({
           ? "Ghost Mode active: Profile hidden from discovery"
           : "Profile is now Publicly Visible"
       );
-    } catch (_error) {
+    } catch (error) {
+      captureUserActionError("update_profile_visibility", error, {
+        owner,
+        nextVisibility,
+      });
       toast.error("Failed to update visibility");
     }
   };
@@ -510,6 +516,7 @@ function useOwnerActionsPanelProps({
             : null,
       });
     } catch (error) {
+      captureUserActionError("generate_invite_codes", error, { owner });
       dispatch({
         type: "inviteError",
         message: error instanceof Error ? error.message : "Failed to generate invite codes",
@@ -542,6 +549,7 @@ function useOwnerActionsPanelProps({
         type: "success",
       });
     } catch (error) {
+      captureUserActionError("private_sync", error, { owner });
       if (
         error instanceof ApiRequestError &&
         error.status === TOO_MANY_REQUESTS_STATUS &&
@@ -569,6 +577,7 @@ function useOwnerActionsPanelProps({
         type: "success",
       });
     } catch (error) {
+      captureUserActionError("unlink_private_data", error, { owner });
       onStatus?.({
         text: error instanceof Error ? error.message : "Failed to clear private stack data.",
         type: "error",
@@ -592,6 +601,7 @@ function useOwnerActionsPanelProps({
       });
       window.location.href = result.githubManageUrl ?? "https://github.com/settings/installations";
     } catch (error) {
+      captureUserActionError("disconnect_github_app", error, { owner });
       onStatus?.({
         text: error instanceof Error ? error.message : "Failed to disconnect GitHub App.",
         type: "error",

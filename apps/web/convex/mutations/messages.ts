@@ -3,7 +3,8 @@ import { MINUTE_MS } from "@stackmatch/constants/time";
 import { getFeatureGates } from "@stackmatch/utils";
 import { anyApi } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { type MutationCtx, mutation } from "../_generated/server";
 import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { getWeekStart } from "../lib/date_helpers";
@@ -35,6 +36,32 @@ const enqueueForOwnerFn = requireModule(
 );
 const MESSAGE_DEDUPE_WINDOW_MINUTES = 5;
 const MESSAGE_DEDUPE_WINDOW_MS = MESSAGE_DEDUPE_WINDOW_MINUTES * MINUTE_MS;
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function reportBackgroundFailure(
+  ctx: MutationCtx,
+  args: {
+    action: string;
+    owner: string;
+    targetOwner: string;
+    error: unknown;
+  }
+): Promise<void> {
+  try {
+    await ctx.scheduler.runAfter(0, internal.observability.sentry.reportBackgroundFailure, {
+      area: "messages",
+      action: args.action,
+      owner: args.owner,
+      targetOwner: args.targetOwner,
+      error: getErrorMessage(args.error),
+    });
+  } catch (reportError) {
+    console.error("[sendMessage] Failed to report background failure to Sentry", reportError);
+  }
+}
 
 export function buildMessageNotificationText(senderOwner: string): string {
   return `@${senderOwner} sent you a message.`;
@@ -253,6 +280,12 @@ export const sendMessage = mutation({
       });
     } catch (notificationError) {
       console.error("[sendMessage] Failed to enqueue notification", notificationError);
+      await reportBackgroundFailure(ctx, {
+        action: "enqueue_notification",
+        owner: githubLogin,
+        targetOwner: recipientOwner,
+        error: notificationError,
+      });
     }
 
     return { messageId };

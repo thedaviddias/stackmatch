@@ -31,6 +31,7 @@ const NOT_FOUND_STATUS = 404;
 const TOO_MANY_REQUESTS_STATUS = 429;
 const INTERNAL_SERVER_ERROR_STATUS = 500;
 const INVALID_OWNER_INPUT_MESSAGE = "Enter a valid GitHub user, organization, or GitHub URL.";
+const SCAN_REQUEST_FAILED_MESSAGE = "Failed to request scan. Please try again.";
 
 type ScanRejectionReason =
   | "bot_id"
@@ -42,6 +43,10 @@ type ScanRejectionReason =
 
 function logScanRejection(reason: ScanRejectionReason, context?: Record<string, unknown>) {
   logger.warn("scan-user request rejected", { reason, ...context });
+}
+
+function captureScanFailure(stage: string, error: unknown, context?: Record<string, unknown>) {
+  logger.error("scan-user request failed before queueing", error, { stage, ...context });
 }
 
 function scanRateLimitResponse(reason: "cooldown" | "daily_cap", retryAfterSeconds: number) {
@@ -68,13 +73,35 @@ function getScanRejectionReason(reason: "cooldown" | "daily_cap"): ScanRejection
   return reason === "daily_cap" ? "daily_cap" : "owner_cooldown";
 }
 
-async function getHumanRequestRejection(): Promise<NextResponse | null> {
+async function getSubmittedOwnerHint(request: Request): Promise<string | undefined> {
+  try {
+    const body = (await request.clone().json()) as ScanUserRequest;
+    const owner = resolveOwnerInput(body.owner);
+    if (typeof owner === "string") {
+      return owner;
+    }
+
+    const scanOwner = resolveScanOwner(undefined, body.repos);
+    return typeof scanOwner === "string" ? scanOwner : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function getHumanRequestRejection(request: Request): Promise<NextResponse | null> {
   const guard = await requireHumanRequest();
   if (guard.allowed) {
     return null;
   }
 
-  logScanRejection("bot_id");
+  const owner = await getSubmittedOwnerHint(request);
+  logScanRejection("bot_id", { ...(owner ? { owner } : {}) });
+  if (owner) {
+    captureScanFailure("bot_protection", undefined, {
+      owner,
+      status: guard.response.status,
+    });
+  }
   return guard.response;
 }
 
@@ -229,8 +256,16 @@ async function requestScanForOwner({
   apiKey: string;
   submitter: ScanSubmitter | undefined;
 }) {
-  const throttleResponse = await enforceScanThrottle(request, owner, apiKey, submitter);
-  if (throttleResponse) return throttleResponse;
+  try {
+    const throttleResponse = await enforceScanThrottle(request, owner, apiKey, submitter);
+    if (throttleResponse) return throttleResponse;
+  } catch (error) {
+    captureScanFailure("throttle", error, {
+      owner,
+      submitterScope: submitter ? "authenticated" : "anonymous",
+    });
+    return jsonError(SCAN_REQUEST_FAILED_MESSAGE, INTERNAL_SERVER_ERROR_STATUS);
+  }
 
   const repos = await resolveScanRepos(owner);
   if (repos instanceof NextResponse) return repos;
@@ -271,8 +306,7 @@ async function requestScanForOwner({
       repoCount: repos.length,
     });
 
-    const message = error instanceof Error ? error.message : "Failed to request scan";
-    return jsonError(message, INTERNAL_SERVER_ERROR_STATUS);
+    return jsonError(SCAN_REQUEST_FAILED_MESSAGE, INTERNAL_SERVER_ERROR_STATUS);
   }
 }
 
@@ -285,7 +319,7 @@ function getFallbackOwnerProfile(owner: string): GitHubOwnerProfile {
 }
 
 export async function POST(request: Request) {
-  const humanRejection = await getHumanRequestRejection();
+  const humanRejection = await getHumanRequestRejection(request);
   if (humanRejection) return humanRejection;
 
   const apiKey = getConfiguredAnalyzeApiKey();

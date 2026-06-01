@@ -39,6 +39,8 @@ export default defineSchema({
     // Progress tracking — updated during sync pipeline
     syncStage: v.optional(v.string()), // "fetching_commits" | "enriching_loc" | "classifying_prs" | "computing_stats"
     syncCommitsFetched: v.optional(v.number()), // running count, updated per page of 100 commits
+    syncLastProgressAt: v.optional(v.number()), // heartbeat used to detect interrupted sync work
+    syncPipeline: v.optional(v.union(v.literal("github"), v.literal("stack"))),
     requestedAt: v.number(),
     pushedAt: v.optional(v.number()), // GitHub pushed_at timestamp — used to order sync queue (latest first)
     scannedPackageCount: v.optional(v.number()),
@@ -839,6 +841,14 @@ export default defineSchema({
     avatarUrl: v.string(),
     displayName: v.union(v.string(), v.null()),
     followers: v.number(),
+    ownerType: v.optional(
+      v.union(
+        v.literal("developer"),
+        v.literal("organization"),
+        v.literal("bot"),
+        v.literal("maintainer")
+      )
+    ),
     repoCount: v.number(),
     power: v.number(),
     totalStars: v.number(),
@@ -855,6 +865,14 @@ export default defineSchema({
   indexedUsersCache: defineTable({
     owner: v.string(),
     avatarUrl: v.string(),
+    ownerType: v.optional(
+      v.union(
+        v.literal("developer"),
+        v.literal("organization"),
+        v.literal("bot"),
+        v.literal("maintainer")
+      )
+    ),
     repoCount: v.number(),
     totalStars: v.number(),
     totalCommits: v.number(),

@@ -11,12 +11,15 @@ Set these in Vercel Project Settings for preview and production:
 - `SENTRY_ORG`: Sentry organization slug for source map upload.
 - `SENTRY_PROJECT`: Sentry project slug for source map upload.
 
+Set `SENTRY_DSN` in the Convex environment so background scan and side-effect failures can report directly to Sentry.
+
 Run `pnpm check:sentry` in an environment with those variables loaded before shipping a production or preview build. The script only reports missing keys; it never prints secret values.
 
 ## Capture policy
 
 - Errors are captured in production when `NEXT_PUBLIC_SENTRY_DSN` is set.
 - `logger.error()` creates Sentry error events.
+- Caught client-side user action failures should call `captureUserActionError()`, which uses `logger.error()`.
 - `logger.warn()` stays breadcrumb-only and does not create standalone Sentry issues.
 - Sentry structured logs and console capture remain disabled to protect quota.
 
@@ -26,7 +29,7 @@ Run `pnpm check:sentry` in an environment with those variables loaded before shi
 
 ## Convex boundary
 
-The Next.js Sentry SDK does not cover raw `console.error` or `console.warn` calls inside `apps/web/convex/*`. Add a Convex-specific log drain or runtime integration before treating Convex warnings/errors as Sentry-covered.
+The Next.js Sentry SDK does not cover raw `console.error` or `console.warn` calls inside `apps/web/convex/*`. Convex scan failures and selected best-effort side-effect failures report through `apps/web/convex/observability/sentry.ts`; new swallowed Convex errors should schedule that internal action or use a future Convex log drain.
 
 ## Smoke test
 

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { ButtonCustom } from "@/components/ui/button";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 
 const PREFERENCE_SKELETON_KEYS = [
   "pref-skeleton-1",
@@ -202,6 +203,11 @@ export function NotificationPreferencesPanel() {
       });
       toast.success("Notification settings saved.");
     } catch (error) {
+      captureUserActionError("update_notification_preferences", error, {
+        emailEnabled,
+        starsEmailEnabled,
+        generalEmailEnabled,
+      });
       toast.error(error instanceof Error ? error.message : "Failed to save notification settings.");
     } finally {
       setIsSavingPreferences(false);

@@ -13,6 +13,7 @@ import { NotificationsInboxPanel } from "@/components/stackmatch/panels/notifica
 import { DropdownMenu } from "@/components/ui/display/profile-elements";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 
 const NOTIFICATIONS_PAGE_SKELETON_KEYS = [
   "notifications-page-skeleton-1",
@@ -63,6 +64,7 @@ export function NotificationsContent() {
           : "No unread notifications."
       );
     } catch (error) {
+      captureUserActionError("mark_all_notifications_read", error);
       toast.error(error instanceof Error ? error.message : "Failed to mark notifications as read.");
     } finally {
       setIsMarkingAllRead(false);

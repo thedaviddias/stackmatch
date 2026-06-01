@@ -9,6 +9,7 @@ import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation, usePaginatedQuery, useQuery } from "@/data/react";
 import type { Id } from "@/data/server-types";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { cn } from "@/lib/storage/utils";
 
 const NOTIFICATION_SKELETON_KEYS = [
@@ -67,6 +68,7 @@ export function NotificationsInboxPanel({ showTitle = true }: NotificationsInbox
     try {
       await markNotificationRead({ notificationId });
     } catch (error) {
+      captureUserActionError("mark_notification_read", error, { notificationId });
       toast.error(error instanceof Error ? error.message : "Failed to update notification.");
     } finally {
       setMarkingId(null);

@@ -127,6 +127,15 @@ describe("POST /api/scan/user", () => {
     expect(response.status).toBe(403);
     expect(fetchMutationMock).not.toHaveBeenCalled();
     expect(fetchTopPublicReposMock).not.toHaveBeenCalled();
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      "scan-user request failed before queueing",
+      undefined,
+      {
+        owner: "octocat",
+        stage: "bot_protection",
+        status: 403,
+      }
+    );
   });
 
   it("throttles owner scans before fetching GitHub repositories", async () => {
@@ -295,6 +304,48 @@ describe("POST /api/scan/user", () => {
       retryAfterSeconds: 600,
     });
     expect(fetchTopPublicReposMock).not.toHaveBeenCalled();
+  });
+
+  it("captures throttle mutation failures before any GitHub work starts", async () => {
+    const throttleError = new Error("Unauthorized request");
+    fetchMutationMock.mockReset();
+    fetchMutationMock.mockRejectedValueOnce(throttleError);
+
+    const response = await POST(makeRequest({ owner: "octocat" }));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Failed to request scan. Please try again.",
+    });
+    expect(fetchTopPublicReposMock).not.toHaveBeenCalled();
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      "scan-user request failed before queueing",
+      throttleError,
+      {
+        owner: "octocat",
+        stage: "throttle",
+        submitterScope: "anonymous",
+      }
+    );
+  });
+
+  it("does not leak scan mutation failure details to clients", async () => {
+    const mutationError = new Error("Unauthorized request");
+    fetchMutationMock.mockReset();
+    fetchMutationMock
+      .mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null })
+      .mockRejectedValueOnce(mutationError);
+
+    const response = await POST(makeRequest({ owner: "octocat" }));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Failed to request scan. Please try again.",
+    });
+    expect(loggerErrorMock).toHaveBeenCalledWith("requestUserScan mutation failed", mutationError, {
+      owner: "octocat",
+      repoCount: 1,
+    });
   });
 
   it("returns daily caps without fetching GitHub repositories", async () => {

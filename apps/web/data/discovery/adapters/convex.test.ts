@@ -84,6 +84,29 @@ describe("convexDiscoveryDataPort", () => {
     expect(fetchQueryMock).toHaveBeenCalledWith(api.queries.users.getDevelopersDirectory, {});
   });
 
+  it("preserves cached organization type for homepage cards", async () => {
+    fetchQueryMock.mockResolvedValueOnce([
+      {
+        owner: "tailscale",
+        avatarUrl: "https://github.com/tailscale.png",
+        ownerType: "organization",
+        repoCount: 1,
+        firstIndexedAt: 1,
+        lastIndexedAt: 2,
+        isSyncing: false,
+      },
+    ]);
+
+    const rows = await convexDiscoveryDataPort.listDevelopersDirectoryRows();
+
+    expect(rows[0]).toMatchObject({
+      owner: "tailscale",
+      profile: {
+        ownerType: "organization",
+      },
+    });
+  });
+
   it("loads claimed developers directory rows from the claimed query", async () => {
     fetchQueryMock.mockResolvedValueOnce([
       {

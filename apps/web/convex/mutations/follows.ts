@@ -26,6 +26,32 @@ const enqueueForOwnerFn = requireModule(
   "mutations.notifications.enqueueForOwner"
 );
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function reportBackgroundFailure(
+  ctx: MutationCtx,
+  args: {
+    action: string;
+    owner: string;
+    targetOwner: string;
+    error: unknown;
+  }
+): Promise<void> {
+  try {
+    await ctx.scheduler.runAfter(0, internal.observability.sentry.reportBackgroundFailure, {
+      area: "follows",
+      action: args.action,
+      owner: args.owner,
+      targetOwner: args.targetOwner,
+      error: getErrorMessage(args.error),
+    });
+  } catch (reportError) {
+    console.error("[toggleFollow] Failed to report background failure to Sentry", reportError);
+  }
+}
+
 async function syncFollowCounters(
   ctx: MutationCtx,
   followerOwner: string,
@@ -176,6 +202,12 @@ export const toggleFollow = mutation({
       });
     } catch (notificationError) {
       console.error("[toggleFollow] Failed to enqueue notification", notificationError);
+      await reportBackgroundFailure(ctx, {
+        action: "enqueue_notification",
+        owner: githubLogin,
+        targetOwner,
+        error: notificationError,
+      });
     }
 
     // ── 11. Emit feed event (best-effort) ───────────────────────
@@ -188,6 +220,12 @@ export const toggleFollow = mutation({
       });
     } catch (feedError) {
       console.error("[toggleFollow] Failed to create feed event", feedError);
+      await reportBackgroundFailure(ctx, {
+        action: "create_feed_event",
+        owner: githubLogin,
+        targetOwner,
+        error: feedError,
+      });
     }
 
     return { followed: true };

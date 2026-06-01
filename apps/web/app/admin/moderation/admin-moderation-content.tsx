@@ -18,6 +18,7 @@ import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
 import type { FunctionReturnType } from "@/data/server-types";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 
 const REPORT_AVATAR_SIZE = 40;
 const REPORT_QUEUE_STATUSES = [
@@ -50,6 +51,11 @@ export function AdminModerationContent() {
       });
       toast.success(hideProfile ? "Profile hidden and report resolved." : "Report updated.");
     } catch (error) {
+      captureUserActionError("admin_update_report", error, {
+        reportId,
+        nextStatus,
+        hideProfile,
+      });
       toast.error(error instanceof Error ? error.message : "Failed to update report");
     } finally {
       setBusyReportId(null);

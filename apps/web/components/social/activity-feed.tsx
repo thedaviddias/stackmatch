@@ -19,6 +19,7 @@ import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation, useQuery } from "@/data/react";
 import type { Id } from "@/data/server-types";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { cn } from "@/lib/storage/utils";
 
 interface ActivityFeedProps {
@@ -110,6 +111,7 @@ export function ActivityFeed({ mode, limit = 20 }: ActivityFeedProps) {
       await hideMyFeedEvent({ feedEventId: eventId });
       toast.success("Removed from your feed.");
     } catch (error) {
+      captureUserActionError("hide_feed_event", error, { eventId });
       toast.error(error instanceof Error ? error.message : "Failed to remove this item.");
     } finally {
       setPendingDismissId(null);
@@ -126,6 +128,7 @@ export function ActivityFeed({ mode, limit = 20 }: ActivityFeedProps) {
           : "No hidden feed items."
       );
     } catch (error) {
+      captureUserActionError("unhide_feed_events", error);
       toast.error(error instanceof Error ? error.message : "Failed to restore hidden items.");
     } finally {
       setIsResettingHidden(false);
@@ -142,6 +145,7 @@ export function ActivityFeed({ mode, limit = 20 }: ActivityFeedProps) {
         toast.info(`You now follow @${targetOwner}.`);
       }
     } catch (error) {
+      captureUserActionError("feed_unfollow_owner", error, { targetOwner });
       toast.error(error instanceof Error ? error.message : "Failed to update follow status.");
     } finally {
       setPendingUnfollowOwner(null);

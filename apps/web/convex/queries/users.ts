@@ -24,6 +24,7 @@ const CLAIMED_DEVELOPERS_WEEKLY_STARS_SCAN_LIMIT = 100;
 interface DiscoveryUser {
   owner: string;
   avatarUrl: string;
+  ownerType?: Doc<"profiles">["ownerType"];
   repoCount: number;
   totalStars: number;
   totalCommits: number;
@@ -49,6 +50,17 @@ function isPublicClaimedProfile(profile: {
     profile.visibility !== "hidden" &&
     profile.visibility !== "private"
   );
+}
+
+function isVisibleProfile(profile: { visibility?: string } | null | undefined) {
+  return profile != null && profile.visibility !== "hidden" && profile.visibility !== "private";
+}
+
+function resolveOwnerType(
+  profile: { ownerType?: Doc<"profiles">["ownerType"] } | null | undefined,
+  cachedOwnerType: Doc<"profiles">["ownerType"] | undefined
+) {
+  return profile?.ownerType ?? cachedOwnerType ?? OWNER_TYPE_DEVELOPER;
 }
 
 function getClaimedAt(profile: {
@@ -125,28 +137,28 @@ export async function buildDevelopersDirectoryRows(
 
   return rows.map((row) => {
     const profile = profilesByOwner.get(row.owner.toLowerCase());
-    const hasPublicProfile =
-      profile != null && profile.visibility !== "hidden" && profile.visibility !== "private";
+    const publicProfile = profile && isVisibleProfile(profile) ? profile : undefined;
     const isClaimed = profile ? isPublicClaimedProfile(profile) : false;
     const claimedAt = profile && isClaimed ? getClaimedAt(profile) : undefined;
+    const ownerType = resolveOwnerType(publicProfile, row.ownerType);
 
     return {
       ...row,
       starsCount: row.starsCount ?? 0,
-      displayName: hasPublicProfile ? (profile.name ?? row.displayName) : row.displayName,
-      followers: hasPublicProfile ? profile.followers : row.followers,
+      displayName: publicProfile ? (publicProfile.name ?? row.displayName) : row.displayName,
+      followers: publicProfile ? publicProfile.followers : row.followers,
       profileStatus: isClaimed ? ("claimed" as const) : ("indexed" as const),
       claimedAt,
-      profile: hasPublicProfile
+      profile: publicProfile
         ? {
-            name: profile.name ?? null,
-            followers: profile.followers,
-            avatarUrl: profile.avatarUrl,
+            name: publicProfile.name ?? null,
+            followers: publicProfile.followers,
+            avatarUrl: publicProfile.avatarUrl,
             stackScore: row.power,
-            topStacks: profile.topPackages ?? [],
-            ownerType: profile.ownerType ?? OWNER_TYPE_DEVELOPER,
+            topStacks: publicProfile.topPackages ?? [],
+            ownerType,
           }
-        : undefined,
+        : { ownerType },
     };
   });
 }
@@ -263,12 +275,15 @@ export const getIndexedUsersWithProfilesHandler = async (
         ]);
 
         const starsCount = userStars.length;
-        const hasPrivateData = profile?.hasPrivateData === true;
+        const hasPublicProfile = isVisibleProfile(profile);
+        const publicProfile = hasPublicProfile ? profile : undefined;
+        const hasPrivateData = publicProfile?.hasPrivateData === true;
+        const ownerType = resolveOwnerType(publicProfile, user.ownerType);
 
         // Use tested helper to determine merge eligibility
         const shouldMerge = shouldMergePrivateData({
           hasPrivateData,
-          showPrivateDataPublicly: profile?.showPrivateDataPublicly,
+          showPrivateDataPublicly: publicProfile?.showPrivateDataPublicly,
         });
 
         let mergedUser = user;
@@ -286,11 +301,11 @@ export const getIndexedUsersWithProfilesHandler = async (
         const score = calculateStackScore({
           isLoggedIn: false, // We don't know the viewer status for everyone in a list
           hasPrivateSync: hasPrivateData,
-          hasBio: !!profile?.bio,
-          hasSocial: !!(profile?.website || profile?.x),
+          hasBio: !!publicProfile?.bio,
+          hasSocial: !!(publicProfile?.website || publicProfile?.x),
           packageCount: Math.min(userPackages.length, USER_STACK_SCORE_PACKAGE_COUNT_LIMIT),
           repoCoverage: 1.0, // Best effort
-          referralBonus: profile?.referralPoints ?? 0,
+          referralBonus: publicProfile?.referralPoints ?? 0,
           starsReceived: starsCount,
         });
 
@@ -302,16 +317,16 @@ export const getIndexedUsersWithProfilesHandler = async (
           // Preserve original public-only values for fair leaderboard ranking
           publicTotalCommits: user.totalCommits,
           publicTotalStars: user.totalStars,
-          profile: profile
+          profile: publicProfile
             ? {
-                name: profile.name,
-                followers: profile.followers,
-                avatarUrl: profile.avatarUrl,
+                name: publicProfile.name,
+                followers: publicProfile.followers,
+                avatarUrl: publicProfile.avatarUrl,
                 stackScore: score,
                 topStacks,
-                ownerType: profile.ownerType ?? OWNER_TYPE_DEVELOPER,
+                ownerType,
               }
-            : undefined,
+            : { ownerType },
         };
       } catch (err) {
         // Skip failed users to prevent crashing the whole list

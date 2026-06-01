@@ -20,9 +20,7 @@ async function getTopStackers(): Promise<TopStackerDirectoryItem[]> {
       name: row.name ?? null,
     }));
   } catch (error) {
-    logger.warn("Failed to load top stackers directory base rows", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error("Failed to load top stackers directory base rows", error);
     return [];
   }
 }

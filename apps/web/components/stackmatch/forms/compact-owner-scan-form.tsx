@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { AppAlert } from "@/components/ui/feedback/app-alert";
 import { getWebAlertTitle } from "@/lib/feedback/alert-registry";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { postJson } from "@/lib/post-json";
 
 interface CompactOwnerScanFormProps {
@@ -46,6 +47,7 @@ export function CompactOwnerScanForm({
       router.push(`/${encodeURIComponent(normalizedOwner)}`);
       onScanSuccess?.(normalizedOwner);
     } catch (submitError) {
+      captureUserActionError("compact_owner_scan", submitError, { owner: normalizedOwner });
       setError(
         submitError instanceof Error
           ? submitError.message

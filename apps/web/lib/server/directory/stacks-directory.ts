@@ -17,9 +17,7 @@ export const getCachedBaseStacksDirectory = unstable_cache(
     try {
       return await listGlobalStackLeaderboard(STACKS_LIMIT);
     } catch (error) {
-      logger.warn("Failed to load stacks directory base rows", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error("Failed to load stacks directory base rows", error);
       return [];
     }
   },
