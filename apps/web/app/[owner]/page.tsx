@@ -6,7 +6,11 @@ import { notFound } from "next/navigation";
 import { api } from "@/data/api";
 import { fetchQuery } from "@/data/server";
 import { getI18n } from "@/lib/re-exports/i18n";
-import { createMetadata, createWebPageJsonLd } from "@/lib/re-exports/seo";
+import {
+  createMetadata,
+  createOwnerProfileJsonLd,
+  createWebPageJsonLd,
+} from "@/lib/re-exports/seo";
 import { OwnerPageContent } from "./owner-page-content";
 
 // ISR: revalidate every 60 seconds. Server pre-fetches for SEO;
@@ -57,17 +61,26 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
     await assertOwnerRouteExists(owner);
   }
 
+  const jsonLd = data?.profile
+    ? createOwnerProfileJsonLd({
+        owner,
+        ownerType: data.profile.ownerType,
+        name: data.profile.name,
+        path: ROUTES.owner(owner),
+        description: data.profile.bio ?? i18n.metadata.pages.owner.description(owner),
+        avatarUrl: data.profile.avatarUrl,
+        website: data.profile.website,
+        x: data.profile.x,
+      })
+    : createWebPageJsonLd({
+        name: i18n.metadata.pages.owner.title(owner),
+        path: ROUTES.owner(owner),
+        description: i18n.metadata.pages.owner.description(owner),
+      });
+
   return (
     <>
-      <script type="application/ld+json">
-        {JSON.stringify(
-          createWebPageJsonLd({
-            name: i18n.metadata.pages.owner.title(owner),
-            path: ROUTES.owner(owner),
-            description: i18n.metadata.pages.owner.description(owner),
-          })
-        )}
-      </script>
+      <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
       <OwnerPageContent owner={owner} serverData={data} />
     </>

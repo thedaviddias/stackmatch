@@ -3,6 +3,7 @@ import {
   canonicalUrl,
   createDynamicMetadata,
   createMetadata,
+  createOwnerProfileJsonLd,
   createWebPageJsonLd,
   createWebSiteJsonLd,
   DEFAULT_KEYWORDS,
@@ -269,6 +270,48 @@ describe("JSON-LD helpers", () => {
         name: "David Dias Digital",
         url: "https://daviddias.digital",
       },
+    });
+  });
+
+  it("creates Organization JSON-LD for organization owner profiles", () => {
+    expect(
+      createOwnerProfileJsonLd({
+        owner: "microsoft",
+        ownerType: "organization",
+        name: "Microsoft",
+        path: "/microsoft",
+        description: "Open source projects and samples from Microsoft",
+        avatarUrl: "https://github.com/microsoft.png",
+        website: "https://opensource.microsoft.com",
+        x: "OpenAtMicrosoft",
+      })
+    ).toMatchObject({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": "https://stackmatch.dev/microsoft#webpage",
+          name: "Microsoft",
+          url: "https://stackmatch.dev/microsoft",
+          mainEntity: {
+            "@id": "https://stackmatch.dev/microsoft#organization",
+          },
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://stackmatch.dev/microsoft#organization",
+          name: "Microsoft",
+          alternateName: "@microsoft",
+          url: "https://stackmatch.dev/microsoft",
+          logo: "https://github.com/microsoft.png",
+          image: "https://github.com/microsoft.png",
+          sameAs: [
+            "https://github.com/microsoft",
+            "https://opensource.microsoft.com",
+            "https://x.com/OpenAtMicrosoft",
+          ],
+        },
+      ],
     });
   });
 });

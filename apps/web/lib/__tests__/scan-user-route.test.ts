@@ -1,4 +1,5 @@
 import { getAnalyzeApiKey, requireHumanRequest } from "@stackmatch/api/guards";
+import { logger } from "@stackmatch/logger";
 import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/scan/user/route";
@@ -11,7 +12,8 @@ const scanReposMock = vi.hoisted(() => {
     constructor(
       message: string,
       readonly reason: "not_found" | "rate_limited" | "fetch_failed",
-      readonly status?: number
+      readonly status?: number,
+      readonly githubMessage?: string
     ) {
       super(message);
       this.name = "GitHubPublicReposError";
@@ -86,6 +88,7 @@ describe("POST /api/scan/user", () => {
   const fetchTopPublicReposMock = vi.mocked(fetchTopPublicRepos);
   const getServerSessionSnapshotMock = vi.mocked(getServerSessionSnapshot);
   const getServerGitHubLoginMock = vi.mocked(getServerGitHubLogin);
+  const loggerWarnMock = vi.mocked(logger.warn);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -243,6 +246,32 @@ describe("POST /api/scan/user", () => {
     expect(response.status).toBe(429);
     expect(await response.json()).toEqual({
       error: "GitHub rate limit reached while fetching repos for octocat",
+    });
+  });
+
+  it("logs GitHub fetch failure messages without returning them to the client", async () => {
+    fetchMutationMock.mockReset();
+    fetchMutationMock.mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null });
+    fetchTopPublicReposMock.mockRejectedValueOnce(
+      new GitHubPublicReposError(
+        "Failed to fetch repos for policy-owner: 403",
+        "fetch_failed",
+        403,
+        "Resource protected by organization policy"
+      )
+    );
+
+    const response = await POST(makeRequest({ owner: "policy-owner" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Failed to fetch repos for policy-owner: 403",
+    });
+    expect(loggerWarnMock).toHaveBeenCalledWith("scan-user request rejected", {
+      reason: "github_fetch_error",
+      owner: "policy-owner",
+      status: 403,
+      githubMessage: "Resource protected by organization policy",
     });
   });
 });

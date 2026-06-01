@@ -5,6 +5,7 @@ export {
   canonicalUrl,
   createDynamicMetadata,
   createMetadata,
+  createOwnerProfileJsonLd,
   createWebPageJsonLd,
   createWebSiteJsonLd,
   DEFAULT_KEYWORDS,

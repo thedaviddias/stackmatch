@@ -5,6 +5,7 @@ import {
   OG_IMAGE_VERSION,
   OG_IMAGE_WIDTH,
 } from "@stackmatch/constants/og";
+import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import { getI18n } from "@stackmatch/localization";
 import type { MetadataConfig } from "@stackmatch/types/seo";
 import type { Metadata } from "next";
@@ -257,5 +258,82 @@ export function createWebPageJsonLd({
       name: siteConfig.ownerName,
       url: siteConfig.ownerUrl,
     },
+  };
+}
+
+function toSameAsUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  const handle = value.trim().replace(/^@/, "");
+  return handle ? `https://x.com/${handle}` : undefined;
+}
+
+export function createOwnerProfileJsonLd({
+  owner,
+  ownerType,
+  name,
+  path,
+  description,
+  avatarUrl,
+  website,
+  x,
+}: {
+  owner: string;
+  ownerType?: OwnerType;
+  name?: string;
+  path: string;
+  description?: string;
+  avatarUrl?: string;
+  website?: string;
+  x?: string;
+}): JsonLd {
+  const profileUrl = canonicalUrl(path);
+  const isOrganization = ownerType === OWNER_TYPE_ORGANIZATION;
+  const entityType = isOrganization ? "Organization" : "Person";
+  const entityId = `${profileUrl}#${isOrganization ? "organization" : "person"}`;
+  const displayName = name || `@${owner}`;
+  const sameAs = [`https://github.com/${owner}`, toSameAsUrl(website), toSameAsUrl(x)].filter(
+    (url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index
+  );
+
+  const entity: JsonLd = {
+    "@type": entityType,
+    "@id": entityId,
+    name: displayName,
+    alternateName: `@${owner}`,
+    url: profileUrl,
+    sameAs,
+    ...(description ? { description } : {}),
+    ...(avatarUrl
+      ? isOrganization
+        ? { logo: avatarUrl, image: avatarUrl }
+        : { image: avatarUrl }
+      : {}),
+  };
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${profileUrl}#webpage`,
+        name: displayName,
+        url: profileUrl,
+        ...(description ? { description } : {}),
+        mainEntity: {
+          "@id": entityId,
+        },
+        publisher: {
+          "@type": "Organization",
+          name: siteConfig.ownerName,
+          url: siteConfig.ownerUrl,
+        },
+      },
+      entity,
+    ],
   };
 }

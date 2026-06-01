@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchTopPublicRepos, GitHubPublicReposError } from "@/lib/server/scan-repos";
 
+const envMock = vi.hoisted(() => ({
+  GITHUB_TOKEN: "",
+}));
+
 vi.mock("@stackmatch/env/web", () => ({
-  env: {
-    GITHUB_TOKEN: "",
-  },
+  env: envMock,
 }));
 
 describe("fetchTopPublicRepos", () => {
@@ -12,6 +14,7 @@ describe("fetchTopPublicRepos", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.GITHUB_TOKEN = "";
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -53,6 +56,84 @@ describe("fetchTopPublicRepos", () => {
     await expect(fetchTopPublicRepos("missing-cache-owner")).rejects.toBeInstanceOf(
       GitHubPublicReposError
     );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries public repo lookups without auth when a fine-grained token is blocked by org policy", async () => {
+    envMock.GITHUB_TOKEN = "github-token";
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            message:
+              "The 'htmlhint' organization forbids access via a fine-grained personal access tokens if the token's lifetime is greater than 366 days. Please adjust your token's lifetime at the following URL: https://github.com/settings/personal-access-tokens/11881065",
+          }),
+          { headers: { "x-ratelimit-remaining": "4934" }, status: 403 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              name: "htmlhint",
+              owner: { login: "htmlhint" },
+              fork: false,
+              stargazers_count: 100,
+              pushed_at: "2026-02-01T00:00:00Z",
+            },
+          ]),
+          { status: 200 }
+        )
+      );
+
+    await expect(fetchTopPublicRepos("htmlhint")).resolves.toEqual([
+      {
+        owner: "htmlhint",
+        name: "htmlhint",
+        pushedAt: new Date("2026-02-01T00:00:00Z").getTime(),
+      },
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.github.com/users/htmlhint/repos?per_page=100&type=public",
+      {
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          Authorization: "token github-token",
+        },
+      }
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/users/htmlhint/repos?per_page=100&type=public",
+      {
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+  });
+
+  it("keeps sanitized GitHub error messages for non-fallback fetch failures", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          message:
+            "Resource protected by organization policy. See https://github.com/settings/personal-access-tokens/11881065",
+        }),
+        { status: 403 }
+      )
+    );
+
+    await expect(fetchTopPublicRepos("policy-owner")).rejects.toMatchObject({
+      reason: "fetch_failed",
+      status: 403,
+      githubMessage:
+        "Resource protected by organization policy. See https://github.com/settings/personal-access-tokens/[redacted]",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

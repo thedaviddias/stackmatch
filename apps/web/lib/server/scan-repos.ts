@@ -25,7 +25,8 @@ export class GitHubPublicReposError extends Error {
   constructor(
     message: string,
     readonly reason: GitHubPublicReposErrorReason,
-    readonly status?: number
+    readonly status?: number,
+    readonly githubMessage?: string
   ) {
     super(message);
     this.name = "GitHubPublicReposError";
@@ -37,8 +38,13 @@ type CachedPublicReposResult =
   | { ok: false; error: GitHubPublicReposError; expiresAt: number };
 
 const GITHUB_NOT_FOUND_STATUS = 404;
+const GITHUB_FORBIDDEN_STATUS = 403;
 const GITHUB_RATE_LIMIT_STATUS = 429;
 const GITHUB_PUBLIC_REPOS_LIMIT = 20;
+const GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE =
+  "forbids access via a fine-grained personal access tokens";
+const GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN =
+  /https:\/\/github\.com\/settings\/personal-access-tokens\/\d+/g;
 const publicReposCache = new Map<string, CachedPublicReposResult>();
 
 function normalizeRepos(repos: ScanUserRepoInput[]): ScanUserRepoInput[] {
@@ -104,12 +110,44 @@ function cachePublicReposNotFound(owner: string, error: GitHubPublicReposError) 
   });
 }
 
-function createGitHubFetchError(owner: string, response: Response): GitHubPublicReposError {
+interface GitHubErrorResponse {
+  message?: unknown;
+}
+
+function sanitizeGitHubMessage(message: string | undefined): string | undefined {
+  return message?.replace(
+    GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN,
+    "https://github.com/settings/personal-access-tokens/[redacted]"
+  );
+}
+
+async function readGitHubErrorMessage(response: Response): Promise<string | undefined> {
+  try {
+    const data = (await response.clone().json()) as GitHubErrorResponse;
+    return typeof data.message === "string" ? sanitizeGitHubMessage(data.message) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function shouldRetryWithoutToken(response: Response, githubMessage: string | undefined): boolean {
+  return (
+    response.status === GITHUB_FORBIDDEN_STATUS &&
+    Boolean(githubMessage?.includes(GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE))
+  );
+}
+
+function createGitHubFetchError(
+  owner: string,
+  response: Response,
+  githubMessage?: string
+): GitHubPublicReposError {
   if (response.status === GITHUB_NOT_FOUND_STATUS) {
     return new GitHubPublicReposError(
       `GitHub owner '${owner}' was not found`,
       "not_found",
-      GITHUB_NOT_FOUND_STATUS
+      GITHUB_NOT_FOUND_STATUS,
+      githubMessage
     );
   }
 
@@ -120,14 +158,16 @@ function createGitHubFetchError(owner: string, response: Response): GitHubPublic
     return new GitHubPublicReposError(
       `GitHub rate limit reached while fetching repos for ${owner}`,
       "rate_limited",
-      response.status
+      response.status,
+      githubMessage
     );
   }
 
   return new GitHubPublicReposError(
     `Failed to fetch repos for ${owner}: ${response.status}`,
     "fetch_failed",
-    response.status
+    response.status,
+    githubMessage
   );
 }
 
@@ -146,21 +186,35 @@ export async function fetchTopPublicRepos(owner: string): Promise<ScanUserRepoIn
   }
 
   const token = env.GITHUB_TOKEN;
-  const headers: Record<string, string> = {
+  const publicHeaders: Record<string, string> = {
     Accept: "application/vnd.github.v3+json",
   };
+  const headers: Record<string, string> = { ...publicHeaders };
 
   if (token) {
     headers.Authorization = `token ${token}`;
   }
 
-  const response = await fetch(
+  let response = await fetch(
     `https://api.github.com/users/${encodeURIComponent(normalizedOwner)}/repos?per_page=100&type=public`,
     { headers }
   );
+  let githubMessage: string | undefined;
 
   if (!response.ok) {
-    const error = createGitHubFetchError(normalizedOwner, response);
+    githubMessage = await readGitHubErrorMessage(response);
+
+    if (token && shouldRetryWithoutToken(response, githubMessage)) {
+      response = await fetch(
+        `https://api.github.com/users/${encodeURIComponent(normalizedOwner)}/repos?per_page=100&type=public`,
+        { headers: publicHeaders }
+      );
+      githubMessage = response.ok ? undefined : await readGitHubErrorMessage(response);
+    }
+  }
+
+  if (!response.ok) {
+    const error = createGitHubFetchError(normalizedOwner, response, githubMessage);
     if (error.reason === "not_found") {
       cachePublicReposNotFound(normalizedOwner, error);
     }

@@ -161,16 +161,28 @@ async function resolveScanRepos(
   } catch (error) {
     if (error instanceof GitHubPublicReposError) {
       if (error.reason === "not_found") {
-        logScanRejection("github_not_found", { owner, status: error.status });
+        logScanRejection("github_not_found", {
+          owner,
+          status: error.status,
+          githubMessage: error.githubMessage,
+        });
         return jsonError(error.message, NOT_FOUND_STATUS);
       }
 
       if (error.reason === "rate_limited") {
-        logScanRejection("github_rate_error", { owner, status: error.status });
+        logScanRejection("github_rate_error", {
+          owner,
+          status: error.status,
+          githubMessage: error.githubMessage,
+        });
         return jsonError(error.message, TOO_MANY_REQUESTS_STATUS);
       }
 
-      logScanRejection("github_fetch_error", { owner, status: error.status });
+      logScanRejection("github_fetch_error", {
+        owner,
+        status: error.status,
+        githubMessage: error.githubMessage,
+      });
       return jsonError(error.message, BAD_REQUEST_STATUS);
     }
 

@@ -95,6 +95,29 @@ describe("/[owner] page", () => {
     });
   });
 
+  it("emits Organization JSON-LD for organization owner profiles", async () => {
+    const serverData = {
+      owner: "microsoft",
+      profile: {
+        ownerType: "organization",
+        name: "Microsoft",
+        visibility: "public",
+        avatarUrl: "https://github.com/microsoft.png",
+        bio: "Open source projects and samples from Microsoft",
+        website: "https://opensource.microsoft.com",
+        x: "OpenAtMicrosoft",
+      },
+    };
+    fetchQueryMocked.mockResolvedValueOnce(serverData);
+
+    const element = await OwnerPage({ params: Promise.resolve({ owner: "microsoft" }) });
+    const markup = renderToStaticMarkup(element);
+
+    expect(markup).toContain('"@type":"Organization"');
+    expect(markup).toContain('"@id":"https://stackmatch.dev/microsoft#organization"');
+    expect(markup).toContain('"sameAs":["https://github.com/microsoft"');
+  });
+
   it("keeps query-string UI state out of the static server page", async () => {
     const serverData = { owner: "octocat", profile: { visibility: "public" } };
     fetchQueryMocked.mockResolvedValueOnce(serverData);
