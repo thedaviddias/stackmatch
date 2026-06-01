@@ -172,7 +172,25 @@ async function getScanSubmitter(): Promise<ScanSubmitter | undefined> {
   };
 }
 
-async function resolveScanRepos(owner: string): Promise<ScanUserRepoInput[] | NextResponse> {
+function hasSubmittedRepos(reposInput: ScanUserRepoInput[] | undefined): boolean {
+  return Array.isArray(reposInput) && reposInput.length > 0;
+}
+
+async function resolveScanRepos(
+  owner: string,
+  reposInput: ScanUserRepoInput[] | undefined
+): Promise<ScanUserRepoInput[] | NextResponse> {
+  if (hasSubmittedRepos(reposInput)) {
+    const submittedRepos = normalizeUserScanInput(owner, reposInput);
+    if (submittedRepos.length === 0) {
+      return jsonError(
+        "repos must include valid repositories for the requested owner",
+        BAD_REQUEST_STATUS
+      );
+    }
+    return submittedRepos;
+  }
+
   try {
     return await fetchTopPublicRepos(owner);
   } catch (error) {
@@ -248,11 +266,13 @@ function resolveScanOwner(
 async function requestScanForOwner({
   request,
   owner,
+  reposInput,
   apiKey,
   submitter,
 }: {
   request: Request;
   owner: string;
+  reposInput: ScanUserRepoInput[] | undefined;
   apiKey: string;
   submitter: ScanSubmitter | undefined;
 }) {
@@ -267,7 +287,7 @@ async function requestScanForOwner({
     return jsonError(SCAN_REQUEST_FAILED_MESSAGE, INTERNAL_SERVER_ERROR_STATUS);
   }
 
-  const repos = await resolveScanRepos(owner);
+  const repos = await resolveScanRepos(owner, reposInput);
   if (repos instanceof NextResponse) return repos;
 
   if (repos.length === 0) {
@@ -336,5 +356,11 @@ export async function POST(request: Request) {
 
   const submitter = await getScanSubmitter();
 
-  return requestScanForOwner({ request, owner: scanOwner, apiKey, submitter });
+  return requestScanForOwner({
+    request,
+    owner: scanOwner,
+    reposInput: body.repos,
+    apiKey,
+    submitter,
+  });
 }

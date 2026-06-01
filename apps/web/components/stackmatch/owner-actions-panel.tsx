@@ -40,6 +40,7 @@ interface OwnerActionRepo {
 }
 
 export interface OwnerActionsPanelProps {
+  owner: string;
   repos: OwnerActionRepo[];
   visibility: string;
   publicSync: {
@@ -166,6 +167,7 @@ function SyncStatusChip({
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Dense action toolbar rendering is split from state/controller logic.
 export function OwnerActionsPanel({
+  owner,
   repos,
   visibility,
   publicSync,
@@ -406,6 +408,7 @@ export function OwnerActionsPanel({
       <CurationModal
         isOpen={curation.isOpen}
         onClose={() => curation.setIsOpen(false)}
+        owner={owner}
         repos={repos}
       />
 

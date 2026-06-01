@@ -4,6 +4,7 @@ import { ROUTES } from "@stackmatch/config";
 import { SegmentedControl, type SegmentedControlOption } from "@stackmatch/ui/segmented-control";
 import {
   Clock,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
@@ -20,6 +21,7 @@ import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation } from "@/data/react";
 import { captureUserActionError } from "@/lib/observability/user-action-errors";
+import { postJson } from "@/lib/post-json";
 
 interface Repo {
   repoId: string;
@@ -33,10 +35,23 @@ interface Repo {
 interface CurationModalProps {
   isOpen: boolean;
   onClose: () => void;
+  owner: string;
   repos: Repo[];
 }
 
 type SortMode = "latest" | "stars" | "name";
+
+interface ScanUserResponse {
+  queued: number;
+}
+
+const GITHUB_URL_PREFIXES = ["https://github.com/", "http://github.com/", "github.com/"] as const;
+const OWNER_SEGMENT_INDEX = 0;
+const REPO_SEGMENT_INDEX = 1;
+const MIN_FULL_REPO_SEGMENTS = 2;
+const GIT_SUFFIX = ".git";
+const PUBLIC_REPO_INPUT_ID = "public-repo-sync-input";
+const PUBLIC_REPO_ERROR_ID = "public-repo-sync-error";
 
 const SORT_OPTIONS = [
   { value: "latest", label: "Latest", icon: <Clock className="h-3 w-3" /> },
@@ -110,8 +125,36 @@ function RepoCurationRow({ repo, onToggle }: RepoCurationRowProps) {
   );
 }
 
-export function CurationModal({ isOpen, onClose, repos }: CurationModalProps) {
+function normalizeRepoInput(owner: string, input: string): string | null {
+  let candidate = input.trim();
+  for (const prefix of GITHUB_URL_PREFIXES) {
+    if (candidate.toLowerCase().startsWith(prefix)) {
+      candidate = candidate.slice(prefix.length);
+      break;
+    }
+  }
+
+  const segments = candidate.split("/").filter(Boolean);
+  let repoName = segments[OWNER_SEGMENT_INDEX] ?? "";
+  if (segments.length >= MIN_FULL_REPO_SEGMENTS) {
+    const submittedOwner = segments[OWNER_SEGMENT_INDEX] ?? "";
+    if (submittedOwner.toLowerCase() !== owner.toLowerCase()) return null;
+    repoName = segments[REPO_SEGMENT_INDEX] ?? "";
+  }
+
+  if (repoName.endsWith(GIT_SUFFIX)) {
+    repoName = repoName.slice(0, -GIT_SUFFIX.length);
+  }
+
+  const normalized = repoName.trim();
+  return normalized ? normalized : null;
+}
+
+export function CurationModal({ isOpen, onClose, owner, repos }: CurationModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [repoNameInput, setRepoNameInput] = useState("");
+  const [repoInputError, setRepoInputError] = useState<string | null>(null);
+  const [isQueueingRepo, setIsQueueingRepo] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("latest");
   const toggleExclusion = useMutation(api.mutations.repos.toggleRepoExclusion);
 
@@ -146,6 +189,11 @@ export function CurationModal({ isOpen, onClose, repos }: CurationModalProps) {
       });
   }, [repos, searchQuery, sortMode]);
 
+  const managedRepoNames = useMemo(
+    () => new Set(repos.map((repo) => repo.name.toLowerCase())),
+    [repos]
+  );
+
   if (!isOpen) return null;
 
   const handleToggle = async (repoId: string, currentExcluded: boolean) => {
@@ -156,6 +204,39 @@ export function CurationModal({ isOpen, onClose, repos }: CurationModalProps) {
     } catch (error) {
       captureUserActionError("toggle_repo_exclusion", error, { repoId, currentExcluded });
       toast.error("Failed to update repository settings");
+    }
+  };
+
+  const handleQueuePublicRepo = async () => {
+    const repoName = normalizeRepoInput(owner, repoNameInput);
+    if (!repoName) {
+      setRepoInputError("Enter a public repository for this owner.");
+      toast.error("Enter a public repository for this owner");
+      return;
+    }
+
+    if (managedRepoNames.has(repoName.toLowerCase())) {
+      setRepoInputError("Repository is already managed.");
+      toast.info("Repository is already managed");
+      return;
+    }
+
+    setRepoInputError(null);
+    setIsQueueingRepo(true);
+    try {
+      await postJson<ScanUserResponse>("/api/scan/user", {
+        owner,
+        repos: [{ owner, name: repoName }],
+      });
+      setRepoNameInput("");
+      toast.success("Repository queued for sync");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to queue repository";
+      setRepoInputError(message);
+      captureUserActionError("queue_public_repo_sync", error, { owner, repoName });
+      toast.error(message);
+    } finally {
+      setIsQueueingRepo(false);
     }
   };
 
@@ -200,6 +281,50 @@ export function CurationModal({ isOpen, onClose, repos }: CurationModalProps) {
             Private repositories are selected in GitHub App settings and are not listed here.
             Stackmatch uses aggregate dependency data from selected private repositories.
           </p>
+        </div>
+
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <label htmlFor={PUBLIC_REPO_INPUT_ID} className="sr-only">
+              Public repository
+            </label>
+            <div className="relative">
+              <Download className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+              <input
+                id={PUBLIC_REPO_INPUT_ID}
+                type="text"
+                placeholder="owner/repository or repository"
+                value={repoNameInput}
+                onChange={(event) => {
+                  setRepoNameInput(event.target.value);
+                  if (repoInputError) setRepoInputError(null);
+                }}
+                aria-invalid={Boolean(repoInputError)}
+                aria-describedby={repoInputError ? PUBLIC_REPO_ERROR_ID : undefined}
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-neutral-600 transition-all focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 aria-invalid:border-rose-500/60 aria-invalid:ring-rose-500/30"
+              />
+            </div>
+            {repoInputError && (
+              <p
+                id={PUBLIC_REPO_ERROR_ID}
+                role="alert"
+                className="mt-2 text-[10px] font-bold uppercase tracking-widest text-rose-300"
+              >
+                {repoInputError}
+              </p>
+            )}
+          </div>
+          <ButtonCustom
+            type="button"
+            onClick={handleQueuePublicRepo}
+            disabled={isQueueingRepo || !repoNameInput.trim()}
+            variant="ghost"
+            size="xs"
+            className="h-10 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-indigo-300 hover:bg-indigo-500/15"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {isQueueingRepo ? "Queueing..." : "Sync repo"}
+          </ButtonCustom>
         </div>
 
         {/* Controls: Search & Sort */}

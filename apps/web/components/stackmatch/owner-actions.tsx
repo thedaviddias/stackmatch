@@ -652,6 +652,7 @@ function useOwnerActionsPanelProps({
   };
 
   return {
+    owner,
     repos,
     visibility,
     publicSync: {

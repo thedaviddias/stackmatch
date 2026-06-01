@@ -9,6 +9,7 @@ vi.mock("../panels/curation-modal", () => ({
 }));
 
 const baseProps: OwnerActionsPanelProps = {
+  owner: "octocat",
   repos: [],
   visibility: "public",
   publicSync: {

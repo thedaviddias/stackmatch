@@ -65,8 +65,10 @@ vi.mock("@/lib/server/scan-repos", () => ({
   fetchGitHubOwnerProfile: scanReposMock.fetchGitHubOwnerProfile,
   fetchTopPublicRepos: scanReposMock.fetchTopPublicRepos,
   GitHubPublicReposError: scanReposMock.GitHubPublicReposError,
-  normalizeUserScanInput: (_owner?: string, repos?: Array<{ owner: string; name: string }>) =>
-    Array.isArray(repos) ? repos : [],
+  normalizeUserScanInput: (owner?: string, repos?: Array<{ owner: string; name: string }>) =>
+    Array.isArray(repos)
+      ? repos.filter((repo) => !owner || repo.owner.toLowerCase() === owner.toLowerCase())
+      : [],
 }));
 
 function botBlockedResult() {
@@ -223,22 +225,33 @@ describe("POST /api/scan/user", () => {
     expect(fetchGitHubOwnerProfileMock).toHaveBeenCalledWith("facebook");
   });
 
-  it("uses submitted repos only to infer the owner and queues GitHub-derived repos", async () => {
-    fetchTopPublicReposMock.mockResolvedValueOnce([{ owner: "octocat", name: "server-repo" }]);
-
+  it("queues submitted repos directly after inferring the owner", async () => {
     const response = await POST(
       makeRequest({ repos: [{ owner: "octocat", name: "client-supplied-repo" }] })
     );
 
     expect(response.status).toBe(200);
-    expect(fetchTopPublicReposMock).toHaveBeenCalledWith("octocat");
+    expect(fetchTopPublicReposMock).not.toHaveBeenCalled();
     expect(fetchMutationMock).toHaveBeenNthCalledWith(
       2,
       "requestUserScan",
       expect.objectContaining({
-        repos: [{ owner: "octocat", name: "server-repo" }],
+        repos: [{ owner: "octocat", name: "client-supplied-repo" }],
       })
     );
+  });
+
+  it("rejects submitted repos that do not match the requested owner", async () => {
+    const response = await POST(
+      makeRequest({ owner: "octocat", repos: [{ owner: "facebook", name: "react" }] })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "repos must include valid repositories for the requested owner",
+    });
+    expect(fetchTopPublicReposMock).not.toHaveBeenCalled();
+    expect(fetchMutationMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects repo-only submissions that mix owners", async () => {
@@ -379,21 +392,23 @@ describe("POST /api/scan/user", () => {
     expect(await response.json()).toEqual({ error: "GitHub owner 'missing' was not found" });
   });
 
-  it("does not queue repo-only submissions when GitHub cannot verify the inferred owner", async () => {
+  it("queues repo-only submissions without resolving the automatic top repository list", async () => {
     fetchMutationMock.mockReset();
-    fetchMutationMock.mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null });
-    fetchTopPublicReposMock.mockRejectedValueOnce(
-      new GitHubPublicReposError("GitHub owner 'missing' was not found", "not_found", 404)
-    );
+    fetchMutationMock
+      .mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null })
+      .mockResolvedValueOnce([{ existing: false, fullName: "missing/fake-repo" }]);
+    fetchGitHubOwnerProfileMock.mockResolvedValueOnce(null);
 
     const response = await POST(makeRequest({ repos: [{ owner: "missing", name: "fake-repo" }] }));
 
-    expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ error: "GitHub owner 'missing' was not found" });
-    expect(fetchMutationMock).toHaveBeenCalledTimes(1);
-    expect(fetchMutationMock).toHaveBeenCalledWith(
-      "throttleScanUser",
-      expect.objectContaining({ owner: "missing" })
+    expect(response.status).toBe(200);
+    expect(fetchTopPublicReposMock).not.toHaveBeenCalled();
+    expect(fetchMutationMock).toHaveBeenNthCalledWith(
+      2,
+      "requestUserScan",
+      expect.objectContaining({
+        repos: [{ owner: "missing", name: "fake-repo" }],
+      })
     );
   });
 
