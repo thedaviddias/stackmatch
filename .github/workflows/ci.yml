@@ -15,15 +15,15 @@ jobs:
       NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL || secrets.NEXT_PUBLIC_CONVEX_URL }}
       CONVEX_SITE_URL: ${{ vars.CONVEX_SITE_URL || secrets.CONVEX_SITE_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -55,7 +55,7 @@ jobs:
         run: pnpm --filter @stackmatch/web test
 
       - name: Restore Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/web/.next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('package.json', 'pnpm-workspace.yaml', 'turbo.json', 'packages/*/package.json', 'packages/*/src/**', 'apps/web/app/**', 'apps/web/components/**', 'apps/web/convex/**', 'apps/web/data/**', 'apps/web/lib/**', 'apps/web/public/**', 'apps/web/styles/**', 'apps/web/*.json', 'apps/web/*.mjs', 'apps/web/*.ts', 'apps/web/*.tsx') }}
