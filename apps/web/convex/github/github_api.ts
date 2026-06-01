@@ -4,6 +4,7 @@ import {
 } from "@stackmatch/constants/sync";
 
 const GITHUB_FORBIDDEN_STATUS = 403;
+const GITHUB_UNAUTHORIZED_STATUS = 401;
 
 /**
  * Shared GitHub API helpers for rate-limit handling across all sync actions.
@@ -85,6 +86,10 @@ async function readGitHubErrorMessage(response: Response): Promise<string | unde
 }
 
 function shouldRetryWithoutToken(response: Response, githubMessage: string | undefined): boolean {
+  if (response.status === GITHUB_UNAUTHORIZED_STATUS) {
+    return true;
+  }
+
   return (
     response.status === GITHUB_FORBIDDEN_STATUS &&
     Boolean(githubMessage?.includes(GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE))

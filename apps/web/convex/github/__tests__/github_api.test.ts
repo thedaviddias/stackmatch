@@ -159,6 +159,42 @@ describe("fetchGitHubRestWithPublicFallback", () => {
     });
   });
 
+  it("retries without Authorization when the configured token is unauthorized", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "Bad credentials" }), { status: 401 })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await fetchGitHubRestWithPublicFallback(
+      "https://api.github.com/repos/AvdLee/SwiftUIKitView",
+      "stale-token"
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.github.com/repos/AvdLee/SwiftUIKitView",
+      {
+        headers: {
+          accept: "application/vnd.github.v3+json",
+          authorization: "token stale-token",
+        },
+      }
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/repos/AvdLee/SwiftUIKitView",
+      {
+        headers: {
+          accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+  });
+
   it("does not retry unrelated 403 responses", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(
       new Response(JSON.stringify({ message: "Resource protected by organization policy" }), {

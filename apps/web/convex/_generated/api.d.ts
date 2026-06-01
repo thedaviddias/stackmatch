@@ -27,6 +27,7 @@ import type * as github_github_api from "../github/github_api.js";
 import type * as github_ingest_commits from "../github/ingest_commits.js";
 import type * as github_ingest_private_stats from "../github/ingest_private_stats.js";
 import type * as github_ingest_repo from "../github/ingest_repo.js";
+import type * as github_owner_profile from "../github/owner_profile.js";
 import type * as github_private_repo_sync from "../github/private_repo_sync.js";
 import type * as github_recover_stuck_repos from "../github/recover_stuck_repos.js";
 import type * as github_resync_affected_repos from "../github/resync_affected_repos.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "github/ingest_commits": typeof github_ingest_commits;
   "github/ingest_private_stats": typeof github_ingest_private_stats;
   "github/ingest_repo": typeof github_ingest_repo;
+  "github/owner_profile": typeof github_owner_profile;
   "github/private_repo_sync": typeof github_private_repo_sync;
   "github/recover_stuck_repos": typeof github_recover_stuck_repos;
   "github/resync_affected_repos": typeof github_resync_affected_repos;
