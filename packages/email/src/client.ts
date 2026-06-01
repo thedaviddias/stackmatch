@@ -3,15 +3,18 @@ import { EMAIL_DEFAULTS } from "./keys";
 import type { SendEmailOptions, SendEmailResult } from "./types";
 
 let resendClient: Resend | null = null;
+let resendContactsClient: Resend | null = null;
 
 type ResendReactNode = Extract<CreateEmailOptions, { react: unknown }>["react"];
 type ResendTopicSubscription = "opt_in" | "opt_out";
+type ResendContactProperties = Record<string, string | number | null>;
 
 export interface SubscribeContactToTopicOptions {
   email: string;
   topicId: string;
   firstName?: string;
   lastName?: string;
+  properties?: ResendContactProperties;
   subscription?: ResendTopicSubscription;
 }
 
@@ -36,6 +39,20 @@ function getClient(): Resend {
     }
   }
   return resendClient;
+}
+
+function getContactsClient(): Resend {
+  if (!resendContactsClient) {
+    const apiKey = process.env.RESEND_CONTACTS_API_KEY ?? process.env.RESEND_API_KEY;
+    if (apiKey) {
+      resendContactsClient = new Resend(apiKey);
+    } else {
+      throw new Error(
+        "Email contacts client not initialized. Set RESEND_CONTACTS_API_KEY or RESEND_API_KEY environment variable."
+      );
+    }
+  }
+  return resendContactsClient;
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
@@ -86,7 +103,7 @@ export async function sendBatchEmails(emails: SendEmailOptions[]): Promise<SendE
 export async function subscribeContactToTopic(
   options: SubscribeContactToTopicOptions
 ): Promise<SubscribeContactToTopicResult> {
-  const client = getClient();
+  const client = getContactsClient();
   const email = options.email.trim().toLowerCase();
   const topic = {
     id: options.topicId,
@@ -98,11 +115,23 @@ export async function subscribeContactToTopic(
       email,
       firstName: options.firstName,
       lastName: options.lastName,
+      properties: options.properties,
       topics: [topic],
     });
 
     if (!createResult.error) {
       return { success: true, id: createResult.data?.id };
+    }
+
+    const updateResult = await client.contacts.update({
+      email,
+      firstName: options.firstName,
+      lastName: options.lastName,
+      properties: options.properties,
+    });
+
+    if (updateResult.error) {
+      return { success: false, error: updateResult.error.message };
     }
 
     const topicResult = await client.contacts.topics.update({
@@ -114,7 +143,7 @@ export async function subscribeContactToTopic(
       return { success: false, error: topicResult.error.message };
     }
 
-    return { success: true, id: topicResult.data?.id };
+    return { success: true, id: topicResult.data?.id ?? updateResult.data?.id };
   } catch (err) {
     return {
       success: false,

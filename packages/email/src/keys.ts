@@ -44,6 +44,12 @@ export const EMAIL_RESEND_TOPICS = {
   stackmatch: "247aa52d-443e-4ff9-8ce1-bfc56c388503",
 } as const;
 
+export const EMAIL_CONTACT_PROPERTIES = {
+  source: "stackmatch",
+  domain: "stackmatch.dev",
+  brand: "Stackmatch",
+} as const;
+
 export const EMAIL_LEGAL = {
   operatorName: siteConfig.ownerName,
   operatorUrl: siteConfig.ownerUrl,

@@ -17,6 +17,7 @@
         "KV_URL",
         "REDIS_URL",
         "RESEND_API_KEY",
+        "RESEND_CONTACTS_API_KEY",
         "SENTRY_AUTH_TOKEN",
         "SENTRY_ORG",
         "SENTRY_PROJECT",

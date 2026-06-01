@@ -44,6 +44,10 @@ function getDisplayName(user: AuthUserForOnboarding): string {
   return user.username ?? user.displayUsername ?? user.name ?? user.email ?? "developer";
 }
 
+function getOnboardingName(user: AuthUserForOnboarding): string {
+  return user.name ?? user.displayUsername ?? user.username ?? user.email ?? "developer";
+}
+
 async function scheduleAuthOnboarding(
   ctx: GenericMutationCtx<DataModel>,
   user: AuthUserForOnboarding
@@ -53,7 +57,7 @@ async function scheduleAuthOnboarding(
   const githubLogin = user.username ?? user.displayUsername ?? undefined;
   await ctx.scheduler.runAfter(0, authOnboardingFn, {
     email: user.email,
-    name: getDisplayName(user),
+    name: getOnboardingName(user),
     ...(githubLogin ? { githubLogin } : {}),
   });
 }

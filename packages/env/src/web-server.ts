@@ -47,6 +47,9 @@ export const serverEnv = createEnv({
     /** Resend API key for transactional emails. */
     RESEND_API_KEY: z.string().optional(),
 
+    /** Resend API key for contact and topic management. */
+    RESEND_CONTACTS_API_KEY: z.string().optional(),
+
     /** Upstash Redis REST URL for rate limiting. */
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
 

@@ -19,6 +19,7 @@ const serverSchema = {
   SENTRY_ORG: z.string().optional(),
   SENTRY_PROJECT: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  RESEND_CONTACTS_API_KEY: z.string().optional(),
   VERCEL: z.string().optional(),
   CI: z.string().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

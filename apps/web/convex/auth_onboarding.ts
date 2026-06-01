@@ -1,7 +1,7 @@
 "use node";
 
 import { sendEmail, subscribeContactToTopic } from "@stackmatch/email/client";
-import { EMAIL_RESEND_TOPICS } from "@stackmatch/email/keys";
+import { EMAIL_CONTACT_PROPERTIES, EMAIL_RESEND_TOPICS } from "@stackmatch/email/keys";
 import { WelcomeEmail } from "@stackmatch/email/templates/auth/welcome";
 import { v } from "convex/values";
 import React from "react";
@@ -33,8 +33,15 @@ function splitName(name: string): { firstName?: string; lastName?: string } {
   return { firstName, lastName };
 }
 
-function getDisplayName(user: AuthUserBackfillRow): string {
-  return user.username ?? user.displayUsername ?? user.name ?? user.email ?? "developer";
+function getContactName(user: AuthUserBackfillRow): string {
+  return user.name ?? user.displayUsername ?? user.username ?? user.email ?? "developer";
+}
+
+function getContactProfile(user: AuthUserBackfillRow) {
+  return {
+    ...splitName(getContactName(user)),
+    properties: EMAIL_CONTACT_PROPERTIES,
+  };
 }
 
 async function optUserIntoStackmatchTopic(user: AuthUserBackfillRow) {
@@ -45,7 +52,7 @@ async function optUserIntoStackmatchTopic(user: AuthUserBackfillRow) {
   const result = await subscribeContactToTopic({
     email: user.email,
     topicId: EMAIL_RESEND_TOPICS.stackmatch,
-    ...splitName(getDisplayName(user)),
+    ...getContactProfile(user),
   });
 
   if (!result.success) {
@@ -128,6 +135,9 @@ export const backfillExistingUsersToResendTopic = internalAction({
     const results: Array<{
       authUserId: string;
       email?: string;
+      firstName?: string;
+      lastName?: string;
+      properties?: typeof EMAIL_CONTACT_PROPERTIES;
       status: "subscribed" | "missing_email" | "error" | "dry_run";
       error?: string;
     }> = [];
@@ -139,7 +149,12 @@ export const backfillExistingUsersToResendTopic = internalAction({
       }
 
       if (dryRun) {
-        results.push({ authUserId: user._id, email: user.email, status: "dry_run" });
+        results.push({
+          authUserId: user._id,
+          email: user.email,
+          ...getContactProfile(user),
+          status: "dry_run",
+        });
         continue;
       }
 
@@ -147,6 +162,7 @@ export const backfillExistingUsersToResendTopic = internalAction({
       results.push({
         authUserId: user._id,
         email: user.email,
+        ...getContactProfile(user),
         status: result.status,
         ...(result.status === "error" ? { error: result.error } : {}),
       });
