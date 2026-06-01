@@ -11,7 +11,7 @@ const updated = "May 31, 2026";
 
 const facts = [
   { label: "Operator", value: siteConfig.ownerName },
-  { label: "Location", value: "Toronto, Ontario, Canada" },
+  { label: "Mailing address", value: siteConfig.mailingAddress },
   { label: "Contact", value: siteConfig.contactEmail },
 ] as const;
 
@@ -48,6 +48,7 @@ const highlights = [
 const relatedLinks = [
   { label: "Terms", href: ROUTES.legal.terms },
   { label: "Contact", href: ROUTES.legal.contact },
+  { label: "Unsubscribe", href: ROUTES.legal.unsubscribe },
   { label: "Account settings", href: ROUTES.settings.account },
 ] as const;
 

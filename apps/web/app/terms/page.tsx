@@ -14,6 +14,7 @@ const sourceUrl = ROUTES.external.github(
 
 const facts = [
   { label: "Operator", value: siteConfig.ownerName },
+  { label: "Mailing address", value: siteConfig.mailingAddress },
   { label: "Status", value: "Newly launched" },
 ] as const;
 
@@ -44,6 +45,7 @@ const highlights = [
 const relatedLinks = [
   { label: "Privacy Policy", href: ROUTES.legal.privacy },
   { label: "Contact", href: ROUTES.legal.contact },
+  { label: "Unsubscribe", href: ROUTES.legal.unsubscribe },
   { label: "GitHub source", href: sourceUrl },
 ] as const;
 

@@ -24,6 +24,7 @@ describe("siteConfig", () => {
     expect(siteConfig.founderName).toBe("David Dias");
     expect(siteConfig.founderUrl).toBe("https://thedaviddias.com");
     expect(siteConfig.contactEmail).toBe("hello@stackmatch.dev");
+    expect(siteConfig.mailingAddress).toBe("38 Stewart Street, Toronto, ON M5V 0H1, Canada");
     expect(siteConfig.copyrightYear).toBe(2026);
   });
 

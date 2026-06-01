@@ -1,3 +1,5 @@
+import { ROUTES, siteConfig } from "@stackmatch/config";
+
 export const EMAIL_DEFAULTS = {
   from: "stackmatch.dev <noreply@mail.stackmatch.dev>",
   replyTo: "support@mail.stackmatch.dev",
@@ -32,5 +34,19 @@ export type EmailCategory = (typeof EMAIL_CATEGORIES)[keyof typeof EMAIL_CATEGOR
 export const EMAIL_URLS = {
   base: process.env.NEXT_PUBLIC_BASE_URL || "https://stackmatch.dev",
   logo: "https://stackmatch.dev/logo.png",
-  unsubscribe: "/unsubscribe",
+  unsubscribe: ROUTES.legal.unsubscribe,
+  privacy: ROUTES.legal.privacy,
+  terms: ROUTES.legal.terms,
+  contact: ROUTES.legal.contact,
+} as const;
+
+export const EMAIL_RESEND_TOPICS = {
+  platformLogin: "f8cb9fb4-f161-4bbf-b779-0c13a53a6727",
+} as const;
+
+export const EMAIL_LEGAL = {
+  operatorName: siteConfig.ownerName,
+  operatorUrl: siteConfig.ownerUrl,
+  contactEmail: siteConfig.contactEmail,
+  mailingAddress: siteConfig.mailingAddress,
 } as const;

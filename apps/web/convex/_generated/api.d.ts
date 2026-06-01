@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as auth_onboarding from "../auth_onboarding.js";
 import type * as classification___tests___fixtures_attribution_fixtures from "../classification/__tests__/fixtures/attribution_fixtures.js";
 import type * as classification_attribution_mappings from "../classification/attribution_mappings.js";
 import type * as classification_bot_detector from "../classification/bot_detector.js";
@@ -47,6 +48,7 @@ import type * as lib_notification_preferences from "../lib/notification_preferen
 import type * as lib_notification_urls from "../lib/notification_urls.js";
 import type * as lib_package_metrics from "../lib/package_metrics.js";
 import type * as lib_presence from "../lib/presence.js";
+import type * as lib_profile_claims from "../lib/profile_claims.js";
 import type * as lib_resync_throttle from "../lib/resync_throttle.js";
 import type * as lib_sentry_reporting from "../lib/sentry_reporting.js";
 import type * as lib_stack_score from "../lib/stack_score.js";
@@ -145,6 +147,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  auth_onboarding: typeof auth_onboarding;
   "classification/__tests__/fixtures/attribution_fixtures": typeof classification___tests___fixtures_attribution_fixtures;
   "classification/attribution_mappings": typeof classification_attribution_mappings;
   "classification/bot_detector": typeof classification_bot_detector;
@@ -183,6 +186,7 @@ declare const fullApi: ApiFromModules<{
   "lib/notification_urls": typeof lib_notification_urls;
   "lib/package_metrics": typeof lib_package_metrics;
   "lib/presence": typeof lib_presence;
+  "lib/profile_claims": typeof lib_profile_claims;
   "lib/resync_throttle": typeof lib_resync_throttle;
   "lib/sentry_reporting": typeof lib_sentry_reporting;
   "lib/stack_score": typeof lib_stack_score;

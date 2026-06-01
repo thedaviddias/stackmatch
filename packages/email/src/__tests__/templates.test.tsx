@@ -1,10 +1,30 @@
 import { render } from "@react-email/render";
 import { describe, expect, it } from "vitest";
+import { WelcomeEmail } from "../templates/auth/welcome";
 import { NotificationEmail } from "../templates/transactional/notification";
 import { NotificationDigestEmail } from "../templates/transactional/notification-digest";
 import { WaitlistConfirmationEmail } from "../templates/transactional/waitlist-confirmation";
 
 describe("Email Templates", () => {
+  describe("WelcomeEmail", () => {
+    it("renders through the shared layout with a platform CTA", async () => {
+      const html = await render(<WelcomeEmail name="David" />);
+
+      expect(html).toContain("Welcome to Stackmatch");
+      expect(html).toContain("stackmatch.dev");
+      expect(html).toContain("Open Stackmatch");
+      expect(html).toContain("Founder, Stackmatch");
+      expect(html).toContain('href="https://stackmatch.dev"');
+      expect(html).toContain("Unsubscribe");
+      expect(html).toContain("David Dias Digital");
+      expect(html).toContain("38 Stewart Street, Toronto, ON M5V 0H1, Canada");
+      expect(html).toContain("hello@stackmatch.dev");
+      expect(html).toContain('href="https://stackmatch.dev/privacy"');
+      expect(html).toContain('href="https://stackmatch.dev/terms"');
+      expect(html).toContain('href="https://stackmatch.dev/contact"');
+    });
+  });
+
   describe("NotificationEmail", () => {
     it("renders correctly with full props", async () => {
       const props = {

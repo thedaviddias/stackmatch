@@ -1,13 +1,104 @@
-import { createClient, type GenericCtx } from "@convex-dev/better-auth";
+import { type AuthFunctions, createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
-import { components } from "./_generated/api";
+import { anyApi, type FunctionReference, type GenericMutationCtx } from "convex/server";
+import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { action, query } from "./_generated/server";
 import authConfig from "./auth.config";
 import { buildTrustedOrigins, resolveGitHubLogin } from "./lib/auth_helpers";
+import { claimProfileForLogin } from "./lib/profile_claims";
 
-export const authComponent = createClient<DataModel>(components.betterAuth);
+const authFunctions = internal.auth as unknown as AuthFunctions;
+
+function requireModule<T>(value: T | undefined, name: string): T {
+  if (!value) {
+    throw new Error(`Missing Convex internal module: ${name}`);
+  }
+  return value;
+}
+
+const authOnboardingFn = requireModule(
+  requireModule(anyApi.auth_onboarding, "auth_onboarding").run,
+  "auth_onboarding.run"
+) as FunctionReference<
+  "action",
+  "internal",
+  {
+    email: string;
+    name: string;
+    githubLogin?: string;
+    sendWelcome: boolean;
+  }
+>;
+
+type AuthUserForOnboarding = {
+  _id: string;
+  email?: string | null;
+  name?: string | null;
+  username?: string | null;
+  displayUsername?: string | null;
+};
+
+function getDisplayName(user: AuthUserForOnboarding): string {
+  return user.username ?? user.displayUsername ?? user.name ?? user.email ?? "developer";
+}
+
+async function scheduleAuthOnboarding(
+  ctx: GenericMutationCtx<DataModel>,
+  user: AuthUserForOnboarding,
+  options: { sendWelcome: boolean }
+) {
+  if (!user.email) return;
+
+  const githubLogin = user.username ?? user.displayUsername ?? undefined;
+  await ctx.scheduler.runAfter(0, authOnboardingFn, {
+    email: user.email,
+    name: getDisplayName(user),
+    ...(githubLogin ? { githubLogin } : {}),
+    sendWelcome: options.sendWelcome,
+  });
+}
+
+type AuthUserForProfileClaim = AuthUserForOnboarding & {
+  image?: string | null;
+};
+
+async function claimProfileFromAuthUser(
+  ctx: GenericMutationCtx<DataModel>,
+  user: AuthUserForProfileClaim
+) {
+  const login = getStringField(user, "username") ?? getStringField(user, "displayUsername");
+  if (!login || !GITHUB_LOGIN_PATTERN.test(login)) return;
+
+  await claimProfileForLogin(ctx, login, { name: getDisplayName(user), image: user.image });
+}
+
+export const authComponent = createClient<DataModel>(components.betterAuth, {
+  authFunctions,
+  triggers: {
+    user: {
+      onCreate: async (ctx, user) => {
+        await claimProfileFromAuthUser(ctx, user);
+        await scheduleAuthOnboarding(ctx, user, { sendWelcome: true });
+      },
+      onUpdate: async (ctx, user) => {
+        await claimProfileFromAuthUser(ctx, user);
+      },
+    },
+    session: {
+      onCreate: async (ctx, session) => {
+        const user = await authComponent.getAnyUserById(ctx, session.userId);
+        if (user) {
+          await claimProfileFromAuthUser(ctx, user);
+          await scheduleAuthOnboarding(ctx, user, { sendWelcome: false });
+        }
+      },
+    },
+  },
+});
+
+export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   const siteUrl = getRequiredEnv("SITE_URL");
@@ -20,6 +111,20 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     // Without this, POST to /api/auth/sign-in/social returns 403.
     trustedOrigins: buildTrustedOrigins(siteUrl, process.env.TRUSTED_ORIGINS),
     database: authComponent.adapter(ctx),
+    user: {
+      additionalFields: {
+        username: {
+          type: "string",
+          required: false,
+          input: false,
+        },
+        displayUsername: {
+          type: "string",
+          required: false,
+          input: false,
+        },
+      },
+    },
     socialProviders: {
       github: {
         clientId: process.env.GITHUB_CLIENT_ID ?? "",

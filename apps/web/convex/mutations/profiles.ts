@@ -1,4 +1,3 @@
-import { OWNER_TYPE_DEVELOPER } from "@stackmatch/constants/owner";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
@@ -6,22 +5,9 @@ import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { refreshOwnerDirectoryCacheForOwner } from "../lib/directory_cache";
 import { touchOwnerPresence } from "../lib/presence";
+import { claimProfileForLogin, resolveProfileClaimedAt } from "../lib/profile_claims";
 
-interface ExistingClaimState {
-  _creationTime?: number;
-  claimedAt?: number;
-  isClaimed?: boolean;
-  memberNumber?: number;
-}
-
-export function resolveProfileClaimedAt(
-  existing: ExistingClaimState | null | undefined,
-  now: number
-): number {
-  if (existing?.claimedAt != null) return existing.claimedAt;
-  if (existing?.isClaimed || existing?.memberNumber != null) return existing._creationTime ?? now;
-  return now;
-}
+export { resolveProfileClaimedAt };
 
 export const claimProfile = mutation({
   args: {},
@@ -29,59 +15,7 @@ export const claimProfile = mutation({
     const user = await authComponent.getAuthUser(ctx);
     const login = await resolveGitHubLogin(ctx, user);
     if (!login) throw new Error("Unauthorized");
-    await touchOwnerPresence(ctx, login);
-
-    const existing = await ctx.db
-      .query("profiles")
-      .withIndex("by_owner", (q) => q.eq("owner", login))
-      .unique();
-
-    // Assign a genesis rank (member number) only if they are claiming
-    // and don't already have one assigned.
-    let memberNumber = existing?.memberNumber;
-    if (!memberNumber) {
-      // Find the current highest member number
-      const highest = await ctx.db
-        .query("profiles")
-        .withIndex("by_memberNumber")
-        .order("desc")
-        .take(1);
-
-      memberNumber = (highest[0]?.memberNumber ?? 0) + 1;
-    }
-
-    const now = Date.now();
-    const data = {
-      isClaimed: true,
-      claimedAt: resolveProfileClaimedAt(existing, now),
-      lastUpdated: now,
-      memberNumber,
-    };
-
-    if (existing) {
-      await ctx.db.patch(existing._id, data);
-    } else {
-      // If no profile exists yet, create a minimal one from session data
-      await ctx.db.insert("profiles", {
-        owner: login,
-        name: user.name,
-        avatarUrl: user.image ?? `https://github.com/${login}.png?size=200`,
-        followers: 0,
-        followersCount: 0,
-        followingCount: 0,
-        starsReceivedCount: 0,
-        ownerType: OWNER_TYPE_DEVELOPER,
-        isClaimed: true,
-        claimedAt: now,
-        lastUpdated: now,
-        memberNumber,
-      });
-    }
-
-    await refreshOwnerDirectoryCacheForOwner(ctx, login);
-    await ctx.scheduler.runAfter(0, internal.stack.owner_page_cache.refreshOwnerPageDataCache, {
-      owner: login,
-    });
+    await claimProfileForLogin(ctx, login, { name: user.name, image: user.image });
   },
 });
 

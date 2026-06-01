@@ -34,7 +34,7 @@ const contactCards = [
   },
   {
     title: "Company ownership",
-    description: `Stackmatch is operated as a ${siteConfig.ownerName} open-source project.`,
+    description: `Stackmatch is operated as a ${siteConfig.ownerName} open-source project from ${siteConfig.mailingAddress}.`,
     icon: Building2,
     linkLabel: siteConfig.ownerName,
     href: siteConfig.ownerUrl,

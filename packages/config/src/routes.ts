@@ -15,6 +15,7 @@ export const ROUTES = {
     privacy: "/privacy",
     terms: "/terms",
     contact: "/contact",
+    unsubscribe: "/unsubscribe",
   },
   settings: {
     home: "/settings",

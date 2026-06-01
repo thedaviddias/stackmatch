@@ -9,7 +9,7 @@ import {
   Section,
   Text,
 } from "@react-email/components";
-import { EMAIL_BRAND, EMAIL_URLS } from "../../keys";
+import { EMAIL_BRAND, EMAIL_LEGAL, EMAIL_URLS } from "../../keys";
 
 type SectionChildren = NonNullable<Parameters<typeof Section>[0]>["children"];
 
@@ -41,22 +41,41 @@ export function BaseLayout({ previewText, children }: BaseLayoutProps) {
           <Hr style={hrStyle} />
           <Section style={footerStyle}>
             <Text style={footerTextStyle}>
-              &copy; {currentYear} stackmatch.dev. Built for the engineering ecosystem.
+              &copy; {currentYear} stackmatch.dev. Operated by{" "}
+              <Link href={EMAIL_LEGAL.operatorUrl} style={footerInlineLinkStyle}>
+                {EMAIL_LEGAL.operatorName}
+              </Link>
+              .
             </Text>
             <Text style={footerSubTextStyle}>
-              You received this because you are a member of the stackmatch community.
+              You received this because you signed in to Stackmatch or joined the Stackmatch
+              community.
+            </Text>
+            <Text style={footerLegalTextStyle}>
+              {EMAIL_LEGAL.operatorName}, {EMAIL_LEGAL.mailingAddress}. Contact:{" "}
+              <Link href={`mailto:${EMAIL_LEGAL.contactEmail}`} style={footerInlineLinkStyle}>
+                {EMAIL_LEGAL.contactEmail}
+              </Link>
             </Text>
             <div style={footerLinksStyle}>
               <Link href={`${EMAIL_URLS.base}${EMAIL_URLS.unsubscribe}`} style={footerLinkStyle}>
                 Unsubscribe
               </Link>
               <span style={footerSeparatorStyle}>&bull;</span>
-              <Link href={EMAIL_URLS.base} style={footerLinkStyle}>
-                Platform
+              <Link href={`${EMAIL_URLS.base}${EMAIL_URLS.privacy}`} style={footerLinkStyle}>
+                Privacy
               </Link>
               <span style={footerSeparatorStyle}>&bull;</span>
-              <Link href="https://github.com/thedaviddias" style={footerLinkStyle}>
-                GitHub
+              <Link href={`${EMAIL_URLS.base}${EMAIL_URLS.terms}`} style={footerLinkStyle}>
+                Terms
+              </Link>
+              <span style={footerSeparatorStyle}>&bull;</span>
+              <Link href={`${EMAIL_URLS.base}${EMAIL_URLS.contact}`} style={footerLinkStyle}>
+                Contact
+              </Link>
+              <span style={footerSeparatorStyle}>&bull;</span>
+              <Link href={EMAIL_URLS.base} style={footerLinkStyle}>
+                Platform
               </Link>
             </div>
           </Section>
@@ -123,6 +142,14 @@ const footerTextStyle = {
 const footerSubTextStyle = {
   color: EMAIL_BRAND.mutedText,
   fontSize: "11px",
+  lineHeight: "16px",
+  margin: "0 0 8px",
+};
+
+const footerLegalTextStyle = {
+  color: EMAIL_BRAND.mutedText,
+  fontSize: "11px",
+  lineHeight: "16px",
   margin: "0 0 16px",
 };
 
@@ -133,6 +160,11 @@ const footerLinksStyle = {
 
 const footerLinkStyle = {
   color: EMAIL_BRAND.mutedText,
+  textDecoration: "underline",
+};
+
+const footerInlineLinkStyle = {
+  color: EMAIL_BRAND.text,
   textDecoration: "underline",
 };
 

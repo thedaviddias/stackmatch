@@ -23,6 +23,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@stackmatch/config": "workspace:*",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
     "resend": "^6.12.4"

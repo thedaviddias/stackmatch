@@ -8,6 +8,7 @@ export const siteConfig = {
   founderName: "David Dias",
   founderUrl: "https://thedaviddias.com",
   contactEmail: "hello@stackmatch.dev",
+  mailingAddress: "38 Stewart Street, Toronto, ON M5V 0H1, Canada",
   copyrightYear: 2026,
   sourceRepository: {
     owner: "thedaviddias",

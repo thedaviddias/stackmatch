@@ -5,6 +5,21 @@ import type { SendEmailOptions, SendEmailResult } from "./types";
 let resendClient: Resend | null = null;
 
 type ResendReactNode = Extract<CreateEmailOptions, { react: unknown }>["react"];
+type ResendTopicSubscription = "opt_in" | "opt_out";
+
+export interface SubscribeContactToTopicOptions {
+  email: string;
+  topicId: string;
+  firstName?: string;
+  lastName?: string;
+  subscription?: ResendTopicSubscription;
+}
+
+export interface SubscribeContactToTopicResult {
+  success: boolean;
+  id?: string;
+  error?: string;
+}
 
 function toResendReactNode(react: React.ReactElement): ResendReactNode {
   // Bridge ReactNode type mismatches from transitive @types/react versions.
@@ -66,6 +81,56 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 
 export async function sendBatchEmails(emails: SendEmailOptions[]): Promise<SendEmailResult[]> {
   return await Promise.all(emails.map(sendEmail));
+}
+
+export async function subscribeContactToTopic(
+  options: SubscribeContactToTopicOptions
+): Promise<SubscribeContactToTopicResult> {
+  const client = getClient();
+  const email = options.email.trim().toLowerCase();
+  const topic = {
+    id: options.topicId,
+    subscription: options.subscription ?? ("opt_in" as const),
+  };
+
+  try {
+    const createResult = await client.contacts.create({
+      email,
+      firstName: options.firstName,
+      lastName: options.lastName,
+      topics: [topic],
+    });
+
+    if (!createResult.error) {
+      return { success: true, id: createResult.data?.id };
+    }
+
+    const updateResult = await client.contacts.update({
+      email,
+      firstName: options.firstName,
+      lastName: options.lastName,
+    });
+
+    if (updateResult.error) {
+      return { success: false, error: updateResult.error.message };
+    }
+
+    const topicResult = await client.contacts.topics.update({
+      email,
+      topics: [topic],
+    });
+
+    if (topicResult.error) {
+      return { success: false, error: topicResult.error.message };
+    }
+
+    return { success: true, id: topicResult.data?.id ?? updateResult.data?.id };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
 }
 
 export async function previewEmail(react: React.ReactElement): Promise<string> {
