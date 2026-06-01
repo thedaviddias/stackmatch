@@ -21,6 +21,12 @@ const repoPackageEntryValidator = v.object({
   versionRange: v.string(),
 });
 
+const maintainedPackageEntryValidator = v.object({
+  packageName: v.string(),
+  sourcePath: v.string(),
+  confidence: v.literal("package-json-name"),
+});
+
 const packageUsageEntryValidator = v.object({
   packageName: v.string(),
   section: v.union(v.literal("dependencies"), v.literal("devDependencies")),
@@ -90,6 +96,7 @@ export const replaceRepoPackages = internalMutation({
     repoId: v.id("repos"),
     owner: v.string(),
     entries: v.array(repoPackageEntryValidator),
+    maintainedPackages: v.optional(v.array(maintainedPackageEntryValidator)),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -109,6 +116,28 @@ export const replaceRepoPackages = internalMutation({
         section: entry.section,
         sourcePath: entry.sourcePath,
         versionRange: entry.versionRange,
+      });
+    }
+
+    const existingMaintained = await ctx.db
+      .query("repoMaintainedPackages")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+
+    for (const row of existingMaintained) {
+      await ctx.db.delete(row._id);
+    }
+
+    const seenMaintained = new Set<string>();
+    for (const entry of args.maintainedPackages ?? []) {
+      if (seenMaintained.has(entry.packageName)) continue;
+      seenMaintained.add(entry.packageName);
+      await ctx.db.insert("repoMaintainedPackages", {
+        repoId: args.repoId,
+        owner: args.owner,
+        packageName: entry.packageName,
+        sourcePath: entry.sourcePath,
+        confidence: entry.confidence,
       });
     }
   },

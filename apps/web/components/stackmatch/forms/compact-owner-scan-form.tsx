@@ -79,7 +79,7 @@ export function CompactOwnerScanForm({
           type="submit"
           disabled={isSubmitting || owner.trim().length === 0}
           aria-disabled={isSubmitting || owner.trim().length === 0}
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-th-accent-1 px-4 text-sm font-bold text-th-accent-1-ink transition-[filter,transform] hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:brightness-100"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-th-accent-1 px-4 text-sm font-bold text-th-accent-1-ink subpixel-antialiased shadow-sm transition-[background-color,box-shadow,opacity] hover:bg-th-accent-1/90 hover:shadow-md active:bg-th-accent-1/85 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-th-accent-1 disabled:hover:shadow-sm"
         >
           {isSubmitting ? (
             <Loader2 className="size-4 animate-spin" />

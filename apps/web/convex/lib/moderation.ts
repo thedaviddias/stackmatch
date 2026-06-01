@@ -45,16 +45,20 @@ function getStringField(value: unknown, field: string): string | undefined {
   return typeof fieldValue === "string" && fieldValue.trim() ? fieldValue : undefined;
 }
 
-function readEnvSet(name: string, env: NodeJS.ProcessEnv = process.env): Set<string> {
+function readExactEnvSet(name: string, env: NodeJS.ProcessEnv = process.env): Set<string> {
   const raw = env[name];
   if (!raw) return new Set();
 
   return new Set(
     raw
       .split(",")
-      .map((login) => login.trim().toLowerCase())
+      .map((value) => value.trim())
       .filter(Boolean)
   );
+}
+
+function readLowercaseEnvSet(name: string, env: NodeJS.ProcessEnv = process.env): Set<string> {
+  return new Set([...readExactEnvSet(name, env)].map((value) => value.toLowerCase()));
 }
 
 function isRoleAtLeast(role: AdminRole, requiredRole: AdminRole): boolean {
@@ -70,19 +74,19 @@ export function resolveAdminGrant(
   user: Pick<AuthenticatedUserContext, "authUserId" | "githubLogin" | "tokenIdentifier">,
   env: NodeJS.ProcessEnv = process.env
 ): { role: AdminRole; source: AdminGrantSource } | null {
-  if (readEnvSet(ADMIN_AUTH_USER_IDS_ENV, env).has(user.authUserId)) {
+  if (readExactEnvSet(ADMIN_AUTH_USER_IDS_ENV, env).has(user.authUserId)) {
     return { role: ADMIN_ROLE_OWNER, source: "authUserId" };
   }
 
   if (
     user.tokenIdentifier &&
-    readEnvSet(ADMIN_TOKEN_IDENTIFIERS_ENV, env).has(user.tokenIdentifier)
+    readExactEnvSet(ADMIN_TOKEN_IDENTIFIERS_ENV, env).has(user.tokenIdentifier)
   ) {
     return { role: ADMIN_ROLE_OWNER, source: "tokenIdentifier" };
   }
 
   const githubLoginGrants = areGitHubLoginAdminGrantsEnabled(env)
-    ? readEnvSet(ADMIN_GITHUB_LOGINS_ENV, env)
+    ? readLowercaseEnvSet(ADMIN_GITHUB_LOGINS_ENV, env)
     : new Set<string>();
   if (githubLoginGrants.has(user.githubLogin.toLowerCase())) {
     return { role: ADMIN_ROLE_OWNER, source: "githubLogin" };
@@ -100,9 +104,9 @@ export function getAdminGrantDiagnostics(
     githubLogin: user.githubLogin,
     tokenIdentifierPresent: Boolean(user.tokenIdentifier),
     configuredGrants: {
-      authUserIds: readEnvSet(ADMIN_AUTH_USER_IDS_ENV, env).size,
-      tokenIdentifiers: readEnvSet(ADMIN_TOKEN_IDENTIFIERS_ENV, env).size,
-      githubLogins: readEnvSet(ADMIN_GITHUB_LOGINS_ENV, env).size,
+      authUserIds: readExactEnvSet(ADMIN_AUTH_USER_IDS_ENV, env).size,
+      tokenIdentifiers: readExactEnvSet(ADMIN_TOKEN_IDENTIFIERS_ENV, env).size,
+      githubLogins: readLowercaseEnvSet(ADMIN_GITHUB_LOGINS_ENV, env).size,
       githubLoginGrantsEnabled: areGitHubLoginAdminGrantsEnabled(env),
       productionGithubLoginGrantOverride:
         env[ALLOW_PRODUCTION_ADMIN_GITHUB_LOGINS_ENV]?.trim().toLowerCase() === "true",

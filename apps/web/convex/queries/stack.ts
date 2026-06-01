@@ -8,6 +8,10 @@ import {
   OWNER_MATCH_CACHE_TTL_MS,
   OWNER_MATCH_CANDIDATE_LIMIT,
   OWNER_PAGE_DATA_CACHE_TTL_MS,
+  OWNER_PAGE_ORG_ADOPTION_SAMPLE_OWNER_LIMIT,
+  OWNER_PAGE_ORG_MAINTAINED_PACKAGES_LIMIT,
+  OWNER_PAGE_ORG_RELATED_PACKAGES_LIMIT,
+  OWNER_PAGE_ORG_TOP_ADOPTERS_LIMIT,
   OWNER_PAGE_QUERY_SLOW_MS,
   OWNER_PAGE_RECENT_STARS_LIMIT,
   OWNER_PREVIEW_COUNT,
@@ -145,6 +149,34 @@ interface OwnerPageProfile {
   ownerType: OwnerType;
 }
 
+interface OrganizationMaintainedPackage {
+  packageName: string;
+  sourceRepo: string;
+  sourcePath: string;
+  confidence: "package-json-name";
+  adopterCount: number;
+}
+
+interface OrganizationTopAdopter {
+  owner: string;
+  name?: string;
+  avatarUrl: string;
+  ownerType: OwnerType;
+  matchedPackages: string[];
+  repoCount: number;
+}
+
+interface OrganizationRelatedPackage {
+  packageName: string;
+  coOccurrenceCount: number;
+}
+
+interface OrganizationAdoptionPayload {
+  maintainedPackages: OrganizationMaintainedPackage[];
+  topAdopters: OrganizationTopAdopter[];
+  relatedPackages: OrganizationRelatedPackage[];
+}
+
 interface OwnerPageDataResult {
   owner: string;
   summary: OwnerStackSummary;
@@ -175,6 +207,7 @@ interface OwnerPageDataResult {
     claimedByLogin: string;
     claimedAt: number;
   };
+  organizationAdoption?: OrganizationAdoptionPayload;
 }
 
 export function mergeFreshOwnerIdentityIntoCachedPageData(
@@ -273,6 +306,15 @@ function isFreshOwnerPageDataCache(
       cached.weekStart === weekStart &&
       Date.now() - cached.updatedAt <= OWNER_PAGE_DATA_CACHE_TTL_MS
   );
+}
+
+function canUseCachedOwnerPageData(
+  cachedPageData: OwnerPageDataResult | undefined,
+  currentProfile: Doc<"profiles"> | null
+): cachedPageData is OwnerPageDataResult {
+  if (!cachedPageData) return false;
+  if (currentProfile?.ownerType !== OWNER_TYPE_ORGANIZATION) return true;
+  return cachedPageData.organizationAdoption !== undefined;
 }
 
 function logOwnerPageQueryTiming(
@@ -485,6 +527,72 @@ function normalizeVersionRange(range: string): string {
 // Package popularity + IDF helpers
 // ---------------------------------------------------------------------------
 
+interface OrganizationPackageAdoptionRow {
+  owner: string;
+  packageName: string;
+  repoCount: number;
+  depCount: number;
+  devDepCount: number;
+}
+
+export function rankOrganizationPackageAdopters(
+  owner: string,
+  maintainedPackageNames: string[],
+  packageRows: OrganizationPackageAdoptionRow[]
+) {
+  const ownerLower = owner.toLowerCase();
+  const maintainedSet = new Set(maintainedPackageNames);
+  const adopters = new Map<
+    string,
+    {
+      owner: string;
+      matchedPackages: Set<string>;
+      repoCount: number;
+      depCount: number;
+      devDepCount: number;
+    }
+  >();
+
+  for (const row of packageRows) {
+    if (!maintainedSet.has(row.packageName)) continue;
+    if (row.owner.toLowerCase() === ownerLower) continue;
+
+    const key = row.owner.toLowerCase();
+    const existing = adopters.get(key);
+    if (existing) {
+      existing.matchedPackages.add(row.packageName);
+      existing.repoCount += row.repoCount;
+      existing.depCount += row.depCount;
+      existing.devDepCount += row.devDepCount;
+      continue;
+    }
+
+    adopters.set(key, {
+      owner: row.owner,
+      matchedPackages: new Set([row.packageName]),
+      repoCount: row.repoCount,
+      depCount: row.depCount,
+      devDepCount: row.devDepCount,
+    });
+  }
+
+  return Array.from(adopters.values())
+    .map((adopter) => ({
+      owner: adopter.owner,
+      matchedPackages: Array.from(adopter.matchedPackages).sort((a, b) => a.localeCompare(b)),
+      repoCount: adopter.repoCount,
+      depCount: adopter.depCount,
+      devDepCount: adopter.devDepCount,
+    }))
+    .sort(
+      (a, b) =>
+        b.matchedPackages.length - a.matchedPackages.length ||
+        b.repoCount - a.repoCount ||
+        b.depCount + b.devDepCount - (a.depCount + a.devDepCount) ||
+        a.owner.localeCompare(b.owner)
+    );
+}
+
 async function fetchPackagePopularity(ctx: QueryCtx, packageNames?: string[]) {
   const map = new Map<string, number>();
   if (packageNames && packageNames.length > 0) {
@@ -596,6 +704,185 @@ async function fetchReposById(
     if (repo) map.set(repo._id, repo);
   }
   return map;
+}
+
+async function buildOrganizationAdoption(
+  ctx: QueryCtx,
+  {
+    owner,
+    ownerRepos,
+  }: {
+    owner: string;
+    ownerRepos: Doc<"repos">[];
+  }
+): Promise<OrganizationAdoptionPayload> {
+  const syncedRepoById = new Map(
+    ownerRepos
+      .filter((repo) => repo.syncStatus === "synced" && !repo.isExcluded)
+      .map((repo) => [repo._id, repo])
+  );
+  const maintainedRows = await ctx.db
+    .query("repoMaintainedPackages")
+    .withIndex("by_owner", (q) => q.eq("owner", owner))
+    .collect();
+
+  const maintainedByPackage = new Map<
+    string,
+    {
+      packageName: string;
+      sourceRepo: string;
+      sourcePath: string;
+      confidence: "package-json-name";
+      sourceRepoStars: number;
+    }
+  >();
+
+  for (const row of maintainedRows) {
+    const repo = syncedRepoById.get(row.repoId);
+    if (!repo) continue;
+
+    const existing = maintainedByPackage.get(row.packageName);
+    const candidate = {
+      packageName: row.packageName,
+      sourceRepo: repo.name,
+      sourcePath: row.sourcePath,
+      confidence: row.confidence,
+      sourceRepoStars: repo.stars ?? 0,
+    };
+
+    if (
+      !existing ||
+      candidate.sourceRepoStars > existing.sourceRepoStars ||
+      (candidate.sourceRepoStars === existing.sourceRepoStars &&
+        candidate.sourceRepo.localeCompare(existing.sourceRepo) < 0)
+    ) {
+      maintainedByPackage.set(row.packageName, candidate);
+    }
+  }
+
+  const maintainedPackageNames = Array.from(maintainedByPackage.keys())
+    .sort((a, b) => a.localeCompare(b))
+    .slice(0, OWNER_PAGE_ORG_MAINTAINED_PACKAGES_LIMIT);
+
+  if (maintainedPackageNames.length === 0) {
+    return {
+      maintainedPackages: [],
+      topAdopters: [],
+      relatedPackages: [],
+    };
+  }
+
+  const packageOwnerRowsByPackage = await mapInChunks(
+    maintainedPackageNames,
+    PACKAGE_PAGE_TOP_OWNERS_LIMIT,
+    async (packageName) => ({
+      packageName,
+      rows: await ctx.db
+        .query("ownerPackages")
+        .withIndex("by_package", (q) => q.eq("packageName", packageName))
+        .collect(),
+    })
+  );
+  const packageOwnerRows = packageOwnerRowsByPackage.flatMap((entry) => entry.rows);
+  const ownerLower = owner.toLowerCase();
+  const adopterCountByPackage = new Map<string, Set<string>>();
+  for (const entry of packageOwnerRowsByPackage) {
+    const adopters = new Set<string>();
+    for (const row of entry.rows) {
+      if (row.owner.toLowerCase() === ownerLower) continue;
+      adopters.add(row.owner.toLowerCase());
+    }
+    adopterCountByPackage.set(entry.packageName, adopters);
+  }
+
+  const rankedAdopters = rankOrganizationPackageAdopters(
+    owner,
+    maintainedPackageNames,
+    packageOwnerRows
+  );
+  const sampledAdopterOwners = rankedAdopters
+    .slice(0, OWNER_PAGE_ORG_ADOPTION_SAMPLE_OWNER_LIMIT)
+    .map((adopter) => adopter.owner);
+  const [profilesByOwner, ownerPackageRowsByOwner] = await Promise.all([
+    fetchProfilesByOwner(ctx, sampledAdopterOwners),
+    mapInChunks(sampledAdopterOwners, PACKAGE_PAGE_TOP_OWNERS_LIMIT, async (adopterOwner) => ({
+      owner: adopterOwner,
+      rows: await ctx.db
+        .query("ownerPackages")
+        .withIndex("by_owner", (q) => q.eq("owner", adopterOwner))
+        .collect(),
+    })),
+  ]);
+  const { avatarByOwner, publicProfiles } = buildProfileLookups(
+    Array.from(profilesByOwner.values())
+  );
+  const maintainedSet = new Set(maintainedPackageNames);
+  const relatedPackageCounts = new Map<string, number>();
+
+  for (const entry of ownerPackageRowsByOwner) {
+    for (const row of entry.rows) {
+      if (maintainedSet.has(row.packageName)) continue;
+      relatedPackageCounts.set(
+        row.packageName,
+        (relatedPackageCounts.get(row.packageName) ?? 0) + 1
+      );
+    }
+  }
+
+  const topAdopters = rankedAdopters
+    .filter((adopter) => publicProfiles.has(adopter.owner.toLowerCase()))
+    .slice(0, OWNER_PAGE_ORG_TOP_ADOPTERS_LIMIT)
+    .map((adopter) => {
+      const profile = profilesByOwner.get(adopter.owner);
+      return {
+        owner: adopter.owner,
+        name: profile?.name ?? undefined,
+        avatarUrl:
+          avatarByOwner.get(adopter.owner) ?? `https://github.com/${adopter.owner}.png?size=60`,
+        ownerType: profile?.ownerType ?? OWNER_TYPE_DEVELOPER,
+        matchedPackages: adopter.matchedPackages,
+        repoCount: adopter.repoCount,
+      };
+    });
+
+  const maintainedPackages = maintainedPackageNames
+    .map((packageName) => {
+      const source = maintainedByPackage.get(packageName);
+      if (!source) return null;
+      return {
+        packageName,
+        sourceRepo: source.sourceRepo,
+        sourcePath: source.sourcePath,
+        confidence: source.confidence,
+        adopterCount: adopterCountByPackage.get(packageName)?.size ?? 0,
+      };
+    })
+    .filter((entry): entry is OrganizationMaintainedPackage => entry !== null)
+    .sort((a, b) => b.adopterCount - a.adopterCount || a.packageName.localeCompare(b.packageName));
+
+  const relatedPackages = Array.from(relatedPackageCounts.entries())
+    .map(([packageName, coOccurrenceCount]) => ({ packageName, coOccurrenceCount }))
+    .sort(
+      (a, b) =>
+        b.coOccurrenceCount - a.coOccurrenceCount || a.packageName.localeCompare(b.packageName)
+    )
+    .slice(0, OWNER_PAGE_ORG_RELATED_PACKAGES_LIMIT);
+
+  return {
+    maintainedPackages,
+    topAdopters,
+    relatedPackages,
+  };
+}
+
+async function buildOrganizationAdoptionForProfile(
+  ctx: QueryCtx,
+  owner: string,
+  ownerRepos: Doc<"repos">[],
+  ownerProfile: OwnerPageProfile | null
+) {
+  if (ownerProfile?.ownerType !== OWNER_TYPE_ORGANIZATION) return undefined;
+  return await buildOrganizationAdoption(ctx, { owner, ownerRepos });
 }
 
 async function fetchStarStatsForTargets(
@@ -1505,15 +1792,13 @@ async function buildOwnerPageData(
     !currentProfile?.showPrivateDataPublicly;
   if (canUsePublicDataCache) {
     const cached = await getFreshOwnerPageDataCache(ctx, owner, weekStart);
-    if (cached) {
-      const pageData = mergeFreshOwnerIdentityIntoCachedPageData(
-        cached.pageData as OwnerPageDataResult,
-        {
-          currentProfile,
-          organizationClaim,
-          isOwnerViewer: access.isOwnerViewer,
-        }
-      );
+    const cachedPageData = cached?.pageData as OwnerPageDataResult | undefined;
+    if (cached && canUseCachedOwnerPageData(cachedPageData, currentProfile)) {
+      const pageData = mergeFreshOwnerIdentityIntoCachedPageData(cachedPageData, {
+        currentProfile,
+        organizationClaim,
+        isOwnerViewer: access.isOwnerViewer,
+      });
       const { isStarredByViewer } = await getOwnerStarSummary(ctx, {
         owner,
         viewerLogin,
@@ -1720,6 +2005,12 @@ async function buildOwnerPageData(
     profile: null,
     timestamp: star.createdAt,
   }));
+  const organizationAdoption = await buildOrganizationAdoptionForProfile(
+    ctx,
+    owner,
+    ownerRepos,
+    ownerProfile
+  );
 
   const pageData: OwnerPageDataResult = {
     owner,
@@ -1766,6 +2057,7 @@ async function buildOwnerPageData(
           claimedAt: organizationClaim.claimedAt,
         }
       : undefined,
+    organizationAdoption,
   };
 
   logOwnerPageQueryTiming("getOwnerPageData", startedAt, {

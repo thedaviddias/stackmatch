@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { getAdminGrantDiagnostics, resolveAdminGrant } from "../moderation";
 
 const USER = {
-  authUserId: "auth_user_123",
+  authUserId: "auth_User_123",
   githubLogin: "thedaviddias",
-  tokenIdentifier: "token_123",
+  tokenIdentifier: "token_ABC_123",
 };
 
 describe("resolveAdminGrant", () => {
@@ -18,6 +18,15 @@ describe("resolveAdminGrant", () => {
     ).toEqual({ role: ADMIN_ROLE_OWNER, source: "authUserId" });
   });
 
+  it("treats authenticated user id grants as case-sensitive", () => {
+    expect(
+      resolveAdminGrant(USER, {
+        STACKMATCH_ADMIN_AUTH_USER_IDS: USER.authUserId.toLowerCase(),
+        NODE_ENV: "production",
+      })
+    ).toBeNull();
+  });
+
   it("grants owner access from a token identifier", () => {
     expect(
       resolveAdminGrant(USER, {
@@ -25,6 +34,15 @@ describe("resolveAdminGrant", () => {
         NODE_ENV: "production",
       })
     ).toEqual({ role: ADMIN_ROLE_OWNER, source: "tokenIdentifier" });
+  });
+
+  it("treats token identifier grants as case-sensitive", () => {
+    expect(
+      resolveAdminGrant(USER, {
+        STACKMATCH_ADMIN_TOKEN_IDENTIFIERS: USER.tokenIdentifier.toLowerCase(),
+        NODE_ENV: "production",
+      })
+    ).toBeNull();
   });
 
   it("allows GitHub login grants outside production for bootstrap access", () => {

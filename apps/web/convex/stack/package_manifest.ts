@@ -10,6 +10,12 @@ export interface ParsedPackageEntry {
   versionRange: string;
 }
 
+export interface ParsedMaintainedPackageEntry {
+  packageName: string;
+  sourcePath: string;
+  confidence: "package-json-name";
+}
+
 const SECTIONS: PackageSection[] = ["dependencies", "devDependencies"];
 const DEFAULT_VERSION_RANGE = "*";
 const PYTHON_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*/;
@@ -75,6 +81,33 @@ function parsePackageJsonManifest(raw: string, sourcePath: string): ParsedPackag
     }
     return a.packageName.localeCompare(b.packageName);
   });
+}
+
+export function parseMaintainedPackageManifest(
+  raw: string,
+  sourcePath: string
+): ParsedMaintainedPackageEntry | null {
+  if (getBasename(sourcePath) !== PACKAGE_JSON_FILE) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  const manifest = asRecord(parsed);
+  const rawName = manifest?.name;
+  if (typeof rawName !== "string") return null;
+
+  const packageName = normalizePackageName(rawName);
+  if (!packageName || isNoisePackage(packageName)) return null;
+
+  return {
+    packageName,
+    sourcePath,
+    confidence: "package-json-name",
+  };
 }
 
 function stripInlineComment(line: string): string {

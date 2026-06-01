@@ -69,7 +69,7 @@ export function OwnerLookupForm() {
           type="submit"
           disabled={isSubmitting || owner.trim().length === 0}
           aria-disabled={isSubmitting || owner.trim().length === 0}
-          className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-th-accent-1 px-8 text-sm font-bold text-th-accent-1-ink shadow-sm transition-[background-color,filter,transform] hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:brightness-100 sm:h-14 sm:w-auto sm:rounded-full sm:text-base"
+          className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-th-accent-1 px-8 text-sm font-bold text-th-accent-1-ink subpixel-antialiased shadow-sm transition-[background-color,box-shadow,opacity] hover:bg-th-accent-1/90 hover:shadow-md active:bg-th-accent-1/85 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-th-accent-1 disabled:hover:shadow-sm sm:h-14 sm:w-auto sm:rounded-full sm:text-base"
         >
           {isSubmitting ? (
             <Loader2 className="size-5 animate-spin" />

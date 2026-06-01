@@ -7,7 +7,12 @@ import { internal } from "../_generated/api";
 
 import { internalAction } from "../_generated/server";
 import { fetchGitHubRestWithPublicFallback } from "../github/github_api";
-import { type ParsedPackageEntry, parsePackageManifest } from "./package_manifest";
+import {
+  type ParsedMaintainedPackageEntry,
+  type ParsedPackageEntry,
+  parseMaintainedPackageManifest,
+  parsePackageManifest,
+} from "./package_manifest";
 import {
   buildPackageManifestFingerprint,
   type GitHubTreeNode,
@@ -132,6 +137,7 @@ export const scanRepoPackages = internalAction({
       });
 
       const packageUsageEntries: ParsedPackageEntry[] = [];
+      const maintainedPackageEntries: ParsedMaintainedPackageEntry[] = [];
 
       let scannedManifestCount = 0;
 
@@ -163,9 +169,13 @@ export const scanRepoPackages = internalAction({
 
         const rawManifest = decodeBase64(contentData.content);
         const parsedEntries = parsePackageManifest(rawManifest, path);
+        const maintainedPackage = parseMaintainedPackageManifest(rawManifest, path);
         scannedManifestCount += 1;
 
         packageUsageEntries.push(...parsedEntries);
+        if (maintainedPackage) {
+          maintainedPackageEntries.push(maintainedPackage);
+        }
 
         if ((index + 1) % 10 === 0 || index === manifestPaths.length - 1) {
           await ctx.runMutation(internal.stack.ingest_repo.updateSyncProgress, {
@@ -181,6 +191,7 @@ export const scanRepoPackages = internalAction({
         repoId: args.repoId,
         owner: args.owner,
         entries: packageUsageEntries,
+        maintainedPackages: maintainedPackageEntries,
       });
 
       if (user) {

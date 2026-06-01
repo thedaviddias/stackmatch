@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mergeFreshOwnerIdentityIntoCachedPageData } from "../stack";
+import {
+  mergeFreshOwnerIdentityIntoCachedPageData,
+  rankOrganizationPackageAdopters,
+} from "../stack";
 
 type MergePageData = Parameters<typeof mergeFreshOwnerIdentityIntoCachedPageData>[0];
 type MergeOptions = Parameters<typeof mergeFreshOwnerIdentityIntoCachedPageData>[1];
@@ -72,5 +75,58 @@ describe("mergeFreshOwnerIdentityIntoCachedPageData", () => {
     expect(pageData.profile?.isClaimed).toBe(true);
     expect(pageData.isClaimed).toBe(true);
     expect(pageData.orgClaim).toEqual({ claimedByLogin: "admin", claimedAt: 10 });
+  });
+});
+
+describe("rankOrganizationPackageAdopters", () => {
+  it("excludes the organization itself and ranks by matched packages then repo count", () => {
+    const adopters = rankOrganizationPackageAdopters(
+      "stackmatch",
+      ["@stackmatch/ui", "stackmatch"],
+      [
+        {
+          owner: "stackmatch",
+          packageName: "@stackmatch/ui",
+          repoCount: 20,
+          depCount: 20,
+          devDepCount: 0,
+        },
+        {
+          owner: "alpha",
+          packageName: "@stackmatch/ui",
+          repoCount: 2,
+          depCount: 2,
+          devDepCount: 0,
+        },
+        {
+          owner: "bravo",
+          packageName: "@stackmatch/ui",
+          repoCount: 1,
+          depCount: 1,
+          devDepCount: 0,
+        },
+        {
+          owner: "bravo",
+          packageName: "stackmatch",
+          repoCount: 1,
+          depCount: 0,
+          devDepCount: 1,
+        },
+        {
+          owner: "charlie",
+          packageName: "@stackmatch/ui",
+          repoCount: 3,
+          depCount: 3,
+          devDepCount: 0,
+        },
+      ]
+    );
+
+    expect(adopters.map((adopter) => adopter.owner)).toEqual(["bravo", "charlie", "alpha"]);
+    expect(adopters[0]).toMatchObject({
+      owner: "bravo",
+      matchedPackages: ["@stackmatch/ui", "stackmatch"],
+      repoCount: 2,
+    });
   });
 });

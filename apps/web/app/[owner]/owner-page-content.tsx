@@ -499,6 +499,7 @@ function OwnerPageLoadedContent({
               topPackages={data.publicTopPackages}
               repos={data.repos}
               orgClaim={data.orgClaim}
+              organizationAdoption={data.organizationAdoption}
             />
           </ErrorBoundary>
         )}

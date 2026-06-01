@@ -527,6 +527,18 @@ export default defineSchema({
     .index("by_owner", ["owner"])
     .index("by_owner_package", ["owner", "packageName"]),
 
+  repoMaintainedPackages: defineTable({
+    repoId: v.id("repos"),
+    owner: v.string(),
+    packageName: v.string(),
+    sourcePath: v.string(),
+    confidence: v.literal("package-json-name"),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_owner", ["owner"])
+    .index("by_package", ["packageName"])
+    .index("by_owner_package", ["owner", "packageName"]),
+
   ownerPackages: defineTable({
     owner: v.string(),
     packageName: v.string(),

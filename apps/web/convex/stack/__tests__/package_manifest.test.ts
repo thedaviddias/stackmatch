@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePackageManifest } from "../package_manifest";
+import { parseMaintainedPackageManifest, parsePackageManifest } from "../package_manifest";
 
 describe("parsePackageManifest", () => {
   it("parses dependencies and devDependencies", () => {
@@ -228,5 +228,33 @@ describe("parsePackageManifest", () => {
 
   it("returns empty array for unsupported manifest files", () => {
     expect(parsePackageManifest("flask==3", "requirements-dev.txt")).toEqual([]);
+  });
+});
+
+describe("parseMaintainedPackageManifest", () => {
+  it("extracts and normalizes the package.json package name", () => {
+    const raw = JSON.stringify({
+      name: "@StackMatch/Web",
+      dependencies: { react: "^19.0.0" },
+    });
+
+    expect(parseMaintainedPackageManifest(raw, "apps/web/package.json")).toEqual({
+      packageName: "@stackmatch/web",
+      sourcePath: "apps/web/package.json",
+      confidence: "package-json-name",
+    });
+  });
+
+  it("returns null when package.json has no string name", () => {
+    expect(
+      parseMaintainedPackageManifest(JSON.stringify({ dependencies: {} }), "package.json")
+    ).toBeNull();
+    expect(
+      parseMaintainedPackageManifest(JSON.stringify({ name: 123 }), "package.json")
+    ).toBeNull();
+  });
+
+  it("does not infer maintained packages from requirements.txt", () => {
+    expect(parseMaintainedPackageManifest("flask==3", "requirements.txt")).toBeNull();
   });
 });
