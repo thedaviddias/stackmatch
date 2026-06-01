@@ -1,5 +1,6 @@
 "use client";
 
+import { OWNER_TYPE_ORGANIZATION } from "@stackmatch/constants/owner";
 import { Handshake, Loader2, Lock, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,6 +14,32 @@ import type { OwnerPageData } from "../owner-page-content";
 
 type IntelTab = "discovery" | "stars" | "connections";
 
+interface StackmatesSectionCopy {
+  heading: string;
+  descriptions: Record<IntelTab, string>;
+  emptyStarsDescription: string;
+}
+
+const developerSectionCopy: StackmatesSectionCopy = {
+  heading: "Your Stackmates",
+  descriptions: {
+    discovery: "Developers who share your unique dependency graph.",
+    connections: "Mutual matches who starred each other's stack.",
+    stars: "Stackers who have recently starred your profile.",
+  },
+  emptyStarsDescription: "Star this stacker to recognize their engineering DNA!",
+};
+
+const organizationSectionCopy: StackmatesSectionCopy = {
+  heading: "Similar Builders",
+  descriptions: {
+    discovery: "Profiles with dependency graphs similar to this organization.",
+    connections: "Profiles with reciprocal stack stars.",
+    stars: "Stackers who have recently starred this profile.",
+  },
+  emptyStarsDescription: "Star this profile to recognize its engineering DNA!",
+};
+
 interface StackmatesSectionProps {
   /** Pass the full page data to avoid TypeScript depth issues with indexed Convex types. */
   data: NonNullable<OwnerPageData>;
@@ -20,13 +47,13 @@ interface StackmatesSectionProps {
   isOwnerViewer: boolean;
 }
 
-function StackmatesLoadingPanel() {
+function StackmatesLoadingPanel({ isOrganization }: { isOrganization: boolean }) {
   return (
     <div className="rounded-3xl border border-dashed border-border p-12 text-center glass-panel dark:border-neutral-800 sm:p-20">
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="mb-2 size-10 animate-spin text-muted-foreground dark:text-neutral-600" />
         <p className="font-bold text-muted-foreground dark:text-neutral-400">
-          Loading stackmates...
+          {isOrganization ? "Loading similar builders..." : "Loading stackmates..."}
         </p>
       </div>
     </div>
@@ -52,8 +79,11 @@ function StackmatesDiscoveryPanel({
   const matches = matchData?.matches ?? data.matches;
   const totalMatchCount = matchData?.totalMatchCount ?? data.totalMatchCount;
   const hasServerMatches = data.matches.length > 0 || data.totalMatchCount > 0;
+  const isOrganization = data.profile?.ownerType === OWNER_TYPE_ORGANIZATION;
 
-  if (matchData === undefined && !hasServerMatches) return <StackmatesLoadingPanel />;
+  if (matchData === undefined && !hasServerMatches) {
+    return <StackmatesLoadingPanel isOrganization={isOrganization} />;
+  }
 
   return (
     <DiscoveryFeed
@@ -65,6 +95,7 @@ function StackmatesDiscoveryPanel({
       viewerLocationCity={data.profile?.locationCity}
       viewerLocationCountryCode={data.profile?.locationCountryCode}
       ownerStackScore={data.profile?.stackScore}
+      ownerType={data.profile?.ownerType}
     />
   );
 }
@@ -85,6 +116,8 @@ function StackmatesTabFallback() {
 export function StackmatesSection({ data, viewAs, isOwnerViewer }: StackmatesSectionProps) {
   const recentStars = data.recentStars ?? [];
   const mutualMatches = data.mutualMatches ?? [];
+  const isOrganization = data.profile?.ownerType === OWNER_TYPE_ORGANIZATION;
+  const copy = isOrganization ? organizationSectionCopy : developerSectionCopy;
   const [activeIntelTab, setActiveIntelTab] = useQueryState(
     "tab",
     parseAsStringLiteral(["discovery", "stars", "connections"]).withDefault("discovery")
@@ -103,14 +136,11 @@ export function StackmatesSection({ data, viewAs, isOwnerViewer }: StackmatesSec
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
         <div data-theme-section="stackmates-title">
           <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3 dark:text-white">
-            <Handshake className="h-6 w-6 text-th-accent-1" /> Your Stackmates
+            <Handshake className="h-6 w-6 text-th-accent-1" />
+            {copy.heading}
           </h2>
           <p className="text-sm text-muted-foreground font-medium mt-1 dark:text-neutral-400">
-            {activeIntelTab === "discovery"
-              ? "Developers who share your unique dependency graph."
-              : activeIntelTab === "connections"
-                ? "Mutual matches who starred each other's stack."
-                : "Stackers who have recently starred your profile."}
+            {copy.descriptions[activeIntelTab]}
           </p>
         </div>
 
@@ -171,7 +201,7 @@ export function StackmatesSection({ data, viewAs, isOwnerViewer }: StackmatesSec
                     No community stars yet.
                   </p>
                   <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed uppercase tracking-widest font-black dark:text-neutral-500">
-                    Star this stacker to recognize their engineering DNA!
+                    {copy.emptyStarsDescription}
                   </p>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
-import type { OwnerType } from "@stackmatch/constants/owner";
+import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import { MATCH_PREVIEW_COUNT } from "@stackmatch/constants/social";
 import { ChevronDown, Lock, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -50,6 +50,35 @@ const STACKMATE_CARD_AVATAR_SIZE = 96;
 const MATCH_SCORE_PERCENT_SCALE = 100;
 const STACKMATE_LOAD_MORE_STEP = 12;
 
+interface StackmateGridCopy {
+  emptyTitle: string;
+  emptyDescription: string;
+  confirmDescription: (targetOwner: string | null) => string;
+  confirmLabel: string;
+  gatedMessage: (count: number) => string;
+  loadMoreLabel: string;
+}
+
+const developerGridCopy: StackmateGridCopy = {
+  emptyTitle: "No stackmates yet.",
+  emptyDescription: "Start by scanning a few repositories to build your profile fingerprint.",
+  confirmDescription: (targetOwner) =>
+    `Are you sure you want to hide @${targetOwner} from your stackmates? This will permanently remove them from your recommendations.`,
+  confirmLabel: "Hide Stacker",
+  gatedMessage: (count) => `Sign in to see ${count} more stackmate${count === 1 ? "" : "s"}`,
+  loadMoreLabel: "Show More Stackmates",
+};
+
+const organizationGridCopy: StackmateGridCopy = {
+  emptyTitle: "No similar builders yet.",
+  emptyDescription: "Explore the ecosystem to surface related profiles.",
+  confirmDescription: (targetOwner) =>
+    `Are you sure you want to hide @${targetOwner} from this organization's recommendations? This will permanently remove them from the list.`,
+  confirmLabel: "Hide Profile",
+  gatedMessage: (count) => `Sign in to see ${count} more similar profile${count === 1 ? "" : "s"}`,
+  loadMoreLabel: "Show More Similar Builders",
+};
+
 function getProfileStatus(match: Stackmate) {
   if (match.profile?.isClaimed === true) return "claimed";
   if (match.profile?.indexedAt != null) return "indexed";
@@ -61,6 +90,7 @@ interface StackmateGridProps {
   totalMatchCount?: number;
   initialLimit?: number;
   isOwnerViewer?: boolean;
+  ownerType?: OwnerType;
 }
 
 export function StackmateGrid({
@@ -68,11 +98,14 @@ export function StackmateGrid({
   totalMatchCount,
   initialLimit = STACKMATE_LOAD_MORE_STEP,
   isOwnerViewer = false,
+  ownerType,
 }: StackmateGridProps) {
   const [limit, setLimit] = useState(initialLimit);
   const [hiddenOwners, setHiddenOwners] = useState<Set<string>>(new Set());
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const hideMatch = useMutation(api.mutations.privacy.hideMatch);
+  const isOrganization = ownerType === OWNER_TYPE_ORGANIZATION;
+  const copy = isOrganization ? organizationGridCopy : developerGridCopy;
 
   const filteredMatches = useMemo(
     () => matches.filter((m) => !hiddenOwners.has(m.owner.toLowerCase())),
@@ -99,9 +132,9 @@ export function StackmateGrid({
       <div className="rounded-3xl border border-dashed border-neutral-800 p-20 text-center glass-panel">
         <div className="flex flex-col items-center gap-3">
           <span className="text-4xl">🔎</span>
-          <p className="font-bold text-neutral-400">No stackmates yet.</p>
+          <p className="font-bold text-neutral-400">{copy.emptyTitle}</p>
           <p className="text-xs text-neutral-500 max-w-xs mx-auto leading-relaxed">
-            Start by scanning a few repositories to build your profile fingerprint.
+            {copy.emptyDescription}
           </p>
         </div>
       </div>
@@ -172,15 +205,13 @@ export function StackmateGrid({
           return handleHide(confirmTarget);
         }}
         title="Hide Recommendation"
-        description={`Are you sure you want to hide @${confirmTarget} from your stackmates? This will permanently remove them from your recommendations.`}
-        confirmLabel="Hide Stacker"
+        description={copy.confirmDescription(confirmTarget)}
+        confirmLabel={copy.confirmLabel}
         destructive
       />
 
       {hasBlurredItems && gatedCount > 0 ? (
-        <SignInGateCta
-          message={`Sign in to see ${gatedCount} more stackmate${gatedCount === 1 ? "" : "s"}`}
-        />
+        <SignInGateCta message={copy.gatedMessage(gatedCount)} />
       ) : hasMore ? (
         <div className="flex justify-center pt-4">
           <button
@@ -189,7 +220,7 @@ export function StackmateGrid({
             className="group relative flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/50 px-8 py-3 text-sm font-black uppercase tracking-widest text-neutral-400 transition-all hover:border-[var(--theme-hover-border)] hover:bg-neutral-900 hover:text-white hover:shadow-[0_0_20px_rgba(var(--theme-hover-glow),0.1)]"
           >
             <Sparkles className="h-4 w-4 text-th-accent-1 transition-transform group-hover:scale-125" />
-            Show More Stackmates
+            {copy.loadMoreLabel}
             <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
           </button>
         </div>

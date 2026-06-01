@@ -5,6 +5,7 @@ import {
   DISCOVERY_THIN_FEED_THRESHOLD,
   MENTOR_STACK_SCORE_MULTIPLIER,
 } from "@stackmatch/constants/feed";
+import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import { FEED_RECENT_WINDOW_MS } from "@stackmatch/constants/social";
 import { DAY_MS } from "@stackmatch/constants/time";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
@@ -68,6 +69,23 @@ interface DiscoveryFeedProps {
   viewerLocationCountryCode?: string;
   /** Profile owner's Stack Score, used to surface higher-scored "mentor" matches. */
   ownerStackScore?: number;
+  ownerType?: OwnerType;
+}
+
+interface DiscoveryCopy {
+  emptyTitle: string;
+  emptyDescription: string;
+  thinFeedTitle: string;
+  thinFeedDescription: string;
+  weeklyPicksSubtitle: string;
+  freshFacesSubtitle: string;
+  newToGraphSubtitle: string;
+  stackTwinsSubtitle: string;
+  nearYouTitle: string;
+  nearYouSubtitle: string;
+  mentorsTitle: string;
+  mentorsSubtitle: string;
+  bestMatchesSubtitle: string;
 }
 
 function computeBadges(match: Stackmate, now: number): Badge[] {
@@ -403,6 +421,48 @@ function CompactDiscoveryCard({
 const discoveryCtaClass =
   "inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-[11px] font-black uppercase tracking-widest text-foreground transition-colors hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10";
 
+function getDiscoveryCopy(isOwnerViewer: boolean, isOrganization: boolean): DiscoveryCopy {
+  if (isOrganization) {
+    return {
+      emptyTitle: "No visible similar builders yet",
+      emptyDescription:
+        "The graph is still growing. Explore the ecosystem to find profiles with similar dependency choices.",
+      thinFeedTitle: "Only a few similar builders so far",
+      thinFeedDescription:
+        "The graph is still growing. Explore the ecosystem to surface more related profiles.",
+      weeklyPicksSubtitle: "Featured matches from this organization's strongest overlaps",
+      freshFacesSubtitle: "Recently joined profiles with matching stacks",
+      newToGraphSubtitle: "Recently indexed profiles with matching stacks",
+      stackTwinsSubtitle: "Profiles with nearly identical dependency graphs",
+      nearYouTitle: "Nearby Builders",
+      nearYouSubtitle: "Nearby profiles with similar stacks",
+      mentorsTitle: "Experienced Builders",
+      mentorsSubtitle: "Experienced profiles with similar dependency graphs",
+      bestMatchesSubtitle: "Top matches based on this organization's dependency fingerprint",
+    };
+  }
+
+  return {
+    emptyTitle: isOwnerViewer
+      ? i18n.pages.discovery.emptyOwnerTitle
+      : i18n.pages.discovery.emptyVisitorTitle,
+    emptyDescription: isOwnerViewer
+      ? i18n.pages.discovery.emptyOwnerDescription
+      : i18n.pages.discovery.emptyVisitorDescription,
+    thinFeedTitle: i18n.pages.discovery.thinFeedTitle,
+    thinFeedDescription: i18n.pages.discovery.thinFeedDescription,
+    weeklyPicksSubtitle: "Featured stackmates rotating from your strongest matches",
+    freshFacesSubtitle: "Recently joined stackmates with matching stacks",
+    newToGraphSubtitle: "Recently indexed stackmates with matching stacks",
+    stackTwinsSubtitle: "Developers with nearly identical dependency graphs",
+    nearYouTitle: "Near You",
+    nearYouSubtitle: "Stackmates in your area",
+    mentorsTitle: i18n.pages.discovery.mentorsTitle,
+    mentorsSubtitle: i18n.pages.discovery.mentorsSubtitle,
+    bestMatchesSubtitle: "Top matches based on your unique dependency fingerprint",
+  };
+}
+
 /** Actionable links shown in the empty / thin discovery states. */
 function DiscoveryExploreLinks({ isOwnerViewer }: { isOwnerViewer: boolean }) {
   return (
@@ -429,20 +489,20 @@ function DiscoveryExploreLinks({ isOwnerViewer }: { isOwnerViewer: boolean }) {
 }
 
 /** Cold-start panel rendered when a viewer has no visible matches. */
-function DiscoveryEmptyState({ isOwnerViewer }: { isOwnerViewer: boolean }) {
+function DiscoveryEmptyState({
+  isOwnerViewer,
+  copy,
+}: {
+  isOwnerViewer: boolean;
+  copy: Pick<DiscoveryCopy, "emptyTitle" | "emptyDescription">;
+}) {
   return (
     <div className="rounded-3xl border border-dashed border-border p-12 text-center glass-panel dark:border-neutral-800 sm:p-16">
       <div className="flex flex-col items-center gap-3">
         <Search className="mb-2 size-10 text-muted-foreground dark:text-neutral-600" />
-        <p className="font-bold text-muted-foreground dark:text-neutral-400">
-          {isOwnerViewer
-            ? i18n.pages.discovery.emptyOwnerTitle
-            : i18n.pages.discovery.emptyVisitorTitle}
-        </p>
+        <p className="font-bold text-muted-foreground dark:text-neutral-400">{copy.emptyTitle}</p>
         <p className="mx-auto max-w-sm text-xs font-medium leading-relaxed text-muted-foreground dark:text-neutral-500">
-          {isOwnerViewer
-            ? i18n.pages.discovery.emptyOwnerDescription
-            : i18n.pages.discovery.emptyVisitorDescription}
+          {copy.emptyDescription}
         </p>
         <DiscoveryExploreLinks isOwnerViewer={isOwnerViewer} />
       </div>
@@ -451,15 +511,21 @@ function DiscoveryEmptyState({ isOwnerViewer }: { isOwnerViewer: boolean }) {
 }
 
 /** Banner shown above Best Matches when the feed is thin but not empty. */
-function ThinFeedBanner({ isOwnerViewer }: { isOwnerViewer: boolean }) {
+function ThinFeedBanner({
+  isOwnerViewer,
+  copy,
+}: {
+  isOwnerViewer: boolean;
+  copy: Pick<DiscoveryCopy, "thinFeedTitle" | "thinFeedDescription">;
+}) {
   return (
     <div className="rounded-3xl border border-dashed border-border p-6 text-center glass-panel dark:border-neutral-800">
       <div className="flex flex-col items-center gap-2">
         <p className="text-sm font-bold text-muted-foreground dark:text-neutral-300">
-          {i18n.pages.discovery.thinFeedTitle}
+          {copy.thinFeedTitle}
         </p>
         <p className="mx-auto max-w-sm text-xs font-medium leading-relaxed text-muted-foreground dark:text-neutral-500">
-          {i18n.pages.discovery.thinFeedDescription}
+          {copy.thinFeedDescription}
         </p>
         <DiscoveryExploreLinks isOwnerViewer={isOwnerViewer} />
       </div>
@@ -476,9 +542,12 @@ export function DiscoveryFeed({
   viewerLocationCity,
   viewerLocationCountryCode,
   ownerStackScore,
+  ownerType,
 }: DiscoveryFeedProps) {
   const now = useMemo(() => Date.now(), []);
   const presenceByOwner = usePresenceByOwners(matches.map((match) => match.owner));
+  const isOrganization = ownerType === OWNER_TYPE_ORGANIZATION;
+  const copy = getDiscoveryCopy(isOwnerViewer, isOrganization);
 
   // ── Build sections with cascading deduplication ──────────────
   // Each section excludes owners already claimed by earlier sections,
@@ -544,7 +613,7 @@ export function DiscoveryFeed({
     ]);
 
   if (matches.length === 0) {
-    return <DiscoveryEmptyState isOwnerViewer={isOwnerViewer} />;
+    return <DiscoveryEmptyState isOwnerViewer={isOwnerViewer} copy={copy} />;
   }
 
   const isThinFeed = matches.length < DISCOVERY_THIN_FEED_THRESHOLD;
@@ -557,7 +626,7 @@ export function DiscoveryFeed({
           <DiscoverySection
             title="Weekly Picks"
             icon={<Trophy className="size-4" />}
-            subtitle="Featured stackmates rotating from your strongest matches"
+            subtitle={copy.weeklyPicksSubtitle}
             count={weeklyPicks.length}
             layout="horizontal"
           >
@@ -574,7 +643,7 @@ export function DiscoveryFeed({
           <DiscoverySection
             title="Fresh Faces"
             icon={<UserPlus className="size-4" />}
-            subtitle="Recently joined stackmates with matching stacks"
+            subtitle={copy.freshFacesSubtitle}
             count={freshFaces.length}
             layout="horizontal"
           >
@@ -599,7 +668,7 @@ export function DiscoveryFeed({
           <DiscoverySection
             title="New to the Graph"
             icon={<GitBranch className="size-4" />}
-            subtitle="Recently indexed stackmates with matching stacks"
+            subtitle={copy.newToGraphSubtitle}
             count={newToGraph.length}
             layout="compact-grid"
           >
@@ -626,7 +695,7 @@ export function DiscoveryFeed({
           <DiscoverySection
             title="Stack Twins"
             icon={<Dna className="size-4" />}
-            subtitle="Developers with nearly identical dependency graphs"
+            subtitle={copy.stackTwinsSubtitle}
             count={stackTwins.length}
             layout="horizontal"
           >
@@ -646,9 +715,9 @@ export function DiscoveryFeed({
       {nearYou.length > 0 && (
         <div>
           <DiscoverySection
-            title="Near You"
+            title={copy.nearYouTitle}
             icon={<MapPin className="size-4" />}
-            subtitle="Stackmates in your area"
+            subtitle={copy.nearYouSubtitle}
             count={nearYou.length}
             layout="horizontal"
           >
@@ -668,9 +737,9 @@ export function DiscoveryFeed({
       {mentors.length > 0 && (
         <div>
           <DiscoverySection
-            title={i18n.pages.discovery.mentorsTitle}
+            title={copy.mentorsTitle}
             icon={<Trophy className="size-4" />}
-            subtitle={i18n.pages.discovery.mentorsSubtitle}
+            subtitle={copy.mentorsSubtitle}
             count={mentors.length}
             layout="horizontal"
           >
@@ -687,7 +756,7 @@ export function DiscoveryFeed({
       )}
 
       {/* Thin-feed nudge — keeps a near-empty feed feeling intentional */}
-      {isThinFeed && <ThinFeedBanner isOwnerViewer={isOwnerViewer} />}
+      {isThinFeed && <ThinFeedBanner isOwnerViewer={isOwnerViewer} copy={copy} />}
 
       {/* Best Matches — deduplicated pool with pagination/hide/gate */}
       {bestMatchPool.length > 0 && (
@@ -695,7 +764,7 @@ export function DiscoveryFeed({
           <DiscoverySection
             title="Best Matches"
             icon={<Sparkles className="size-4" />}
-            subtitle="Top matches based on your unique dependency fingerprint"
+            subtitle={copy.bestMatchesSubtitle}
             layout="grid"
           >
             <div className="col-span-full">
@@ -707,6 +776,7 @@ export function DiscoveryFeed({
                     : undefined
                 }
                 isOwnerViewer={isOwnerViewer}
+                ownerType={ownerType}
               />
             </div>
           </DiscoverySection>

@@ -1,3 +1,4 @@
+import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiscoveryFeed } from "../discovery-feed";
@@ -44,9 +45,15 @@ function makeMatch(
   };
 }
 
-function renderFeed(matches: Stackmate[]) {
+function renderFeed(matches: Stackmate[], ownerType?: OwnerType) {
   return render(
-    <DiscoveryFeed matches={matches} isOwnerViewer viewerOwner="viewer" weekStart={NOW} />
+    <DiscoveryFeed
+      matches={matches}
+      isOwnerViewer
+      viewerOwner="viewer"
+      weekStart={NOW}
+      ownerType={ownerType}
+    />
   );
 }
 
@@ -217,5 +224,47 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
     const grid = weeklyPicks?.querySelector(".grid");
 
     expect(grid?.className).toContain("md:grid-cols-2");
+  });
+
+  it("uses organization-safe copy for populated company discovery feeds", () => {
+    renderFeed([makeWeeklyMatch()], OWNER_TYPE_ORGANIZATION);
+
+    expect(
+      screen.getByText("Featured matches from this organization's strongest overlaps")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Only a few similar builders so far")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Featured stackmates rotating from your strongest matches")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Only a few stackmates so far")).not.toBeInTheDocument();
+  });
+
+  it("uses organization-safe copy for company best-match grid actions", () => {
+    const matches = Array.from({ length: 18 }, (_, index) =>
+      makeMatch(`related-${index + 1}`, {
+        name: `Related Builder ${index + 1}`,
+        avatarUrl: `https://github.com/related-${index + 1}.png`,
+        followers: 1,
+        isClaimed: false,
+        indexedAt: NOW - 20 * DAY_MS,
+      })
+    );
+
+    renderFeed(matches, OWNER_TYPE_ORGANIZATION);
+
+    expect(screen.getByText("Show More Similar Builders")).toBeInTheDocument();
+    expect(screen.queryByText("Show More Stackmates")).not.toBeInTheDocument();
+  });
+
+  it("uses organization-safe copy for empty company discovery feeds", () => {
+    renderFeed([], OWNER_TYPE_ORGANIZATION);
+
+    expect(screen.getByText("No visible similar builders yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The graph is still growing. Explore the ecosystem to find profiles with similar dependency choices."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Your tribe is still forming")).not.toBeInTheDocument();
   });
 });

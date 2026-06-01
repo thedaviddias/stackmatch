@@ -3,8 +3,9 @@ import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { StackmatesSection } from "../stackmates-section";
 
-const { activeTabMock, useQueryMock } = vi.hoisted(() => ({
+const { activeTabMock, discoveryFeedMock, useQueryMock } = vi.hoisted(() => ({
   activeTabMock: vi.fn(() => "stars"),
+  discoveryFeedMock: vi.fn(),
   useQueryMock: vi.fn(),
 }));
 
@@ -20,7 +21,10 @@ vi.mock("@/data/react", () => ({
 }));
 
 vi.mock("@/components/stackmatch/discovery-feed", () => ({
-  DiscoveryFeed: () => <div>Discovery feed</div>,
+  DiscoveryFeed: (props: unknown) => {
+    discoveryFeedMock(props);
+    return <div>Discovery feed</div>;
+  },
 }));
 
 const baseData = {
@@ -31,9 +35,17 @@ const baseData = {
   profile: null,
 } as unknown as NonNullable<ComponentProps<typeof StackmatesSection>["data"]>;
 
+const organizationData = {
+  ...baseData,
+  profile: {
+    ownerType: "organization",
+  },
+} as unknown as NonNullable<ComponentProps<typeof StackmatesSection>["data"]>;
+
 describe("StackmatesSection", () => {
   beforeEach(() => {
     activeTabMock.mockReturnValue("stars");
+    discoveryFeedMock.mockClear();
     useQueryMock.mockReset();
     useQueryMock.mockReturnValue(undefined);
   });
@@ -105,6 +117,34 @@ describe("StackmatesSection", () => {
       viewAs: "public",
       matchMode: "public",
     });
+  });
+
+  it("uses organization-safe copy for company profiles", () => {
+    activeTabMock.mockReturnValue("discovery");
+    useQueryMock.mockReturnValue({
+      matches: [],
+      totalMatchCount: 0,
+    });
+
+    render(<StackmatesSection data={organizationData} isOwnerViewer={false} />);
+
+    expect(screen.getByText("Similar Builders")).toBeInTheDocument();
+    expect(screen.queryByText("Your Stackmates")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Profiles with dependency graphs similar to this organization.")
+    ).toBeInTheDocument();
+    expect(discoveryFeedMock).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerType: "organization" })
+    );
+  });
+
+  it("uses organization-safe copy while company discovery matches load", () => {
+    activeTabMock.mockReturnValue("discovery");
+
+    render(<StackmatesSection data={organizationData} isOwnerViewer={false} />);
+
+    expect(screen.getByText("Loading similar builders...")).toBeInTheDocument();
+    expect(screen.queryByText("Loading stackmates...")).not.toBeInTheDocument();
   });
 
   it("shows a section-level loading state while deferred discovery matches resolve", () => {
