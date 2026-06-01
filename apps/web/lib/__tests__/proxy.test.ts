@@ -1,7 +1,7 @@
 import { checkRateLimit, isIpBlacklisted } from "@stackmatch/rate-limit";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { proxy } from "@/proxy";
+import { config, proxy } from "@/proxy";
 
 vi.mock("@stackmatch/rate-limit", () => ({
   checkRateLimit: vi.fn(),
@@ -46,7 +46,7 @@ describe("proxy", () => {
     expect(checkRateLimitMock).not.toHaveBeenCalled();
   });
 
-  it("rate limits requests based on IP", async () => {
+  it("rate limits API requests based on IP", async () => {
     checkRateLimitMock.mockResolvedValue({
       success: false,
       limit: 100,
@@ -54,7 +54,7 @@ describe("proxy", () => {
       reset: Date.now() + 5000,
     });
 
-    const response = expectProxyResponse(await proxy(createRequest("/")));
+    const response = expectProxyResponse(await proxy(createRequest("/api/developers")));
     expect(response.status).toBe(429);
     expect(response.headers.get("X-Stackmatch-Rejection-Reason")).toBe("ip_rate_limit");
     expect(checkRateLimitMock).toHaveBeenCalledWith(expect.any(String), "standard");
@@ -92,6 +92,14 @@ describe("proxy", () => {
     expect(checkRateLimitMock).toHaveBeenCalledWith(expect.any(String), "search");
   });
 
+  it("uses standard rate limiting for other API routes", async () => {
+    checkRateLimitMock.mockResolvedValue({ success: true, limit: 100, remaining: 99, reset: 0 });
+
+    await proxy(createRequest("/api/developers"));
+
+    expect(checkRateLimitMock).toHaveBeenCalledWith(expect.any(String), "standard");
+  });
+
   it("skips rate limiting for portless local web origins", async () => {
     checkRateLimitMock.mockResolvedValue({
       success: false,
@@ -106,17 +114,39 @@ describe("proxy", () => {
     expect(checkRateLimitMock).not.toHaveBeenCalled();
   });
 
+  it("does not rate limit public navigation routes", async () => {
+    checkRateLimitMock.mockResolvedValue({
+      success: false,
+      limit: 1,
+      remaining: 0,
+      reset: Date.now() + 5000,
+    });
+
+    for (const pathname of ["/topic/skills", "/developers", "/", "/sitemap.xml", "/robots.txt"]) {
+      expect(await proxy(createRequest(pathname))).toBeUndefined();
+    }
+
+    expect(checkRateLimitMock).not.toHaveBeenCalled();
+  });
+
   it("allows normal app routes through", async () => {
-    expect(await proxy(createRequest("/"))).toBeUndefined();
-    expect(await proxy(createRequest("/developers"))).toBeUndefined();
-    expect(await proxy(createRequest("/invite/ALPHA1"))).toBeUndefined();
-    expect(await proxy(createRequest("/sitemap.xml"))).toBeUndefined();
-    expect(await proxy(createRequest("/robots.txt"))).toBeUndefined();
+    for (const pathname of ["/", "/developers", "/invite/ALPHA1", "/sitemap.xml", "/robots.txt"]) {
+      expect(await proxy(createRequest(pathname))).toBeUndefined();
+    }
+    expect(checkRateLimitMock).not.toHaveBeenCalled();
   });
 
   it("redirects retired waitlist routes home", async () => {
+    checkRateLimitMock.mockResolvedValue({
+      success: false,
+      limit: 1,
+      remaining: 0,
+      reset: Date.now() + 5000,
+    });
+
     const response = expectProxyResponse(await proxy(createRequest("/waitlist/legal/privacy")));
     expect(response.headers.get("location")).toBe("https://stackmatch.dev/");
+    expect(checkRateLimitMock).not.toHaveBeenCalled();
   });
 
   it("redirects retired invite recovery route home", async () => {
@@ -127,5 +157,31 @@ describe("proxy", () => {
   it("redirects retired referral share routes home", async () => {
     const response = expectProxyResponse(await proxy(createRequest("/r/ALPHA1")));
     expect(response.headers.get("location")).toBe("https://stackmatch.dev/");
+  });
+
+  it("narrows the proxy matcher away from broad all-path matching", () => {
+    expect(config.matcher).not.toBe("/:path*");
+    expect(config.matcher).toEqual([
+      "/api/:path*",
+      expect.objectContaining({
+        source: expect.stringContaining("_next/static"),
+        missing: expect.arrayContaining([
+          { type: "header", key: "next-router-prefetch" },
+          { type: "header", key: "purpose", value: "prefetch" },
+        ]),
+      }),
+    ]);
+    const publicMatcher = config.matcher[1];
+    expect(typeof publicMatcher).toBe("object");
+    if (typeof publicMatcher !== "object") {
+      throw new Error("Expected public matcher object");
+    }
+    expect(publicMatcher.source).toContain("api");
+    expect(publicMatcher.source).toContain("_next/image");
+    expect(publicMatcher.source).toContain("favicon.ico");
+    expect(publicMatcher.source).toContain("sitemap.xml");
+    expect(publicMatcher.source).toContain("robots.txt");
+    expect(publicMatcher.source).toContain("llms.txt");
+    expect(publicMatcher.source).toContain("woff2");
   });
 });

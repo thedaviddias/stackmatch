@@ -1,38 +1,41 @@
 import { getClientIp } from "@stackmatch/api/request";
+import {
+  AGGRESSIVE_RATE_LIMIT_PATH_PREFIXES,
+  API_RATE_LIMIT_PATH_PREFIX,
+  AUTH_STANDARD_RATE_LIMIT_EXACT_PATHS,
+  AUTH_STANDARD_RATE_LIMIT_PREFIXES,
+  SEARCH_RATE_LIMIT_PATH_PREFIX,
+} from "@stackmatch/constants/security";
 import { SECOND_MS } from "@stackmatch/constants/time";
 import { checkRateLimit, isIpBlacklisted } from "@stackmatch/rate-limit";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const AUTH_STANDARD_RATE_LIMIT_EXACT_PATHS = new Set([
-  "/api/auth/callback",
-  "/api/auth/convex/token",
-  "/api/auth/get-session",
-  "/api/auth/session",
-]);
-const AUTH_STANDARD_RATE_LIMIT_PREFIXES = ["/api/auth/callback/"];
+const AUTH_STANDARD_RATE_LIMIT_EXACT_PATH_SET = new Set<string>(
+  AUTH_STANDARD_RATE_LIMIT_EXACT_PATHS
+);
 const RETIRED_ROUTE_REDIRECT_PATH = "/";
 const REJECTION_REASON_HEADER = "X-Stackmatch-Rejection-Reason";
 const IP_RATE_LIMIT_REJECTION_REASON = "ip_rate_limit";
 
 function getRatelimitType(pathname: string): "standard" | "aggressive" | "search" {
-  if (pathname.startsWith("/api/search")) {
+  if (pathname.startsWith(SEARCH_RATE_LIMIT_PATH_PREFIX)) {
     return "search";
   }
   if (
-    AUTH_STANDARD_RATE_LIMIT_EXACT_PATHS.has(pathname) ||
+    AUTH_STANDARD_RATE_LIMIT_EXACT_PATH_SET.has(pathname) ||
     AUTH_STANDARD_RATE_LIMIT_PREFIXES.some((prefix) => pathname.startsWith(prefix))
   ) {
     return "standard";
   }
-  if (
-    pathname.startsWith("/api/scan") ||
-    pathname.startsWith("/api/analyze") ||
-    pathname.startsWith("/api/auth")
-  ) {
+  if (AGGRESSIVE_RATE_LIMIT_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return "aggressive";
   }
   return "standard";
+}
+
+function shouldApplyRateLimit(pathname: string): boolean {
+  return pathname.startsWith(API_RATE_LIMIT_PATH_PREFIX);
 }
 
 function shouldSkipRateLimitInLocalDev(request: NextRequest): boolean {
@@ -75,6 +78,10 @@ async function enforceRateLimit(
   pathname: string,
   ip: string
 ): Promise<NextResponse | null> {
+  if (!shouldApplyRateLimit(pathname)) {
+    return null;
+  }
+
   if (shouldSkipRateLimitInLocalDev(request)) {
     return null;
   }
@@ -118,5 +125,15 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/:path*",
+  matcher: [
+    "/api/:path*",
+    {
+      source:
+        "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|llms.txt|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|css|js|map|txt|xml|json|woff|woff2)$).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+  ],
 };

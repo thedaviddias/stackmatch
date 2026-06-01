@@ -9,6 +9,22 @@ import { hydrateOwnerProfileFromGitHub } from "./owner_profile";
 
 const MAX_RETRIES = 3;
 
+export const refreshOwnerProfile = internalAction({
+  args: {
+    owner: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) return false;
+
+    return hydrateOwnerProfileFromGitHub(ctx, {
+      owner: args.owner,
+      token,
+      force: true,
+    });
+  },
+});
+
 export const fetchRepo = internalAction({
   args: {
     repoId: v.id("repos"),
@@ -109,7 +125,7 @@ export const fetchRepo = internalAction({
         `[fetchRepo] ${args.owner}/${args.name} not modified (ETag match), skipping to commits`
       );
       try {
-        await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token });
+        await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token, force: true });
       } catch {
         // Best-effort profile owner type backfill.
       }

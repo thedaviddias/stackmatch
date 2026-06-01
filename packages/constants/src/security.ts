@@ -8,3 +8,21 @@ export const BOT_ID_PROTECTED_POST_PATHS = [
   "/api/scan/private",
   "/api/scan/private/unlink",
 ] as const;
+
+export const API_RATE_LIMIT_PATH_PREFIX = "/api/";
+export const SEARCH_RATE_LIMIT_PATH_PREFIX = "/api/search";
+
+export const AUTH_STANDARD_RATE_LIMIT_EXACT_PATHS = [
+  "/api/auth/callback",
+  "/api/auth/convex/token",
+  "/api/auth/get-session",
+  "/api/auth/session",
+] as const;
+
+export const AUTH_STANDARD_RATE_LIMIT_PREFIXES = ["/api/auth/callback/"] as const;
+
+export const AGGRESSIVE_RATE_LIMIT_PATH_PREFIXES = [
+  "/api/scan",
+  "/api/analyze",
+  "/api/auth",
+] as const;

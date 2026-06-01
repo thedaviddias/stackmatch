@@ -1,8 +1,15 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 
-import { mutation } from "../_generated/server";
+import { type MutationCtx, mutation } from "../_generated/server";
 import { hasValidAnalyzeApiKey } from "../lib/analyze_api_key";
+
+export async function scheduleOwnerProfileRefresh(
+  ctx: Pick<MutationCtx, "scheduler">,
+  owner: string
+) {
+  await ctx.scheduler.runAfter(0, internal.github.fetch_repo.refreshOwnerProfile, { owner });
+}
 
 export const requestUserScan = mutation({
   args: {
@@ -36,6 +43,10 @@ export const requestUserScan = mutation({
     const fullNames = limitedRepos.map((repo) => `${repo.owner}/${repo.name}`);
 
     const owner = limitedRepos[0]?.owner;
+    if (owner) {
+      await scheduleOwnerProfileRefresh(ctx, owner);
+    }
+
     if (args.submitter && owner && fullNames.length > 0) {
       await ctx.db.insert("scanSubmissions", {
         owner,

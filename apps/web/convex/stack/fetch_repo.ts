@@ -53,7 +53,7 @@ export const fetchRepo = internalAction({
 
     if (response.status === NOT_MODIFIED_STATUS) {
       try {
-        await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token });
+        await hydrateOwnerProfileFromGitHub(ctx, { owner: args.owner, token, force: true });
       } catch {
         // Best-effort profile owner type backfill.
       }

@@ -208,7 +208,7 @@ function TopStackChips({
   const hasResponsiveOverflow = mobileLimit < desktopLimit;
 
   return (
-    <div>
+    <div className="mt-4">
       <div className="mb-1.5 flex items-center justify-between">
         <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
           Top Stack
