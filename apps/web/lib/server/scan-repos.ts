@@ -4,6 +4,7 @@ import {
   GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN,
   GITHUB_PUBLIC_REPOS_CACHE_TTL_MS,
   GITHUB_PUBLIC_REPOS_NOT_FOUND_CACHE_TTL_MS,
+  GITHUB_PUBLIC_REPOS_SCAN_LIMIT,
 } from "@stackmatch/constants/sync";
 import { env } from "@stackmatch/env/web";
 
@@ -67,7 +68,6 @@ type CachedPublicReposResult =
 const GITHUB_NOT_FOUND_STATUS = 404;
 const GITHUB_FORBIDDEN_STATUS = 403;
 const GITHUB_RATE_LIMIT_STATUS = 429;
-const GITHUB_PUBLIC_REPOS_LIMIT = 20;
 const publicReposCache = new Map<string, CachedPublicReposResult>();
 
 function normalizeRepos(repos: ScanUserRepoInput[]): ScanUserRepoInput[] {
@@ -82,7 +82,7 @@ function normalizeRepos(repos: ScanUserRepoInput[]): ScanUserRepoInput[] {
       ...(typeof repo.pushedAt === "number" ? { pushedAt: repo.pushedAt } : {}),
     }))
     .filter((repo) => repo.owner.length > 0 && repo.name.length > 0)
-    .slice(0, GITHUB_PUBLIC_REPOS_LIMIT);
+    .slice(0, GITHUB_PUBLIC_REPOS_SCAN_LIMIT);
 }
 
 export function normalizeUserScanInput(
@@ -254,7 +254,7 @@ export async function fetchTopPublicRepos(owner: string): Promise<ScanUserRepoIn
   const topRepos = data
     .filter((repo) => !repo.fork)
     .sort((a, b) => (b.stargazers_count ?? 0) - (a.stargazers_count ?? 0))
-    .slice(0, GITHUB_PUBLIC_REPOS_LIMIT);
+    .slice(0, GITHUB_PUBLIC_REPOS_SCAN_LIMIT);
 
   const repos = topRepos
     .map((repo) => ({

@@ -1,8 +1,10 @@
+import { GITHUB_PUBLIC_REPOS_SCAN_LIMIT } from "@stackmatch/constants/sync";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchGitHubOwnerProfile,
   fetchTopPublicRepos,
   GitHubPublicReposError,
+  normalizeUserScanInput,
 } from "@/lib/server/scan-repos";
 
 const envMock = vi.hoisted(() => ({
@@ -12,6 +14,10 @@ const envMock = vi.hoisted(() => ({
 vi.mock("@stackmatch/env/web", () => ({
   env: envMock,
 }));
+
+const REPOS_OVER_SCAN_LIMIT = 2;
+const REPO_INDEX_OFFSET = 1;
+const HTTP_OK_STATUS = 200;
 
 describe("fetchTopPublicRepos", () => {
   const fetchMock = vi.fn<typeof fetch>();
@@ -48,6 +54,53 @@ describe("fetchTopPublicRepos", () => {
     await expect(fetchTopPublicRepos("octocat-cache-success")).resolves.toHaveLength(1);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns only the top starred non-fork repositories within the scan limit", async () => {
+    const totalRepos = GITHUB_PUBLIC_REPOS_SCAN_LIMIT + REPOS_OVER_SCAN_LIMIT;
+    const repos = Array.from({ length: totalRepos }, (_, index) => ({
+      name: `repo-${index + REPO_INDEX_OFFSET}`,
+      owner: { login: "octocat-top-repos" },
+      fork: false,
+      stargazers_count: index + REPO_INDEX_OFFSET,
+      pushed_at: "2026-01-01T00:00:00Z",
+    }));
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            name: "forked-popular",
+            owner: { login: "octocat-top-repos" },
+            fork: true,
+            stargazers_count: totalRepos + REPO_INDEX_OFFSET,
+            pushed_at: "2026-01-01T00:00:00Z",
+          },
+          ...repos,
+        ]),
+        { status: HTTP_OK_STATUS }
+      )
+    );
+
+    const result = await fetchTopPublicRepos("octocat-top-repos");
+
+    expect(result).toHaveLength(GITHUB_PUBLIC_REPOS_SCAN_LIMIT);
+    expect(result[0]?.name).toBe(`repo-${totalRepos}`);
+    expect(result.map((repo) => repo.name)).not.toContain("forked-popular");
+    expect(result.map((repo) => repo.name)).not.toContain("repo-1");
+  });
+
+  it("normalizes submitted repository lists to the scan limit", () => {
+    const totalRepos = GITHUB_PUBLIC_REPOS_SCAN_LIMIT + REPOS_OVER_SCAN_LIMIT;
+    const repos = Array.from({ length: totalRepos }, (_, index) => ({
+      owner: "octocat-normalize",
+      name: `repo-${index + REPO_INDEX_OFFSET}`,
+    }));
+
+    const result = normalizeUserScanInput("octocat-normalize", repos);
+
+    expect(result).toHaveLength(GITHUB_PUBLIC_REPOS_SCAN_LIMIT);
+    expect(result.at(-1)?.name).toBe(`repo-${GITHUB_PUBLIC_REPOS_SCAN_LIMIT}`);
   });
 
   it("caches GitHub owner not-found responses briefly", async () => {

@@ -15,6 +15,9 @@ export const GITHUB_PUBLIC_REPOS_CACHE_TTL_MS =
   MINUTE_MS + MINUTE_MS + MINUTE_MS + MINUTE_MS + MINUTE_MS;
 export const GITHUB_PUBLIC_REPOS_NOT_FOUND_CACHE_TTL_MS = MINUTE_MS;
 
+/** Maximum public repositories queued for a profile scan. */
+export const GITHUB_PUBLIC_REPOS_SCAN_LIMIT = 10;
+
 /** A public repo sync with no progress for this long is treated as stalled. */
 export const SYNC_STUCK_REPO_THRESHOLD_MS =
   RESYNC_COOLDOWN_MS + GITHUB_PUBLIC_REPOS_CACHE_TTL_MS;

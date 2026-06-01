@@ -27,6 +27,7 @@ const HOT_STARS_THRESHOLD = 3;
 const COMPACT_DISCOVERY_CARD_AVATAR_SIZE = 48;
 const COMPACT_DISCOVERY_CARD_TOP_STACK_LIMIT = 3;
 const RECENT_ACTIVITY_SECTION_LIMIT = 6;
+const BEST_MATCHES_INITIAL_LIMIT = 6;
 
 type BadgeType = "new" | "updated" | "hot";
 
@@ -502,6 +503,7 @@ export function DiscoveryFeed({
             <StackmateGrid
               matches={bestMatches}
               totalMatchCount={adjustedTotalMatchCount}
+              initialLimit={BEST_MATCHES_INITIAL_LIMIT}
               isOwnerViewer={isOwnerViewer}
               ownerType={ownerType}
             />

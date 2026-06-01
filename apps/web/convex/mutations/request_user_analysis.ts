@@ -1,3 +1,4 @@
+import { GITHUB_PUBLIC_REPOS_SCAN_LIMIT } from "@stackmatch/constants/sync";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
@@ -19,7 +20,7 @@ export const requestUserAnalysis = mutation({
       throw new Error("Unauthorized request");
     }
 
-    const limitedRepos = args.repos.slice(0, 20);
+    const limitedRepos = args.repos.slice(0, GITHUB_PUBLIC_REPOS_SCAN_LIMIT);
     const submittedAt = Date.now();
     const results = [];
 

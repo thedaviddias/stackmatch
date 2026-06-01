@@ -1,9 +1,12 @@
+import { GITHUB_PUBLIC_REPOS_SCAN_LIMIT } from "@stackmatch/constants/sync";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestUserScan } from "../request_user_scan";
 
 const ANALYZE_API_KEY = "analyze-key";
 const EXISTING_REPO_GITHUB_ID = 42;
 const EXISTING_REPO_REQUESTED_AT = 1_800_000_000_000;
+const REPOS_OVER_SCAN_LIMIT = 2;
+const REPO_INDEX_OFFSET = 1;
 
 type Row = Record<string, unknown> & { _id: string };
 type Tables = Record<string, Row[]>;
@@ -103,6 +106,13 @@ function repo(owner: string, name: string): Row {
   };
 }
 
+function submittedRepos(owner: string, count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    owner,
+    name: `repo-${index + REPO_INDEX_OFFSET}`,
+  }));
+}
+
 describe("requestUserScan", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -188,5 +198,21 @@ describe("requestUserScan", () => {
       owner: "htmlhint",
       name: "HTMLHint",
     });
+  });
+
+  it("queues only the public repository scan limit", async () => {
+    vi.stubEnv("ANALYZE_API_KEY", ANALYZE_API_KEY);
+    const ctx = makeCtx();
+    const owner = "limit-owner";
+
+    const result = await getHandler(requestUserScan)(ctx, {
+      apiKey: ANALYZE_API_KEY,
+      repos: submittedRepos(owner, GITHUB_PUBLIC_REPOS_SCAN_LIMIT + REPOS_OVER_SCAN_LIMIT),
+    });
+    const reposTable = ctx.tables.repos ?? [];
+
+    expect(result).toHaveLength(GITHUB_PUBLIC_REPOS_SCAN_LIMIT);
+    expect(reposTable).toHaveLength(GITHUB_PUBLIC_REPOS_SCAN_LIMIT);
+    expect(reposTable.at(-1)?.name).toBe(`repo-${GITHUB_PUBLIC_REPOS_SCAN_LIMIT}`);
   });
 });

@@ -238,6 +238,24 @@ describe("DiscoveryFeed sections", () => {
     expect(within(bestMatches).queryByText("score:5")).not.toBeInTheDocument();
   });
 
+  it("shows six Best Matches initially when more ranked matches are available", () => {
+    const matches = Array.from({ length: 10 }, (_, index) =>
+      makeMatch(`ranked-${index + 1}`, {
+        name: `Ranked Match ${index + 1}`,
+        avatarUrl: `https://github.com/ranked-${index + 1}.png`,
+        followers: 1,
+        isClaimed: false,
+        indexedAt: NOW - 20 * DAY_MS,
+      })
+    );
+
+    renderFeed(matches);
+
+    const bestMatches = getDiscoverySection("Best Matches");
+    expect(within(bestMatches).getAllByTestId(/^card-/)).toHaveLength(6);
+    expect(within(bestMatches).getByText("Show More Stackmates")).toBeInTheDocument();
+  });
+
   it("does not duplicate Weekly Picks into Best Matches or Recent Activity", () => {
     renderFeed([
       makeMatch(
