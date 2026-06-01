@@ -281,18 +281,29 @@ function resolveOwnerPageViewerPresentation({
   };
 }
 
+export function getRepoSyncLastProgressAt(repo: {
+  requestedAt: number;
+  syncLastProgressAt?: number;
+}) {
+  return repo.syncLastProgressAt ?? repo.requestedAt;
+}
+
 function resolveOwnerSyncPresentation(data: ResolvedOwnerPageData) {
-  const pendingRepos = data.repos.filter((repo) => repo.syncStatus === "pending");
+  const pendingRepos = data.repos.filter(
+    (repo) => repo.syncStatus === "pending" || repo.syncStatus === "queued"
+  );
   const syncingRepos = data.repos.filter((repo) => repo.syncStatus === "syncing");
   const repoCount = pendingRepos.length + syncingRepos.length;
   const activeRepo = syncingRepos[0];
   const now = Date.now();
   const staleSyncingRepo = syncingRepos.find(
-    (repo) => now - repo.requestedAt > SYNC_STUCK_REPO_THRESHOLD_MS
+    (repo) => now - getRepoSyncLastProgressAt(repo) > SYNC_STUCK_REPO_THRESHOLD_MS
   );
   const stalePendingRepo =
     syncingRepos.length === 0
-      ? pendingRepos.find((repo) => now - repo.requestedAt > SYNC_STUCK_REPO_THRESHOLD_MS)
+      ? pendingRepos.find(
+          (repo) => now - getRepoSyncLastProgressAt(repo) > SYNC_STUCK_REPO_THRESHOLD_MS
+        )
       : undefined;
   const stalledRepo = staleSyncingRepo ?? stalePendingRepo;
   const syncAlertState: SyncAlertState = stalledRepo

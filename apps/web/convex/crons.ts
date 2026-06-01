@@ -4,6 +4,7 @@ import {
   OWNER_PAGE_DATA_CACHE_WARM_HOUR_UTC,
   OWNER_PAGE_DATA_CACHE_WARM_MINUTE_UTC,
 } from "@stackmatch/constants/social";
+import { SYNC_RECOVERY_CRON_INTERVAL_MINUTES } from "@stackmatch/constants/sync";
 import { anyApi, cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 
@@ -56,10 +57,11 @@ crons.daily(
   internal.mutations.cleanup_rate_limits.cleanupRateLimits
 );
 
-crons.hourly(
+crons.interval(
   "recover-stuck-pending-repos",
-  { minuteUTC: 15 },
-  internal.github.recover_stuck_repos.recoverStuckRepos
+  { minutes: SYNC_RECOVERY_CRON_INTERVAL_MINUTES },
+  internal.github.recover_stuck_repos.recoverStuckRepos,
+  {}
 );
 
 crons.hourly("deliver-pending-notification-digests", { minuteUTC: 45 }, deliverDueDigestsFn);

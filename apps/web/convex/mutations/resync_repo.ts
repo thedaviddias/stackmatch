@@ -78,11 +78,15 @@ export const resyncRepo = mutation({
     }
 
     // Reset this repo to pending
+    const now = Date.now();
     await ctx.db.patch(repo._id, {
       syncStatus: "pending",
       syncError: undefined,
       syncStage: undefined,
       syncCommitsFetched: undefined,
+      requestedAt: now,
+      syncLastProgressAt: now,
+      syncPipeline: "github",
     });
 
     // If no other repo for this owner is currently syncing, start immediately

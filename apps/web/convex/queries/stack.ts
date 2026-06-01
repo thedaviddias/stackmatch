@@ -110,6 +110,7 @@ interface OwnerPageRepo {
   syncError?: string;
   syncStage?: string;
   syncCommitsFetched?: number;
+  syncLastProgressAt?: number;
   scannedPackageCount: number;
   scannedManifestCount: number;
   stars: number;
@@ -1740,6 +1741,7 @@ async function buildOwnerPageData(
       syncError: repo.syncError,
       syncStage: repo.syncStage,
       syncCommitsFetched: repo.syncCommitsFetched,
+      syncLastProgressAt: repo.syncLastProgressAt,
       scannedPackageCount: repo.scannedPackageCount ?? 0,
       scannedManifestCount: repo.scannedManifestCount ?? 0,
       stars: repo.stars ?? 0,

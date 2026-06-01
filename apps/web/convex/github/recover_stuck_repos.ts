@@ -1,6 +1,7 @@
 "use node";
 
 import { SYNC_STUCK_REPO_THRESHOLD_MS } from "@stackmatch/constants/sync";
+import { MINUTE_MS } from "@stackmatch/constants/time";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
@@ -27,14 +28,35 @@ const DELAY_PER_OWNER_MS = 5_000;
 /** Cap the number of owners recovered per cron run. */
 const MAX_OWNERS_PER_RUN = 20;
 
-interface RepoRow {
+export interface RepoRow {
   _id: Id<"repos">;
   owner: string;
   name: string;
   fullName: string;
   syncStatus: string;
+  syncStage?: string;
+  syncLastProgressAt?: number;
+  syncPipeline?: "github" | "stack";
   pushedAt?: number;
   requestedAt: number;
+}
+
+export function getRepoRecoveryTimestamp(
+  repo: Pick<RepoRow, "requestedAt" | "syncLastProgressAt">
+) {
+  return repo.syncLastProgressAt ?? repo.requestedAt;
+}
+
+export function isRepoStuck(repo: RepoRow, now: number) {
+  return (
+    (repo.syncStatus === "syncing" || repo.syncStatus === "queued") &&
+    now - getRepoRecoveryTimestamp(repo) > SYNC_STUCK_REPO_THRESHOLD_MS
+  );
+}
+
+export function getRepoRecoveryPipeline(repo: Pick<RepoRow, "syncPipeline" | "syncStage">) {
+  if (repo.syncPipeline) return repo.syncPipeline;
+  return repo.syncStage === "scanning_packages" ? "stack" : "github";
 }
 
 export const recoverStuckRepos = internalAction({
@@ -44,14 +66,12 @@ export const recoverStuckRepos = internalAction({
     const allRepos = (await ctx.runQuery(internal.queries.repos.getAllRepos)) as RepoRow[];
 
     // ── Step 1: Reset stuck "syncing" repos ───────────────────────────
-    const stuckSyncing = allRepos.filter(
-      (r) => r.syncStatus === "syncing" && now - r.requestedAt > SYNC_STUCK_REPO_THRESHOLD_MS
-    );
+    const stuckRepos = allRepos.filter((repo) => isRepoStuck(repo, now));
 
-    for (const repo of stuckSyncing) {
+    for (const repo of stuckRepos) {
       console.log(
-        `[recoverStuckRepos] Resetting stuck syncing repo: ${repo.fullName} ` +
-          `(stuck for ${Math.round((now - repo.requestedAt) / 60_000)}min)`
+        `[recoverStuckRepos] Resetting stuck ${repo.syncStatus} repo: ${repo.fullName} ` +
+          `(stuck for ${Math.round((now - getRepoRecoveryTimestamp(repo)) / MINUTE_MS)}min)`
       );
       await ctx.runMutation(internal.mutations.reset_stuck_repo.resetStuckRepo, {
         repoId: repo._id,
@@ -111,7 +131,12 @@ export const recoverStuckRepos = internalAction({
       console.log(
         `[recoverStuckRepos] Re-kicking queue for owner "${ownerName}" → ${repo.fullName}`
       );
-      await ctx.scheduler.runAfter(i * DELAY_PER_OWNER_MS, internal.github.fetch_repo.fetchRepo, {
+      const pipeline = getRepoRecoveryPipeline(repo);
+      const fetchRepo =
+        pipeline === "stack"
+          ? internal.stack.fetch_repo.fetchRepo
+          : internal.github.fetch_repo.fetchRepo;
+      await ctx.scheduler.runAfter(i * DELAY_PER_OWNER_MS, fetchRepo, {
         repoId: repo._id,
         owner: repo.owner,
         name: repo.name,
@@ -119,7 +144,7 @@ export const recoverStuckRepos = internalAction({
     }
 
     console.log(
-      `[recoverStuckRepos] Done: reset ${stuckSyncing.length} stuck syncing, ` +
+      `[recoverStuckRepos] Done: reset ${stuckRepos.length} stuck syncing/queued, ` +
         `re-kicked ${orphanedOwners.length} orphaned owners`
     );
   },

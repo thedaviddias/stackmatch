@@ -1,6 +1,7 @@
 import type { OwnerType } from "@stackmatch/constants/owner";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 
 import { type MutationCtx, mutation } from "../_generated/server";
 import { hasValidAnalyzeApiKey } from "../lib/analyze_api_key";
@@ -82,6 +83,29 @@ async function upsertSubmittedOwnerProfile(
   });
 }
 
+function buildExistingRepoScanPatch(
+  existing: Pick<Doc<"repos">, "syncStatus">,
+  pushedAt: number | undefined,
+  submittedAt: number
+) {
+  const patch: Record<string, unknown> = {};
+  if (existing.syncStatus === "error") {
+    patch.syncStatus = "pending";
+    patch.syncError = undefined;
+  }
+  if (existing.syncStatus === "pending" || existing.syncStatus === "error") {
+    patch.requestedAt = submittedAt;
+    patch.syncLastProgressAt = submittedAt;
+  }
+  if (existing.syncStatus !== "syncing") {
+    patch.syncPipeline = "stack";
+  }
+  if (pushedAt !== undefined) {
+    patch.pushedAt = pushedAt;
+  }
+  return patch;
+}
+
 export const requestUserScan = mutation({
   args: {
     repos: v.array(
@@ -142,21 +166,7 @@ export const requestUserScan = mutation({
         .unique();
 
       if (existing) {
-        const patch: Record<string, unknown> = {};
-        if (existing.syncStatus === "error") {
-          patch.syncStatus = "pending";
-          patch.syncError = undefined;
-        }
-        if (existing.syncStatus === "pending" || existing.syncStatus === "error") {
-          patch.requestedAt = submittedAt;
-          patch.syncLastProgressAt = submittedAt;
-        }
-        if (existing.syncStatus !== "syncing") {
-          patch.syncPipeline = "stack";
-        }
-        if (repo.pushedAt !== undefined) {
-          patch.pushedAt = repo.pushedAt;
-        }
+        const patch = buildExistingRepoScanPatch(existing, repo.pushedAt, submittedAt);
         if (Object.keys(patch).length > 0) {
           await ctx.db.patch(existing._id, patch);
         }

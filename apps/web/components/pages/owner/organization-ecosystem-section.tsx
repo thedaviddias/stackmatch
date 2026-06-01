@@ -56,6 +56,45 @@ function formatCompact(value: number): string {
   }).format(value);
 }
 
+function OrganizationVerificationDetail({
+  orgClaim,
+  isOwnerViewer,
+}: Pick<OrganizationEcosystemSectionProps, "orgClaim" | "isOwnerViewer">) {
+  if (orgClaim && isOwnerViewer) {
+    return (
+      <p className="mt-1 text-xs font-medium text-muted-foreground">
+        Claimed by @{orgClaim.claimedByLogin} <TimeAgo timestamp={orgClaim.claimedAt} />
+      </p>
+    );
+  }
+
+  if (orgClaim) {
+    return <p className="mt-1 text-xs font-medium text-muted-foreground">Verified with GitHub</p>;
+  }
+
+  if (isOwnerViewer) {
+    return (
+      <p className="mt-1 text-xs font-medium text-muted-foreground">
+        Install the GitHub App to verify organization access
+      </p>
+    );
+  }
+
+  return <p className="mt-1 text-xs font-medium text-muted-foreground">Not verified yet</p>;
+}
+
+function EmptySignalsMessage({
+  isOwnerViewer,
+}: Pick<OrganizationEcosystemSectionProps, "isOwnerViewer">) {
+  return (
+    <p className="text-sm font-medium text-muted-foreground">
+      {isOwnerViewer
+        ? "Sync more public repositories to add languages, topics, and stack clusters."
+        : "No public repository topics are available yet."}
+    </p>
+  );
+}
+
 export function OrganizationEcosystemSection({
   owner,
   isOwnerViewer,
@@ -81,7 +120,7 @@ export function OrganizationEcosystemSection({
       <SectionTitle
         variant="h2"
         title="Organization Ecosystem"
-        description={`${profile.name ?? `@${owner}`} is mapped as a company or organization profile, with early public stack signals from indexed repositories.`}
+        description={`${profile.name ?? `@${owner}`} shows public stack signals from indexed repositories.`}
         icon={Building2}
         iconClassName="text-sky-400"
       />
@@ -115,17 +154,9 @@ export function OrganizationEcosystemSection({
             Verification
           </p>
           <p className="mt-3 text-lg font-black text-foreground dark:text-white">
-            {hasVerifiedClaim ? "Verified organization" : "Unverified organization"}
+            {hasVerifiedClaim ? "Verified organization" : "Verification pending"}
           </p>
-          {orgClaim ? (
-            <p className="mt-1 text-xs font-medium text-muted-foreground">
-              Claimed by @{orgClaim.claimedByLogin} <TimeAgo timestamp={orgClaim.claimedAt} />
-            </p>
-          ) : (
-            <p className="mt-1 text-xs font-medium text-muted-foreground">
-              GitHub App installation required
-            </p>
-          )}
+          <OrganizationVerificationDetail orgClaim={orgClaim} isOwnerViewer={isOwnerViewer} />
         </div>
       </div>
 
@@ -133,12 +164,6 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm font-black text-foreground dark:text-white">Ecosystem Signals</p>
-            <Link
-              href={ROUTES.companies}
-              className="text-[10px] font-black uppercase tracking-widest text-th-accent-1-text hover:text-th-accent-1"
-            >
-              For DevTools
-            </Link>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {primaryTopics.length > 0 ? (
@@ -151,9 +176,7 @@ export function OrganizationEcosystemSection({
                 </span>
               ))
             ) : (
-              <p className="text-sm font-medium text-muted-foreground">
-                Sync more public repositories to expose languages, topics, and stack clusters.
-              </p>
+              <EmptySignalsMessage isOwnerViewer={isOwnerViewer} />
             )}
           </div>
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -173,21 +196,21 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="flex items-center gap-2 text-sm font-black text-foreground dark:text-white">
             <Users className="size-4 text-emerald-400" />
-            Founding Sponsor Surface
+            Public Organization Profile
           </p>
           <p className="mt-3 text-sm font-medium leading-relaxed text-muted-foreground">
-            This profile is an early place to test verified organization context, public stack
-            summaries, and useful sponsor CTAs without exposing private developer data.
+            This profile summarizes public repository activity, package usage, and stack signals for
+            this organization.
           </p>
           {isOwnerViewer ? (
             <div className="mt-4 rounded-xl border border-th-accent-1/20 bg-th-accent-1/10 p-4">
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-th-accent-1-text">
                 <Sparkles className="size-3.5" />
-                Org controls
+                Organization settings
               </p>
               <p className="mt-2 text-xs font-medium text-muted-foreground">
-                Public profile customization, sponsor CTAs, and contact routing are pilot ideas that
-                can build on this verified org claim.
+                Verified admins can keep this profile current by syncing public repositories and
+                reviewing organization details.
               </p>
             </div>
           ) : null}
@@ -196,7 +219,9 @@ export function OrganizationEcosystemSection({
 
       {topRepos.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-sm font-black text-foreground dark:text-white">Indexed Flagships</p>
+          <p className="text-sm font-black text-foreground dark:text-white">
+            Top Public Repositories
+          </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {topRepos.map((repo) => (
               <Link

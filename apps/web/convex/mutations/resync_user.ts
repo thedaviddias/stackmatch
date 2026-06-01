@@ -83,6 +83,7 @@ export const resyncUser = mutation({
     }
 
     // Reset ALL repos to pending — including stuck "syncing" ones
+    const now = Date.now();
     let reset = 0;
     for (const repo of ownerRepos) {
       if (repo.syncStatus !== "pending") {
@@ -91,6 +92,8 @@ export const resyncUser = mutation({
           syncError: undefined,
           syncStage: undefined,
           syncCommitsFetched: undefined,
+          requestedAt: now,
+          syncLastProgressAt: now,
         });
         reset++;
       }

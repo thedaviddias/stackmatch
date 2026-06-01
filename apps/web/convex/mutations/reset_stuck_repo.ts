@@ -13,6 +13,7 @@ export const resetStuckRepo = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.repoId, {
       syncStatus: "pending",
+      syncError: undefined,
       syncStage: undefined,
       syncCommitsFetched: undefined,
       syncLastProgressAt: Date.now(),

@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { getWebAlertTitle } from "@/lib/feedback/alert-registry";
 import {
+  getRepoSyncLastProgressAt,
   hasNoPublicRepos,
   type OwnerPageData,
   OwnerPageProfileDetails,
@@ -24,6 +25,9 @@ import { getNotableProjects, type NotableProjectRepo } from "../sections/notable
 afterEach(() => {
   cleanup();
 });
+
+const REQUESTED_AT = Date.parse("2023-11-14T22:13:20.000Z");
+const SYNC_LAST_PROGRESS_AT = REQUESTED_AT + 1;
 
 function makeRepo(overrides: Partial<NotableProjectRepo> & { name: string }): NotableProjectRepo {
   const { name, ...repoOverrides } = overrides;
@@ -129,6 +133,16 @@ describe("notable projects", () => {
 });
 
 describe("owner page data hydration", () => {
+  it("uses sync heartbeat time before falling back to requested time", () => {
+    expect(
+      getRepoSyncLastProgressAt({
+        requestedAt: REQUESTED_AT,
+        syncLastProgressAt: SYNC_LAST_PROGRESS_AT,
+      })
+    ).toBe(SYNC_LAST_PROGRESS_AT);
+    expect(getRepoSyncLastProgressAt({ requestedAt: REQUESTED_AT })).toBe(REQUESTED_AT);
+  });
+
   it("treats only zero indexed public repos as the zero-project state", () => {
     expect(hasNoPublicRepos({ total: 0 })).toBe(true);
     expect(hasNoPublicRepos({ total: 1 })).toBe(false);
