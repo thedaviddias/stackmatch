@@ -96,6 +96,7 @@ describe("POST /api/scan/user", () => {
   const getServerSessionSnapshotMock = vi.mocked(getServerSessionSnapshot);
   const getServerGitHubLoginMock = vi.mocked(getServerGitHubLogin);
   const loggerWarnMock = vi.mocked(logger.warn);
+  const loggerErrorMock = vi.mocked(logger.error);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -174,6 +175,27 @@ describe("POST /api/scan/user", () => {
         githubLogin: "octocat",
       },
     });
+  });
+
+  it("captures a Sentry error when the scan mutation queues no repositories", async () => {
+    fetchMutationMock.mockReset();
+    fetchMutationMock
+      .mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null })
+      .mockResolvedValueOnce([]);
+
+    const response = await POST(makeRequest({ owner: "octocat" }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ queued: 0, results: [] });
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      "scan-user request queued zero repositories",
+      undefined,
+      {
+        owner: "octocat",
+        requestedRepoCount: 1,
+        submitterScope: "anonymous",
+      }
+    );
   });
 
   it("normalizes GitHub profile URLs before fetching repositories", async () => {

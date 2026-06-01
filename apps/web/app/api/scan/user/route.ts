@@ -249,6 +249,21 @@ async function requestScanForOwner({
       ...(submitter ? { submitter } : {}),
     });
 
+    if (result.length === 0) {
+      logger.error("scan-user request queued zero repositories", undefined, {
+        owner,
+        requestedRepoCount: repos.length,
+        submitterScope: submitter ? "authenticated" : "anonymous",
+      });
+    } else if (result.length < repos.length) {
+      logger.error("scan-user request queued fewer repositories than requested", undefined, {
+        owner,
+        requestedRepoCount: repos.length,
+        queuedRepoCount: result.length,
+        submitterScope: submitter ? "authenticated" : "anonymous",
+      });
+    }
+
     return NextResponse.json({ queued: result.length, results: result });
   } catch (error) {
     logger.error("requestUserScan mutation failed", error, {

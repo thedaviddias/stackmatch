@@ -184,6 +184,12 @@ export const markError = internalMutation({
     });
 
     if (repo) {
+      await ctx.scheduler.runAfter(0, internal.observability.sentry.reportScanFailure, {
+        pipeline: "stack",
+        owner: repo.owner,
+        repo: repo.fullName,
+        error: args.error,
+      });
       await refreshOwnerDirectoryCacheForOwner(ctx, repo.owner);
       await triggerNextPending(ctx, repo.owner);
     }

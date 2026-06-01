@@ -135,6 +135,12 @@ export const markError = internalMutation({
 
     // Even on error, move to the next pending repo so the queue doesn't stall
     if (repo) {
+      await ctx.scheduler.runAfter(0, internal.observability.sentry.reportScanFailure, {
+        pipeline: "github",
+        owner: repo.owner,
+        repo: repo.fullName,
+        error: args.error,
+      });
       await triggerNextPending(ctx, repo.owner);
     }
   },

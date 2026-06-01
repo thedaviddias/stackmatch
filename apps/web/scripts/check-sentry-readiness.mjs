@@ -28,7 +28,9 @@ if (missingSourceMapEnv.length > 0) {
 }
 
 console.error("Set these in Vercel Project Settings for preview and production.");
-console.error("This check does not verify Convex logs; those need a separate log drain or runtime hook.");
+console.error(
+  "Also set SENTRY_DSN in Convex env so background scan worker failures are captured."
+);
 process.exit(EXIT_FAILURE);
 
 function getMissingEnv(names) {

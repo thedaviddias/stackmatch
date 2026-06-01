@@ -48,6 +48,7 @@ import type * as lib_notification_urls from "../lib/notification_urls.js";
 import type * as lib_package_metrics from "../lib/package_metrics.js";
 import type * as lib_presence from "../lib/presence.js";
 import type * as lib_resync_throttle from "../lib/resync_throttle.js";
+import type * as lib_sentry_reporting from "../lib/sentry_reporting.js";
 import type * as lib_stack_score from "../lib/stack_score.js";
 import type * as lib_stackmatch_follow_counts from "../lib/stackmatch_follow_counts.js";
 import type * as lib_users from "../lib/users.js";
@@ -91,6 +92,7 @@ import type * as notifications_deliver_digest from "../notifications/deliver_dig
 import type * as notifications_deliver_digest_db from "../notifications/deliver_digest_db.js";
 import type * as notifications_deliver_due_digests from "../notifications/deliver_due_digests.js";
 import type * as notifications_deliver_due_digests_db from "../notifications/deliver_due_digests_db.js";
+import type * as observability_sentry from "../observability/sentry.js";
 import type * as queries_admin from "../queries/admin.js";
 import type * as queries_contributors from "../queries/contributors.js";
 import type * as queries_feed from "../queries/feed.js";
@@ -182,6 +184,7 @@ declare const fullApi: ApiFromModules<{
   "lib/package_metrics": typeof lib_package_metrics;
   "lib/presence": typeof lib_presence;
   "lib/resync_throttle": typeof lib_resync_throttle;
+  "lib/sentry_reporting": typeof lib_sentry_reporting;
   "lib/stack_score": typeof lib_stack_score;
   "lib/stackmatch_follow_counts": typeof lib_stackmatch_follow_counts;
   "lib/users": typeof lib_users;
@@ -225,6 +228,7 @@ declare const fullApi: ApiFromModules<{
   "notifications/deliver_digest_db": typeof notifications_deliver_digest_db;
   "notifications/deliver_due_digests": typeof notifications_deliver_due_digests;
   "notifications/deliver_due_digests_db": typeof notifications_deliver_due_digests_db;
+  "observability/sentry": typeof observability_sentry;
   "queries/admin": typeof queries_admin;
   "queries/contributors": typeof queries_contributors;
   "queries/feed": typeof queries_feed;
