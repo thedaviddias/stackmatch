@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 
 import { internalAction } from "../_generated/server";
+import { fetchGitHubRestWithPublicFallback } from "../github/github_api";
 import { type ParsedPackageEntry, parsePackageManifest } from "./package_manifest";
 import {
   buildPackageManifestFingerprint,
@@ -76,11 +77,11 @@ export const scanRepoPackages = internalAction({
     });
 
     try {
-      const treeResponse = await fetch(
+      const treeResponse = await fetchGitHubRestWithPublicFallback(
         `https://api.github.com/repos/${args.owner}/${args.name}/git/trees/${args.defaultBranch}?recursive=1`,
+        token,
         {
           headers: {
-            Authorization: `token ${token}`,
             Accept: "application/vnd.github.v3+json",
           },
         }
@@ -138,11 +139,11 @@ export const scanRepoPackages = internalAction({
         const path = manifestPaths[index];
         if (!path) continue;
 
-        const contentResponse = await fetch(
+        const contentResponse = await fetchGitHubRestWithPublicFallback(
           `https://api.github.com/repos/${args.owner}/${args.name}/contents/${encodeURIComponent(path)}?ref=${args.defaultBranch}`,
+          token,
           {
             headers: {
-              Authorization: `token ${token}`,
               Accept: "application/vnd.github.v3+json",
             },
           }

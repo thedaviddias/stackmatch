@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchTopPublicRepos, GitHubPublicReposError } from "@/lib/server/scan-repos";
+import {
+  fetchGitHubOwnerProfile,
+  fetchTopPublicRepos,
+  GitHubPublicReposError,
+} from "@/lib/server/scan-repos";
 
 const envMock = vi.hoisted(() => ({
   GITHUB_TOKEN: "",
@@ -115,6 +119,56 @@ describe("fetchTopPublicRepos", () => {
         },
       }
     );
+  });
+
+  it("retries owner profile lookups without auth when a fine-grained token is blocked by org policy", async () => {
+    envMock.GITHUB_TOKEN = "github-token";
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            message:
+              "The 'htmlhint' organization forbids access via a fine-grained personal access tokens if the token's lifetime is greater than 366 days.",
+          }),
+          { status: 403 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            avatar_url: "https://avatars.githubusercontent.com/u/42865284?v=4",
+            bio: "The static code analysis tool you need for your HTML",
+            blog: "https://htmlhint.com",
+            followers: 47,
+            location: "Japan",
+            name: "HTMLHint",
+            type: "Organization",
+          }),
+          { status: 200 }
+        )
+      );
+
+    await expect(fetchGitHubOwnerProfile("htmlhint")).resolves.toEqual({
+      name: "HTMLHint",
+      avatarUrl: "https://avatars.githubusercontent.com/u/42865284?v=4",
+      followers: 47,
+      bio: "The static code analysis tool you need for your HTML",
+      website: "https://htmlhint.com",
+      location: "Japan",
+      ownerType: "organization",
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://api.github.com/users/htmlhint", {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: "token github-token",
+      },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://api.github.com/users/htmlhint", {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
   });
 
   it("keeps sanitized GitHub error messages for non-fallback fetch failures", async () => {

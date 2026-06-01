@@ -184,6 +184,30 @@ describe("HomePage", () => {
     expect(html).toContain("octocat");
   });
 
+  it("renders newly submitted syncing owners from the fresh developers directory", async () => {
+    listDevelopersDirectoryRowsMock.mockResolvedValue([
+      {
+        ...recentUser,
+        owner: "htmlhint",
+        avatarUrl: "https://avatars.githubusercontent.com/u/42865284?v=4",
+        repoCount: 0,
+        firstIndexedAt: 99,
+        lastIndexedAt: 99,
+        isSyncing: true,
+        profile: {
+          ...recentUser.profile,
+          name: "HTMLHint",
+          avatarUrl: "https://avatars.githubusercontent.com/u/42865284?v=4",
+        },
+      },
+    ]);
+
+    const html = await renderHomePage();
+
+    expect(html).toContain("New to Stackmatch");
+    expect(html).toContain('data-home-recent-owner="htmlhint"');
+  });
+
   it("only renders indexed recent users that are also in the developers directory", async () => {
     const syncingOnlyUser = {
       ...recentUser,

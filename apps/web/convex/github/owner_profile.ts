@@ -1,7 +1,7 @@
 import { normalizeGitHubOwnerType } from "@stackmatch/constants/owner";
 import { api, internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
-import { getGitHubHeaders } from "./github_api";
+import { fetchGitHubRestWithPublicFallback } from "./github_api";
 
 interface GitHubUserResponse {
   avatar_url?: string;
@@ -35,9 +35,10 @@ export async function hydrateOwnerProfileFromGitHub(
     if (existingProfile?.ownerType) return false;
   }
 
-  const userResponse = await fetch(`https://api.github.com/users/${owner}`, {
-    headers: getGitHubHeaders(token),
-  });
+  const userResponse = await fetchGitHubRestWithPublicFallback(
+    `https://api.github.com/users/${owner}`,
+    token
+  );
   if (!userResponse.ok) return false;
 
   const userData = (await userResponse.json()) as GitHubUserResponse;

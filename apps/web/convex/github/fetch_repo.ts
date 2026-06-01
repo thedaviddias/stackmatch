@@ -4,7 +4,12 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { detectAiConfigs } from "./ai_detection";
-import { extractRateLimitInfo, getGitHubHeaders, getRetryDelayMs } from "./github_api";
+import {
+  extractRateLimitInfo,
+  fetchGitHubRestWithPublicFallback,
+  getGitHubHeaders,
+  getRetryDelayMs,
+} from "./github_api";
 import { hydrateOwnerProfileFromGitHub } from "./owner_profile";
 
 const MAX_RETRIES = 3;
@@ -83,9 +88,13 @@ export const fetchRepo = internalAction({
       metadataHeaders["If-None-Match"] = repo.etag;
     }
 
-    const response = await fetch(`https://api.github.com/repos/${args.owner}/${args.name}`, {
-      headers: metadataHeaders,
-    });
+    const response = await fetchGitHubRestWithPublicFallback(
+      `https://api.github.com/repos/${args.owner}/${args.name}`,
+      token,
+      {
+        headers: metadataHeaders,
+      }
+    );
 
     const rateLimitInfo = extractRateLimitInfo(response);
 
@@ -160,8 +169,9 @@ export const fetchRepo = internalAction({
 
     if (shouldCheckAiConfigs) {
       try {
-        const treeResponse = await fetch(
+        const treeResponse = await fetchGitHubRestWithPublicFallback(
           `https://api.github.com/repos/${args.owner}/${args.name}/git/trees/${defaultBranch}`,
+          token,
           { headers: getGitHubHeaders(token) }
         );
 
@@ -175,7 +185,9 @@ export const fetchRepo = internalAction({
           const treeData = await treeResponse.json();
 
           const fetchSubTree = async (url: string) => {
-            const res = await fetch(url, { headers: getGitHubHeaders(token) });
+            const res = await fetchGitHubRestWithPublicFallback(url, token, {
+              headers: getGitHubHeaders(token),
+            });
             if (res.ok) {
               const subData = await res.json();
               return subData.tree;

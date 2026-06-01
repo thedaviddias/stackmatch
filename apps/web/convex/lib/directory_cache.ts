@@ -170,16 +170,19 @@ export async function insertOwnerCacheRows(params: {
   let dirInserted = 0;
   let idxInserted = 0;
 
-  if (aggregate.repoCount > 0) {
-    const power = calculateStackScore({
-      isLoggedIn: profile?.isClaimed ?? false,
-      hasPrivateSync: profile?.hasPrivateData === true,
-      hasBio: !!profile?.bio,
-      hasSocial: !!(profile?.website || profile?.x),
-      packageCount,
-      repoCoverage: 1.0,
-      referralBonus: profile?.referralPoints ?? 0,
-    });
+  if (aggregate.repoCount > 0 || aggregate.isSyncing) {
+    const power =
+      aggregate.repoCount > 0
+        ? calculateStackScore({
+            isLoggedIn: profile?.isClaimed ?? false,
+            hasPrivateSync: profile?.hasPrivateData === true,
+            hasBio: !!profile?.bio,
+            hasSocial: !!(profile?.website || profile?.x),
+            packageCount,
+            repoCoverage: 1.0,
+            referralBonus: profile?.referralPoints ?? 0,
+          })
+        : 0;
 
     await ctx.db.insert("developerDirectoryCache", {
       owner: aggregate.owner,
@@ -246,7 +249,7 @@ export async function refreshOwnerDirectoryCacheForOwner(
     .withIndex("by_owner", (q) => q.eq("owner", owner))
     .first();
 
-  if (!isPublicProfile(profile)) {
+  if (profile && !isPublicProfile(profile)) {
     return { dirInserted: 0, idxInserted: 0 };
   }
 
@@ -278,7 +281,7 @@ export async function refreshOwnerDirectoryCacheForOwner(
   return insertOwnerCacheRows({
     ctx,
     aggregate,
-    profile,
+    profile: profile ?? undefined,
     starsCount,
     packageCount: ownerPackages.length,
   });

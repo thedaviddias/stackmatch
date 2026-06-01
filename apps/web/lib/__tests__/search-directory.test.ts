@@ -108,6 +108,27 @@ describe("searchGlobal", () => {
     expect(topicResults.topics).toContain("café-tools");
   });
 
+  it("matches newly submitted syncing owners from the developers directory cache", async () => {
+    getDevelopersMock.mockResolvedValue([
+      developerFixture("octocat", "The Octocat"),
+      {
+        ...developerFixture("htmlhint", "HTMLHint"),
+        avatarUrl: "https://avatars.githubusercontent.com/u/42865284?v=4",
+        isSyncing: true,
+      },
+    ]);
+
+    const results = await searchGlobal("htmlhint", 5);
+
+    expect(results.users).toContainEqual(
+      expect.objectContaining({
+        owner: "htmlhint",
+        displayName: "HTMLHint",
+        power: 0,
+      })
+    );
+  });
+
   it("matches package punctuation with tokenized aliases", async () => {
     const results = await searchGlobal("react dom", 5);
 

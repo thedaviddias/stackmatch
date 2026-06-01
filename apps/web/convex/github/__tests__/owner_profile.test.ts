@@ -46,7 +46,7 @@ describe("hydrateOwnerProfileFromGitHub", () => {
       "https://api.github.com/users/microsoft",
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: `token ${GITHUB_TOKEN}`,
+          authorization: `token ${GITHUB_TOKEN}`,
         }),
       })
     );

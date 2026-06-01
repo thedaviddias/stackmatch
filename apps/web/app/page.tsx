@@ -283,22 +283,17 @@ const getCachedHomeLeaderboard = unstable_cache(
   { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
 );
 
-const getCachedHomeRecentUsers = unstable_cache(
-  () =>
-    safeFetchQuery(
-      "indexed users",
-      () => listIndexedUsersWithProfiles(HOME_RECENT_USERS_LIMIT),
-      []
-    ),
-  ["home-indexed-users-v1"],
-  { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
-);
+function getHomeRecentUsers() {
+  return safeFetchQuery(
+    "indexed users",
+    () => listIndexedUsersWithProfiles(HOME_RECENT_USERS_LIMIT),
+    []
+  );
+}
 
-const getCachedHomeDirectoryUsers = unstable_cache(
-  () => safeFetchQuery("developers directory", () => listDevelopersDirectoryRows(), []),
-  ["home-developers-directory-users-v1"],
-  { revalidate: HOME_CACHE_REVALIDATE_SECONDS }
-);
+function getHomeDirectoryUsers() {
+  return safeFetchQuery("developers directory", () => listDevelopersDirectoryRows(), []);
+}
 
 function getHomeClaimedUsers() {
   return safeFetchQuery(
@@ -356,8 +351,8 @@ function buildHomeNewStackmatchUsers(
 export default async function HomePage() {
   const [leaderboard, recentUsers, directoryUsers, claimedUsers, topStackers] = await Promise.all([
     getCachedHomeLeaderboard(),
-    getCachedHomeRecentUsers(),
-    getCachedHomeDirectoryUsers(),
+    getHomeRecentUsers(),
+    getHomeDirectoryUsers(),
     getHomeClaimedUsers(),
     getHomeTopStackers(),
   ]);

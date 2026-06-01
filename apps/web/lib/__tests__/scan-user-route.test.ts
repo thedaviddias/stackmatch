@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/scan/user/route";
 import { fetchMutation } from "@/data/server";
 import { getServerGitHubLogin, getServerSessionSnapshot } from "@/lib/auth/auth-server";
-import { fetchTopPublicRepos, GitHubPublicReposError } from "@/lib/server/scan-repos";
+import {
+  fetchGitHubOwnerProfile,
+  fetchTopPublicRepos,
+  GitHubPublicReposError,
+} from "@/lib/server/scan-repos";
 
 const scanReposMock = vi.hoisted(() => {
   class MockGitHubPublicReposError extends Error {
@@ -21,6 +25,7 @@ const scanReposMock = vi.hoisted(() => {
   }
 
   return {
+    fetchGitHubOwnerProfile: vi.fn(),
     fetchTopPublicRepos: vi.fn(),
     GitHubPublicReposError: MockGitHubPublicReposError,
   };
@@ -57,6 +62,7 @@ vi.mock("@/lib/auth/auth-server", () => ({
 }));
 
 vi.mock("@/lib/server/scan-repos", () => ({
+  fetchGitHubOwnerProfile: scanReposMock.fetchGitHubOwnerProfile,
   fetchTopPublicRepos: scanReposMock.fetchTopPublicRepos,
   GitHubPublicReposError: scanReposMock.GitHubPublicReposError,
   normalizeUserScanInput: (_owner?: string, repos?: Array<{ owner: string; name: string }>) =>
@@ -85,6 +91,7 @@ describe("POST /api/scan/user", () => {
   const requireHumanRequestMock = vi.mocked(requireHumanRequest);
   const getAnalyzeApiKeyMock = vi.mocked(getAnalyzeApiKey);
   const fetchMutationMock = vi.mocked(fetchMutation);
+  const fetchGitHubOwnerProfileMock = vi.mocked(fetchGitHubOwnerProfile);
   const fetchTopPublicReposMock = vi.mocked(fetchTopPublicRepos);
   const getServerSessionSnapshotMock = vi.mocked(getServerSessionSnapshot);
   const getServerGitHubLoginMock = vi.mocked(getServerGitHubLogin);
@@ -93,11 +100,18 @@ describe("POST /api/scan/user", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fetchMutationMock.mockReset();
+    fetchGitHubOwnerProfileMock.mockReset();
     fetchTopPublicReposMock.mockReset();
     requireHumanRequestMock.mockResolvedValue({ allowed: true });
     getAnalyzeApiKeyMock.mockReturnValue("analyze-key");
     getServerSessionSnapshotMock.mockResolvedValue(null);
     getServerGitHubLoginMock.mockResolvedValue(null);
+    fetchGitHubOwnerProfileMock.mockResolvedValue({
+      name: "The Octocat",
+      avatarUrl: "https://avatars.githubusercontent.com/u/583231?v=4",
+      followers: 10,
+      ownerType: "developer",
+    });
     fetchTopPublicReposMock.mockResolvedValue([{ owner: "octocat", name: "hello-world" }]);
     fetchMutationMock
       .mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null })
@@ -149,6 +163,12 @@ describe("POST /api/scan/user", () => {
     expect(fetchMutationMock).toHaveBeenNthCalledWith(2, "requestUserScan", {
       repos: [{ owner: "octocat", name: "hello-world" }],
       apiKey: "analyze-key",
+      ownerProfile: {
+        name: "The Octocat",
+        avatarUrl: "https://avatars.githubusercontent.com/u/583231?v=4",
+        followers: 10,
+        ownerType: "developer",
+      },
       submitter: {
         authUserId: "user_123",
         githubLogin: "octocat",
@@ -161,6 +181,7 @@ describe("POST /api/scan/user", () => {
 
     expect(response.status).toBe(200);
     expect(fetchTopPublicReposMock).toHaveBeenCalledWith("MrSunshyne");
+    expect(fetchGitHubOwnerProfileMock).toHaveBeenCalledWith("MrSunshyne");
   });
 
   it("normalizes GitHub repo URLs to owner scans", async () => {
@@ -168,6 +189,25 @@ describe("POST /api/scan/user", () => {
 
     expect(response.status).toBe(200);
     expect(fetchTopPublicReposMock).toHaveBeenCalledWith("facebook");
+    expect(fetchGitHubOwnerProfileMock).toHaveBeenCalledWith("facebook");
+  });
+
+  it("falls back to a minimal owner profile when GitHub profile hydration fails", async () => {
+    fetchGitHubOwnerProfileMock.mockResolvedValueOnce(null);
+    fetchTopPublicReposMock.mockResolvedValueOnce([{ owner: "htmlhint", name: "HTMLHint" }]);
+
+    const response = await POST(makeRequest({ owner: "htmlhint" }));
+
+    expect(response.status).toBe(200);
+    expect(fetchMutationMock).toHaveBeenNthCalledWith(2, "requestUserScan", {
+      repos: [{ owner: "htmlhint", name: "HTMLHint" }],
+      apiKey: "analyze-key",
+      ownerProfile: {
+        avatarUrl: "https://github.com/htmlhint.png?size=200",
+        followers: 0,
+        ownerType: "developer",
+      },
+    });
   });
 
   it("rejects non-GitHub owner URLs", async () => {

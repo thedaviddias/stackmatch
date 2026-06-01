@@ -1,4 +1,7 @@
+import { normalizeGitHubOwnerType, type OwnerType } from "@stackmatch/constants/owner";
 import {
+  GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE,
+  GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN,
   GITHUB_PUBLIC_REPOS_CACHE_TTL_MS,
   GITHUB_PUBLIC_REPOS_NOT_FOUND_CACHE_TTL_MS,
 } from "@stackmatch/constants/sync";
@@ -17,6 +20,30 @@ interface GitHubRepoResponse {
   fork?: boolean;
   stargazers_count?: number;
   pushed_at?: string | null;
+}
+
+interface GitHubOwnerResponse {
+  avatar_url?: string;
+  bio?: string | null;
+  blog?: string | null;
+  company?: string | null;
+  followers?: number;
+  location?: string | null;
+  name?: string | null;
+  twitter_username?: string | null;
+  type?: string | null;
+}
+
+export interface GitHubOwnerProfile {
+  name?: string;
+  avatarUrl: string;
+  followers: number;
+  bio?: string;
+  website?: string;
+  x?: string;
+  location?: string;
+  company?: string;
+  ownerType: OwnerType;
 }
 
 export type GitHubPublicReposErrorReason = "not_found" | "rate_limited" | "fetch_failed";
@@ -41,10 +68,6 @@ const GITHUB_NOT_FOUND_STATUS = 404;
 const GITHUB_FORBIDDEN_STATUS = 403;
 const GITHUB_RATE_LIMIT_STATUS = 429;
 const GITHUB_PUBLIC_REPOS_LIMIT = 20;
-const GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE =
-  "forbids access via a fine-grained personal access tokens";
-const GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN =
-  /https:\/\/github\.com\/settings\/personal-access-tokens\/\d+/g;
 const publicReposCache = new Map<string, CachedPublicReposResult>();
 
 function normalizeRepos(repos: ScanUserRepoInput[]): ScanUserRepoInput[] {
@@ -137,6 +160,35 @@ function shouldRetryWithoutToken(response: Response, githubMessage: string | und
   );
 }
 
+async function fetchGitHubPublicResource(url: string): Promise<{
+  response: Response;
+  githubMessage?: string;
+}> {
+  const token = env.GITHUB_TOKEN;
+  const publicHeaders: Record<string, string> = {
+    Accept: "application/vnd.github.v3+json",
+  };
+  const headers: Record<string, string> = { ...publicHeaders };
+
+  if (token) {
+    headers.Authorization = `token ${token}`;
+  }
+
+  let response = await fetch(url, { headers });
+  let githubMessage: string | undefined;
+
+  if (!response.ok) {
+    githubMessage = await readGitHubErrorMessage(response);
+
+    if (token && shouldRetryWithoutToken(response, githubMessage)) {
+      response = await fetch(url, { headers: publicHeaders });
+      githubMessage = response.ok ? undefined : await readGitHubErrorMessage(response);
+    }
+  }
+
+  return { response, githubMessage };
+}
+
 function createGitHubFetchError(
   owner: string,
   response: Response,
@@ -185,33 +237,9 @@ export async function fetchTopPublicRepos(owner: string): Promise<ScanUserRepoIn
     return cached;
   }
 
-  const token = env.GITHUB_TOKEN;
-  const publicHeaders: Record<string, string> = {
-    Accept: "application/vnd.github.v3+json",
-  };
-  const headers: Record<string, string> = { ...publicHeaders };
-
-  if (token) {
-    headers.Authorization = `token ${token}`;
-  }
-
-  let response = await fetch(
-    `https://api.github.com/users/${encodeURIComponent(normalizedOwner)}/repos?per_page=100&type=public`,
-    { headers }
+  const { response, githubMessage } = await fetchGitHubPublicResource(
+    `https://api.github.com/users/${encodeURIComponent(normalizedOwner)}/repos?per_page=100&type=public`
   );
-  let githubMessage: string | undefined;
-
-  if (!response.ok) {
-    githubMessage = await readGitHubErrorMessage(response);
-
-    if (token && shouldRetryWithoutToken(response, githubMessage)) {
-      response = await fetch(
-        `https://api.github.com/users/${encodeURIComponent(normalizedOwner)}/repos?per_page=100&type=public`,
-        { headers: publicHeaders }
-      );
-      githubMessage = response.ok ? undefined : await readGitHubErrorMessage(response);
-    }
-  }
 
   if (!response.ok) {
     const error = createGitHubFetchError(normalizedOwner, response, githubMessage);
@@ -238,4 +266,31 @@ export async function fetchTopPublicRepos(owner: string): Promise<ScanUserRepoIn
 
   cachePublicRepos(normalizedOwner, repos);
   return repos;
+}
+
+export async function fetchGitHubOwnerProfile(owner: string): Promise<GitHubOwnerProfile | null> {
+  const normalizedOwner = owner.trim();
+  if (!normalizedOwner) return null;
+
+  try {
+    const { response } = await fetchGitHubPublicResource(
+      `https://api.github.com/users/${encodeURIComponent(normalizedOwner)}`
+    );
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as GitHubOwnerResponse;
+    return {
+      ...(data.name ? { name: data.name } : {}),
+      avatarUrl: data.avatar_url ?? `https://github.com/${normalizedOwner}.png?size=200`,
+      followers: data.followers ?? 0,
+      ...(data.bio ? { bio: data.bio } : {}),
+      ...(data.blog ? { website: data.blog } : {}),
+      ...(data.twitter_username ? { x: data.twitter_username } : {}),
+      ...(data.location ? { location: data.location } : {}),
+      ...(data.company ? { company: data.company } : {}),
+      ownerType: normalizeGitHubOwnerType(data.type),
+    };
+  } catch {
+    return null;
+  }
 }

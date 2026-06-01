@@ -1,14 +1,85 @@
+import type { OwnerType } from "@stackmatch/constants/owner";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 
 import { type MutationCtx, mutation } from "../_generated/server";
 import { hasValidAnalyzeApiKey } from "../lib/analyze_api_key";
+import { refreshOwnerDirectoryCacheForOwner } from "../lib/directory_cache";
+
+const ownerProfileValidator = v.object({
+  name: v.optional(v.string()),
+  avatarUrl: v.string(),
+  followers: v.number(),
+  bio: v.optional(v.string()),
+  website: v.optional(v.string()),
+  x: v.optional(v.string()),
+  location: v.optional(v.string()),
+  company: v.optional(v.string()),
+  ownerType: v.union(
+    v.literal("developer"),
+    v.literal("organization"),
+    v.literal("bot"),
+    v.literal("maintainer")
+  ),
+});
+
+interface OwnerProfileInput {
+  name?: string;
+  avatarUrl: string;
+  followers: number;
+  bio?: string;
+  website?: string;
+  x?: string;
+  location?: string;
+  company?: string;
+  ownerType: OwnerType;
+}
 
 export async function scheduleOwnerProfileRefresh(
   ctx: Pick<MutationCtx, "scheduler">,
   owner: string
 ) {
   await ctx.scheduler.runAfter(0, internal.github.fetch_repo.refreshOwnerProfile, { owner });
+}
+
+async function upsertSubmittedOwnerProfile(
+  ctx: Pick<MutationCtx, "db">,
+  owner: string,
+  ownerProfile: OwnerProfileInput | undefined,
+  now: number
+) {
+  if (!ownerProfile) return;
+
+  const existing = await ctx.db
+    .query("profiles")
+    .withIndex("by_owner", (q) => q.eq("owner", owner))
+    .unique();
+
+  const data = {
+    ...(ownerProfile.name !== undefined ? { name: ownerProfile.name } : {}),
+    avatarUrl: ownerProfile.avatarUrl,
+    followers: ownerProfile.followers,
+    ...(ownerProfile.bio !== undefined ? { bio: ownerProfile.bio } : {}),
+    ...(ownerProfile.website !== undefined ? { website: ownerProfile.website } : {}),
+    ...(ownerProfile.x !== undefined ? { x: ownerProfile.x } : {}),
+    ...(ownerProfile.location !== undefined ? { location: ownerProfile.location } : {}),
+    ...(ownerProfile.company !== undefined ? { company: ownerProfile.company } : {}),
+    ownerType: ownerProfile.ownerType,
+    lastUpdated: now,
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, data);
+    return;
+  }
+
+  await ctx.db.insert("profiles", {
+    owner,
+    followersCount: 0,
+    followingCount: 0,
+    starsReceivedCount: 0,
+    ...data,
+  });
 }
 
 export const requestUserScan = mutation({
@@ -21,6 +92,7 @@ export const requestUserScan = mutation({
       })
     ),
     apiKey: v.string(),
+    ownerProfile: v.optional(ownerProfileValidator),
     submitter: v.optional(
       v.object({
         authUserId: v.string(),
@@ -44,6 +116,7 @@ export const requestUserScan = mutation({
 
     const owner = limitedRepos[0]?.owner;
     if (owner) {
+      await upsertSubmittedOwnerProfile(ctx, owner, args.ownerProfile, submittedAt);
       await scheduleOwnerProfileRefresh(ctx, owner);
     }
 
@@ -104,6 +177,8 @@ export const requestUserScan = mutation({
     }
 
     if (owner) {
+      await refreshOwnerDirectoryCacheForOwner(ctx, owner);
+
       const ownerPending = await ctx.db
         .query("repos")
         .withIndex("by_owner_syncStatus", (q) => q.eq("owner", owner).eq("syncStatus", "pending"))

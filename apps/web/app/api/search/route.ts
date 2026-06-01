@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       { query: "", packages: [], users: [], languages: [], topics: [], trending },
       {
         headers: {
-          "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+          "Cache-Control": "no-store",
         },
       }
     );
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json(data, {
     headers: {
-      "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
+      "Cache-Control": "no-store",
     },
   });
 }

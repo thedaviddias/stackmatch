@@ -49,6 +49,14 @@ export const GITHUB_API_VERSION = "2022-11-28";
 /** GitHub REST API JSON accept header for GitHub App calls. */
 export const GITHUB_JSON_ACCEPT = "application/vnd.github+json";
 
+/** Error text GitHub returns when a fine-grained token is blocked by organization policy. */
+export const GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE =
+  "forbids access via a fine-grained personal access tokens";
+
+/** Redacts token-management URLs from GitHub API error messages before logging. */
+export const GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN =
+  /https:\/\/github\.com\/settings\/personal-access-tokens\/\d+/g;
+
 /**
  * Private stack sync is opt-in through the Stackmatch GitHub App, where users
  * choose the repositories to expose for aggregate analysis.

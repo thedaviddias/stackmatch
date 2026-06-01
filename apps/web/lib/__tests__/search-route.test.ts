@@ -15,7 +15,7 @@ describe("GET /api/search", () => {
     vi.clearAllMocks();
   });
 
-  it("returns cached trending data for empty queries", async () => {
+  it("returns uncached trending data for empty queries", async () => {
     getTrendingMock.mockResolvedValue({
       packages: [{ packageName: "react", ownerCount: 10, depCount: 20, devDepCount: 3 }],
       users: [],
@@ -25,9 +25,7 @@ describe("GET /api/search", () => {
 
     expect(getTrendingMock).toHaveBeenCalledWith(4);
     expect(searchGlobalMock).not.toHaveBeenCalled();
-    expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
-    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toMatchObject({
       query: "",
       packages: [],
@@ -37,7 +35,7 @@ describe("GET /api/search", () => {
     });
   });
 
-  it("returns cached global search data without changing the response shape", async () => {
+  it("returns uncached global search data without changing the response shape", async () => {
     const payload = {
       query: "react",
       packages: [],
@@ -59,9 +57,7 @@ describe("GET /api/search", () => {
     const response = await GET(new Request("https://stackmatch.dev/api/search?q=react&limit=20"));
 
     expect(searchGlobalMock).toHaveBeenCalledWith("react", 10);
-    expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=30, s-maxage=60, stale-while-revalidate=300"
-    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toEqual(payload);
   });
 });

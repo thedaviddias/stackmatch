@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 
 import { internalAction } from "../_generated/server";
+import { fetchGitHubRestWithPublicFallback } from "../github/github_api";
 import { hydrateOwnerProfileFromGitHub } from "../github/owner_profile";
 import { buildStackRepoMetadataHeaders, canShortCircuitNotModified } from "./fetch_repo_cache";
 
@@ -47,9 +48,13 @@ export const fetchRepo = internalAction({
       packageManifestFingerprint?: string;
     } | null;
 
-    const response = await fetch(`https://api.github.com/repos/${args.owner}/${args.name}`, {
-      headers: buildStackRepoMetadataHeaders(token, repo?.etag),
-    });
+    const response = await fetchGitHubRestWithPublicFallback(
+      `https://api.github.com/repos/${args.owner}/${args.name}`,
+      token,
+      {
+        headers: buildStackRepoMetadataHeaders(token, repo?.etag),
+      }
+    );
 
     if (response.status === NOT_MODIFIED_STATUS) {
       try {

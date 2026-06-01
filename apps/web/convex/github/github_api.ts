@@ -1,3 +1,10 @@
+import {
+  GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE,
+  GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN,
+} from "@stackmatch/constants/sync";
+
+const GITHUB_FORBIDDEN_STATUS = 403;
+
 /**
  * Shared GitHub API helpers for rate-limit handling across all sync actions.
  *
@@ -47,4 +54,74 @@ export function getGitHubHeaders(token: string): Record<string, string> {
     Authorization: `token ${token}`,
     Accept: "application/vnd.github.v3+json",
   };
+}
+
+interface GitHubErrorResponse {
+  message?: unknown;
+}
+
+function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
+  const normalized: Record<string, string> = {};
+  new Headers(headers).forEach((value, key) => {
+    normalized[key] = value;
+  });
+  return normalized;
+}
+
+function sanitizeGitHubMessage(message: string | undefined): string | undefined {
+  return message?.replace(
+    GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN,
+    "https://github.com/settings/personal-access-tokens/[redacted]"
+  );
+}
+
+async function readGitHubErrorMessage(response: Response): Promise<string | undefined> {
+  try {
+    const data = (await response.clone().json()) as GitHubErrorResponse;
+    return typeof data.message === "string" ? sanitizeGitHubMessage(data.message) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function shouldRetryWithoutToken(response: Response, githubMessage: string | undefined): boolean {
+  return (
+    response.status === GITHUB_FORBIDDEN_STATUS &&
+    Boolean(githubMessage?.includes(GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE))
+  );
+}
+
+function withoutAuthorization(headers: Record<string, string>): Record<string, string> {
+  const publicHeaders: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== "authorization") {
+      publicHeaders[key] = value;
+    }
+  }
+  return publicHeaders;
+}
+
+export async function fetchGitHubRestWithPublicFallback(
+  input: string,
+  token: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  const headers = {
+    ...normalizeHeaders(getGitHubHeaders(token)),
+    ...normalizeHeaders(init.headers),
+  };
+  const requestInit = { ...init, headers };
+
+  const response = await fetch(input, requestInit);
+  if (response.ok) return response;
+
+  const githubMessage = await readGitHubErrorMessage(response);
+  if (!shouldRetryWithoutToken(response, githubMessage)) {
+    return response;
+  }
+
+  return fetch(input, {
+    ...init,
+    headers: withoutAuthorization(headers),
+  });
 }

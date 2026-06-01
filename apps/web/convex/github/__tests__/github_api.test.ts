@@ -1,5 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
-import { extractRateLimitInfo, getGitHubHeaders, getRetryDelayMs } from "../github_api";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  extractRateLimitInfo,
+  fetchGitHubRestWithPublicFallback,
+  getGitHubHeaders,
+  getRetryDelayMs,
+} from "../github_api";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 // ─── extractRateLimitInfo ────────────────────────────────────────────────
 
@@ -106,5 +116,63 @@ describe("getGitHubHeaders", () => {
   it("uses the provided token in the Authorization header", () => {
     const headers = getGitHubHeaders("my-secret-token");
     expect(headers.Authorization).toBe("token my-secret-token");
+  });
+});
+
+// ─── fetchGitHubRestWithPublicFallback ───────────────────────────────────
+
+describe("fetchGitHubRestWithPublicFallback", () => {
+  it("retries without Authorization when fine-grained token org policy blocks public data", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            message:
+              "The 'htmlhint' organization forbids access via a fine-grained personal access tokens if the token's lifetime is greater than 366 days.",
+          }),
+          { status: 403 }
+        )
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await fetchGitHubRestWithPublicFallback(
+      "https://api.github.com/repos/htmlhint/HTMLHint",
+      "github-token",
+      { headers: { "If-None-Match": "etag-value" } }
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://api.github.com/repos/htmlhint/HTMLHint", {
+      headers: {
+        accept: "application/vnd.github.v3+json",
+        authorization: "token github-token",
+        "if-none-match": "etag-value",
+      },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://api.github.com/repos/htmlhint/HTMLHint", {
+      headers: {
+        accept: "application/vnd.github.v3+json",
+        "if-none-match": "etag-value",
+      },
+    });
+  });
+
+  it("does not retry unrelated 403 responses", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: "Resource protected by organization policy" }), {
+        status: 403,
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await fetchGitHubRestWithPublicFallback(
+      "https://api.github.com/repos/private/repo",
+      "github-token"
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

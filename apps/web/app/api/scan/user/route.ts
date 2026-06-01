@@ -8,7 +8,9 @@ import { api } from "@/data/api";
 import { fetchMutation } from "@/data/server";
 import { getServerGitHubLogin, getServerSessionSnapshot } from "@/lib/auth/auth-server";
 import {
+  fetchGitHubOwnerProfile,
   fetchTopPublicRepos,
+  type GitHubOwnerProfile,
   GitHubPublicReposError,
   normalizeUserScanInput,
   type ScanUserRepoInput,
@@ -213,6 +215,9 @@ async function requestScanForRepos({
     return jsonError("owner is required", BAD_REQUEST_STATUS);
   }
 
+  const ownerProfile =
+    (await fetchGitHubOwnerProfile(throttleOwner)) ?? getFallbackOwnerProfile(throttleOwner);
+
   if (!owner) {
     const throttleResponse = await enforceScanThrottle(request, throttleOwner, apiKey, submitter);
     if (throttleResponse) return throttleResponse;
@@ -222,6 +227,7 @@ async function requestScanForRepos({
     const result = await fetchMutation(api.mutations.request_user_scan.requestUserScan, {
       repos,
       apiKey,
+      ownerProfile,
       ...(submitter ? { submitter } : {}),
     });
 
@@ -235,6 +241,14 @@ async function requestScanForRepos({
     const message = error instanceof Error ? error.message : "Failed to request scan";
     return jsonError(message, INTERNAL_SERVER_ERROR_STATUS);
   }
+}
+
+function getFallbackOwnerProfile(owner: string): GitHubOwnerProfile {
+  return {
+    avatarUrl: `https://github.com/${owner}.png?size=200`,
+    followers: 0,
+    ownerType: "developer",
+  };
 }
 
 export async function POST(request: Request) {

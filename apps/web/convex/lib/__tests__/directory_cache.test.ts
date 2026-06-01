@@ -138,8 +138,30 @@ describe("refreshOwnerDirectoryCacheForOwner", () => {
     });
   });
 
+  it("inserts fallback cache rows for an owner without a profile", async () => {
+    const { ctx, tables } = createMockCtx({
+      profiles: [],
+      repos: [repo({ stars: 5 })],
+      repoWeeklyStats: [],
+      stars: [],
+      ownerPackages: [],
+      developerDirectoryCache: [],
+      indexedUsersCache: [],
+    });
+
+    const result = await refreshOwnerDirectoryCacheForOwner(ctx, DEFAULT_OWNER);
+
+    expect(result).toEqual({ dirInserted: 1, idxInserted: 1 });
+    expect(tables.developerDirectoryCache?.[0]).toMatchObject({
+      owner: DEFAULT_OWNER,
+      avatarUrl: `https://github.com/${DEFAULT_OWNER}.png?size=96`,
+      displayName: null,
+      repoCount: 1,
+      totalStars: 5,
+    });
+  });
+
   it.each([
-    { label: "missing profile", profiles: [] },
     { label: "hidden profile", profiles: [profile(DEFAULT_OWNER, "hidden")] },
     { label: "private profile", profiles: [profile(DEFAULT_OWNER, "private")] },
   ])("removes stale cache rows for $label", async ({ profiles }) => {
@@ -157,7 +179,7 @@ describe("refreshOwnerDirectoryCacheForOwner", () => {
     expect(tables.indexedUsersCache).toHaveLength(0);
   });
 
-  it("keeps syncing owners in the indexed cache", async () => {
+  it("keeps syncing owners in the directory and indexed caches", async () => {
     const { ctx, tables } = createMockCtx({
       profiles: [profile()],
       repos: [repo({ syncStatus: "pending" })],
@@ -170,10 +192,38 @@ describe("refreshOwnerDirectoryCacheForOwner", () => {
 
     const result = await refreshOwnerDirectoryCacheForOwner(ctx, DEFAULT_OWNER);
 
-    expect(result).toEqual({ dirInserted: 0, idxInserted: 1 });
+    expect(result).toEqual({ dirInserted: 1, idxInserted: 1 });
+    expect(tables.developerDirectoryCache?.[0]).toMatchObject({
+      owner: DEFAULT_OWNER,
+      repoCount: 0,
+      isSyncing: true,
+      power: 0,
+    });
     expect(tables.indexedUsersCache?.[0]).toMatchObject({
       owner: DEFAULT_OWNER,
       repoCount: 0,
+      isSyncing: true,
+    });
+  });
+
+  it("keeps submitted syncing owners visible before profile hydration finishes", async () => {
+    const { ctx, tables } = createMockCtx({
+      profiles: [],
+      repos: [repo({ syncStatus: "pending" })],
+      repoWeeklyStats: [],
+      stars: [],
+      ownerPackages: [],
+      developerDirectoryCache: [],
+      indexedUsersCache: [],
+    });
+
+    const result = await refreshOwnerDirectoryCacheForOwner(ctx, DEFAULT_OWNER);
+
+    expect(result).toEqual({ dirInserted: 1, idxInserted: 1 });
+    expect(tables.developerDirectoryCache?.[0]).toMatchObject({
+      owner: DEFAULT_OWNER,
+      repoCount: 0,
+      power: 0,
       isSyncing: true,
     });
   });

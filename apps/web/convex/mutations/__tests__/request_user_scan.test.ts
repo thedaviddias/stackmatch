@@ -132,4 +132,61 @@ describe("requestUserScan", () => {
       owner: "microsoft",
     });
   });
+
+  it("upserts owner profile, refreshes directory cache, and schedules pending scans immediately", async () => {
+    vi.stubEnv("ANALYZE_API_KEY", ANALYZE_API_KEY);
+    const ctx = makeCtx();
+
+    await expect(
+      getHandler(requestUserScan)(ctx, {
+        apiKey: ANALYZE_API_KEY,
+        ownerProfile: {
+          name: "HTMLHint",
+          avatarUrl: "https://avatars.githubusercontent.com/u/42865284?v=4",
+          followers: 47,
+          bio: "The static code analysis tool you need for your HTML",
+          website: "https://htmlhint.com",
+          location: "Japan",
+          ownerType: "organization",
+        },
+        repos: [{ owner: "htmlhint", name: "HTMLHint", pushedAt: 1_780_321_000_000 }],
+      })
+    ).resolves.toEqual([
+      {
+        existing: false,
+        fullName: "htmlhint/HTMLHint",
+        status: "pending",
+      },
+    ]);
+
+    expect(ctx.tables.profiles?.[0]).toMatchObject({
+      owner: "htmlhint",
+      name: "HTMLHint",
+      avatarUrl: "https://avatars.githubusercontent.com/u/42865284?v=4",
+      followers: 47,
+      ownerType: "organization",
+    });
+    expect(ctx.tables.developerDirectoryCache?.[0]).toMatchObject({
+      owner: "htmlhint",
+      displayName: "HTMLHint",
+      followers: 47,
+      repoCount: 0,
+      power: 0,
+      isSyncing: true,
+    });
+    expect(ctx.tables.indexedUsersCache?.[0]).toMatchObject({
+      owner: "htmlhint",
+      repoCount: 0,
+      isSyncing: true,
+    });
+    expect(ctx.scheduler.runAfter).toHaveBeenCalledTimes(2);
+    expect(ctx.scheduler.runAfter).toHaveBeenNthCalledWith(1, 0, expect.anything(), {
+      owner: "htmlhint",
+    });
+    expect(ctx.scheduler.runAfter).toHaveBeenNthCalledWith(2, 0, expect.anything(), {
+      repoId: "repos_1",
+      owner: "htmlhint",
+      name: "HTMLHint",
+    });
+  });
 });
