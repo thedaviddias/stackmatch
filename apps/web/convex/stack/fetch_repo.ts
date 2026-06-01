@@ -1,11 +1,22 @@
 "use node";
 
+import {
+  GITHUB_REST_API_MAX_RETRIES,
+  GITHUB_TOKEN_INVALID_OR_REVOKED_ERROR,
+} from "@stackmatch/constants/sync";
+import { SECOND_MS } from "@stackmatch/constants/time";
 import { anyApi } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 
-import { internalAction } from "../_generated/server";
-import { fetchGitHubRestWithPublicFallback } from "../github/github_api";
+import { type ActionCtx, internalAction } from "../_generated/server";
+import {
+  extractRateLimitInfo,
+  fetchGitHubRestWithPublicFallback,
+  getGitHubRateLimitDelayMs,
+  isGitHubTokenInvalidResponse,
+} from "../github/github_api";
 import { hydrateOwnerProfileFromGitHub } from "../github/owner_profile";
 import { buildStackRepoMetadataHeaders, canShortCircuitNotModified } from "./fetch_repo_cache";
 
@@ -26,8 +37,33 @@ const updateMetadataFn = requireModule(
   "stack.ingest_repo.updateMetadata"
 );
 
+const STACK_QUOTA_BUSY_REASON = "GitHub API busy. Retrying after quota reset.";
+
+async function queueStackRepoRetry(
+  ctx: Pick<ActionCtx, "runMutation" | "scheduler">,
+  args: { repoId: Id<"repos">; owner: string; name: string; retryCount?: number },
+  delayMs: number,
+  reason: string
+) {
+  await ctx.runMutation(internal.stack.ingest_repo.markQueued, {
+    repoId: args.repoId,
+    reason,
+  });
+  await ctx.scheduler.runAfter(delayMs, internal.stack.fetch_repo.fetchRepo, {
+    repoId: args.repoId,
+    owner: args.owner,
+    name: args.name,
+    retryCount: args.retryCount ?? 0,
+  });
+}
+
 export const fetchRepo = internalAction({
-  args: { repoId: v.id("repos"), owner: v.string(), name: v.string() },
+  args: {
+    repoId: v.id("repos"),
+    owner: v.string(),
+    name: v.string(),
+    retryCount: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
@@ -37,6 +73,23 @@ export const fetchRepo = internalAction({
       });
       return;
     }
+
+    const retryCount = args.retryCount ?? 0;
+
+    const quota = await ctx.runQuery(internal.queries.system.checkGitHubQuota);
+    if (!quota.allowed) {
+      await queueStackRepoRetry(
+        ctx,
+        args,
+        Math.max(quota.retryAfterMs ?? 0, SECOND_MS),
+        STACK_QUOTA_BUSY_REASON
+      );
+      return;
+    }
+
+    await ctx.runMutation(internal.stack.ingest_repo.setFetchingMetadata, {
+      repoId: args.repoId,
+    });
 
     const repo = (await ctx.runQuery(internal.queries.repos.getRepoById, {
       repoId: args.repoId,
@@ -55,6 +108,41 @@ export const fetchRepo = internalAction({
         headers: buildStackRepoMetadataHeaders(token, repo?.etag),
       }
     );
+
+    const rateLimitInfo = extractRateLimitInfo(response);
+    if (rateLimitInfo.remaining !== null && rateLimitInfo.resetAt !== null) {
+      await ctx.runMutation(internal.mutations.system.updateGitHubRateLimit, {
+        remaining: rateLimitInfo.remaining,
+        resetAt: rateLimitInfo.resetAt,
+      });
+    }
+
+    if (isGitHubTokenInvalidResponse(response)) {
+      await ctx.runMutation(internal.stack.ingest_repo.markError, {
+        repoId: args.repoId,
+        error: GITHUB_TOKEN_INVALID_OR_REVOKED_ERROR,
+      });
+      return;
+    }
+
+    const rateLimitDelayMs = await getGitHubRateLimitDelayMs(response, rateLimitInfo);
+    if (rateLimitDelayMs !== null) {
+      if (retryCount >= GITHUB_REST_API_MAX_RETRIES) {
+        await ctx.runMutation(internal.stack.ingest_repo.markError, {
+          repoId: args.repoId,
+          error: `Rate limited after ${GITHUB_REST_API_MAX_RETRIES} retries`,
+        });
+        return;
+      }
+
+      await queueStackRepoRetry(
+        ctx,
+        { ...args, retryCount: retryCount + 1 },
+        rateLimitDelayMs,
+        STACK_QUOTA_BUSY_REASON
+      );
+      return;
+    }
 
     if (response.status === NOT_MODIFIED_STATUS) {
       try {

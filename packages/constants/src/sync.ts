@@ -31,6 +31,18 @@ export const STACK_PACKAGE_STALE_MAX_REPOS_PER_RUN = 25;
 /** Delay between scheduled stale package repo scans to avoid API bursts. */
 export const STACK_PACKAGE_STALE_SCAN_STAGGER_MS = MINUTE_MS / 2;
 
+/** Maximum retries for GitHub REST calls that hit the primary rate limit. */
+export const GITHUB_REST_API_MAX_RETRIES = 3;
+
+/** Authenticated GitHub REST quota used when no live quota state has been recorded yet. */
+export const GITHUB_REST_API_DEFAULT_LIMIT = 5000;
+
+/** Pause background GitHub scanning before the token is fully exhausted. */
+export const GITHUB_REST_API_MIN_REMAINING_FOR_SCANS = 500;
+
+/** Conservative fallback delay when GitHub secondary limits do not include retry headers. */
+export const GITHUB_SECONDARY_RATE_LIMIT_RETRY_MS = MINUTE_MS;
+
 /** Maximum dependency manifests scanned per repository tree traversal. */
 export const STACK_MANIFEST_MAX_FILES = 200;
 
@@ -59,6 +71,9 @@ export const GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE =
 /** Redacts token-management URLs from GitHub API error messages before logging. */
 export const GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN =
   /https:\/\/github\.com\/settings\/personal-access-tokens\/\d+/g;
+
+/** Clear operational error when the configured production GitHub token is rejected. */
+export const GITHUB_TOKEN_INVALID_OR_REVOKED_ERROR = "GitHub token invalid or revoked";
 
 /**
  * Private stack sync is opt-in through the Stackmatch GitHub App, where users

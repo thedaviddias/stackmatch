@@ -180,10 +180,13 @@ describe("refreshOwnerDirectoryCacheForOwner", () => {
     expect(tables.indexedUsersCache).toHaveLength(0);
   });
 
-  it("keeps syncing owners in the directory and indexed caches", async () => {
+  it.each([
+    "pending",
+    "queued",
+  ] as const)("keeps %s owners in the directory and indexed caches", async (syncStatus) => {
     const { ctx, tables } = createMockCtx({
       profiles: [profile()],
-      repos: [repo({ syncStatus: "pending" })],
+      repos: [repo({ syncStatus })],
       repoWeeklyStats: [],
       stars: [],
       ownerPackages: [],

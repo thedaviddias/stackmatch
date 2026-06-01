@@ -1,10 +1,13 @@
 import {
   GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE,
   GITHUB_PERSONAL_ACCESS_TOKEN_URL_PATTERN,
+  GITHUB_SECONDARY_RATE_LIMIT_RETRY_MS,
 } from "@stackmatch/constants/sync";
 
 const GITHUB_FORBIDDEN_STATUS = 403;
+const GITHUB_TOO_MANY_REQUESTS_STATUS = 429;
 const GITHUB_UNAUTHORIZED_STATUS = 401;
+const MILLISECONDS_PER_SECOND = 1000;
 
 /**
  * Shared GitHub API helpers for rate-limit handling across all sync actions.
@@ -49,6 +52,15 @@ export function getRetryDelayMs(rateLimitInfo: GitHubRateLimitInfo): number {
   return Math.max(0, rateLimitInfo.resetAt - Date.now()) + 1_000;
 }
 
+export function getRetryAfterDelayMs(response: Response): number | null {
+  const retryAfter = response.headers.get("Retry-After");
+  if (!retryAfter) return null;
+
+  const retryAfterSeconds = Number(retryAfter);
+  if (!Number.isFinite(retryAfterSeconds) || retryAfterSeconds < 0) return null;
+  return retryAfterSeconds * MILLISECONDS_PER_SECOND;
+}
+
 /** Standard headers for GitHub REST API requests. */
 export function getGitHubHeaders(token: string): Record<string, string> {
   return {
@@ -86,10 +98,6 @@ async function readGitHubErrorMessage(response: Response): Promise<string | unde
 }
 
 function shouldRetryWithoutToken(response: Response, githubMessage: string | undefined): boolean {
-  if (response.status === GITHUB_UNAUTHORIZED_STATUS) {
-    return true;
-  }
-
   return (
     response.status === GITHUB_FORBIDDEN_STATUS &&
     Boolean(githubMessage?.includes(GITHUB_FINE_GRAINED_TOKEN_ORG_POLICY_PHRASE))
@@ -129,4 +137,32 @@ export async function fetchGitHubRestWithPublicFallback(
     ...init,
     headers: withoutAuthorization(headers),
   });
+}
+
+export function isGitHubTokenInvalidResponse(response: Response): boolean {
+  return response.status === GITHUB_UNAUTHORIZED_STATUS;
+}
+
+export async function getGitHubRateLimitDelayMs(
+  response: Response,
+  rateLimitInfo = extractRateLimitInfo(response)
+): Promise<number | null> {
+  if (rateLimitInfo.isRateLimited) return getRetryDelayMs(rateLimitInfo);
+
+  const retryAfterMs = getRetryAfterDelayMs(response);
+  if (retryAfterMs !== null) return retryAfterMs;
+
+  if (
+    response.status !== GITHUB_FORBIDDEN_STATUS &&
+    response.status !== GITHUB_TOO_MANY_REQUESTS_STATUS
+  ) {
+    return null;
+  }
+
+  const message = (await readGitHubErrorMessage(response))?.toLowerCase() ?? "";
+  if (message.includes("secondary rate limit") || message.includes("abuse detection")) {
+    return GITHUB_SECONDARY_RATE_LIMIT_RETRY_MS;
+  }
+
+  return null;
 }

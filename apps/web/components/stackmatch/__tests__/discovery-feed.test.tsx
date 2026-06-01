@@ -12,6 +12,13 @@ vi.mock("@/components/cards/user-card", () => ({
   ),
 }));
 
+vi.mock("next/image", () => ({
+  default: ({ src, alt, ...props }: { src: string; alt: string; [key: string]: unknown }) => (
+    // biome-ignore lint/performance/noImgElement: Test mock for next/image
+    <img src={src} alt={alt} {...props} />
+  ),
+}));
+
 vi.mock("@/components/presence/use-presence-by-owners", () => ({
   isOwnerOnline: () => false,
   usePresenceByOwners: () => ({}),
@@ -88,9 +95,12 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
       }),
     ]);
 
-    const freshFaces = screen.getByText("Fresh Faces").closest(".space-y-5");
+    const freshFaces = screen.getByText("Fresh Faces").closest("[data-discovery-section]");
     expect(freshFaces).not.toBeNull();
     expect(within(freshFaces as HTMLElement).getByTestId("card-claimed")).toBeInTheDocument();
+    expect(
+      within(freshFaces as HTMLElement).queryByTestId("compact-discovery-card-claimed")
+    ).not.toBeInTheDocument();
     expect(within(freshFaces as HTMLElement).getByText("claimed")).toBeInTheDocument();
     expect(screen.getByText("Joined yesterday")).toBeInTheDocument();
   });
@@ -107,9 +117,15 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
       }),
     ]);
 
-    const newToGraph = screen.getByText("New to the Graph").closest(".space-y-5");
+    const newToGraph = screen.getByText("New to the Graph").closest("[data-discovery-section]");
     expect(newToGraph).not.toBeNull();
-    expect(within(newToGraph as HTMLElement).getByTestId("card-indexed")).toBeInTheDocument();
+    expect(
+      (newToGraph as HTMLElement).querySelector('[data-discovery-layout="compact-grid"]')
+    ).toBeInTheDocument();
+    expect(
+      within(newToGraph as HTMLElement).getByTestId("compact-discovery-card-indexed")
+    ).toBeInTheDocument();
+    expect(within(newToGraph as HTMLElement).queryByTestId("card-indexed")).not.toBeInTheDocument();
     expect(within(newToGraph as HTMLElement).getByText("indexed")).toBeInTheDocument();
     expect(screen.getByText("Indexed today")).toBeInTheDocument();
   });

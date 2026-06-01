@@ -1,12 +1,23 @@
 "use node";
 
-import { STACK_MANIFEST_MAX_FILES } from "@stackmatch/constants/sync";
+import {
+  GITHUB_REST_API_MAX_RETRIES,
+  GITHUB_TOKEN_INVALID_OR_REVOKED_ERROR,
+  STACK_MANIFEST_MAX_FILES,
+} from "@stackmatch/constants/sync";
+import { SECOND_MS } from "@stackmatch/constants/time";
 import { anyApi } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 
-import { internalAction } from "../_generated/server";
-import { fetchGitHubRestWithPublicFallback } from "../github/github_api";
+import { type ActionCtx, internalAction } from "../_generated/server";
+import {
+  extractRateLimitInfo,
+  fetchGitHubRestWithPublicFallback,
+  getGitHubRateLimitDelayMs,
+  isGitHubTokenInvalidResponse,
+} from "../github/github_api";
 import {
   type ParsedMaintainedPackageEntry,
   type ParsedPackageEntry,
@@ -32,6 +43,16 @@ const stackInternal = requireModule(anyApi.stack, "stack");
 const ingestRepoInternal = requireModule(stackInternal.ingest_repo, "stack.ingest_repo");
 const markSyncedFn = requireModule(ingestRepoInternal.markSynced, "stack.ingest_repo.markSynced");
 
+interface ScanRetryArgs {
+  repoId: Id<"repos">;
+  owner: string;
+  name: string;
+  defaultBranch: string;
+  retryCount?: number;
+}
+
+const STACK_QUOTA_BUSY_REASON = "GitHub API busy. Retrying after quota reset.";
+
 function decodeBase64(content: string): string {
   return Buffer.from(content, "base64").toString("utf8");
 }
@@ -47,12 +68,86 @@ function getPublicCacheSkipReason(params: {
   return "fingerprint_mismatch";
 }
 
+async function handleRetryableGitHubResponse(
+  ctx: Pick<ActionCtx, "runMutation" | "scheduler">,
+  response: Response,
+  args: ScanRetryArgs,
+  retryCount: number
+): Promise<boolean> {
+  if (isGitHubTokenInvalidResponse(response)) {
+    await ctx.runMutation(internal.stack.ingest_repo.markError, {
+      repoId: args.repoId,
+      error: GITHUB_TOKEN_INVALID_OR_REVOKED_ERROR,
+    });
+    return true;
+  }
+
+  const rateLimit = extractRateLimitInfo(response);
+  if (rateLimit.remaining !== null && rateLimit.resetAt !== null) {
+    await ctx.runMutation(internal.mutations.system.updateGitHubRateLimit, {
+      remaining: rateLimit.remaining,
+      resetAt: rateLimit.resetAt,
+    });
+  }
+
+  const retryDelayMs = await getGitHubRateLimitDelayMs(response, rateLimit);
+  if (retryDelayMs === null) return false;
+
+  if (retryCount >= GITHUB_REST_API_MAX_RETRIES) {
+    await ctx.runMutation(internal.stack.ingest_repo.markError, {
+      repoId: args.repoId,
+      error: `Rate limited after ${GITHUB_REST_API_MAX_RETRIES} retries`,
+    });
+    return true;
+  }
+
+  await ctx.runMutation(internal.stack.ingest_repo.markQueued, {
+    repoId: args.repoId,
+    reason: STACK_QUOTA_BUSY_REASON,
+  });
+  await ctx.scheduler.runAfter(retryDelayMs, internal.stack.scan_repo_packages.scanRepoPackages, {
+    repoId: args.repoId,
+    owner: args.owner,
+    name: args.name,
+    defaultBranch: args.defaultBranch,
+    retryCount: retryCount + 1,
+  });
+  return true;
+}
+
+async function queueIfGitHubQuotaUnavailable(
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery" | "scheduler">,
+  args: ScanRetryArgs,
+  retryCount: number
+): Promise<boolean> {
+  const quota = await ctx.runQuery(internal.queries.system.checkGitHubQuota);
+  if (quota.allowed) return false;
+
+  await ctx.runMutation(internal.stack.ingest_repo.markQueued, {
+    repoId: args.repoId,
+    reason: STACK_QUOTA_BUSY_REASON,
+  });
+  await ctx.scheduler.runAfter(
+    Math.max(quota.retryAfterMs ?? 0, SECOND_MS),
+    internal.stack.scan_repo_packages.scanRepoPackages,
+    {
+      repoId: args.repoId,
+      owner: args.owner,
+      name: args.name,
+      defaultBranch: args.defaultBranch,
+      retryCount,
+    }
+  );
+  return true;
+}
+
 export const scanRepoPackages = internalAction({
   args: {
     repoId: v.id("repos"),
     owner: v.string(),
     name: v.string(),
     defaultBranch: v.string(),
+    retryCount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const token = process.env.GITHUB_TOKEN;
@@ -63,6 +158,9 @@ export const scanRepoPackages = internalAction({
       });
       return;
     }
+
+    const retryCount = args.retryCount ?? 0;
+    if (await queueIfGitHubQuotaUnavailable(ctx, args, retryCount)) return;
 
     await ctx.runMutation(internal.stack.ingest_repo.setSyncing, {
       repoId: args.repoId,
@@ -91,6 +189,8 @@ export const scanRepoPackages = internalAction({
           },
         }
       );
+
+      if (await handleRetryableGitHubResponse(ctx, treeResponse, args, retryCount)) return;
 
       if (!treeResponse.ok) {
         await ctx.runMutation(internal.stack.ingest_repo.markError, {
@@ -154,6 +254,8 @@ export const scanRepoPackages = internalAction({
             },
           }
         );
+
+        if (await handleRetryableGitHubResponse(ctx, contentResponse, args, retryCount)) return;
 
         if (!contentResponse.ok) {
           continue;

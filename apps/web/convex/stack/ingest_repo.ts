@@ -60,6 +60,21 @@ export const updateMetadata = internalMutation({
   },
 });
 
+export const setFetchingMetadata = internalMutation({
+  args: { repoId: v.id("repos") },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.patch(args.repoId, {
+      syncStatus: "syncing",
+      syncStage: "fetching_metadata",
+      syncCommitsFetched: 0,
+      syncLastProgressAt: now,
+      syncPipeline: "stack",
+      syncError: undefined,
+    });
+  },
+});
+
 export const setSyncing = internalMutation({
   args: { repoId: v.id("repos") },
   handler: async (ctx, args) => {
@@ -72,6 +87,25 @@ export const setSyncing = internalMutation({
       syncPipeline: "stack",
       syncError: undefined,
     });
+  },
+});
+
+export const markQueued = internalMutation({
+  args: { repoId: v.id("repos"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    await ctx.db.patch(args.repoId, {
+      syncStatus: "queued",
+      syncError: args.reason,
+      syncStage: undefined,
+      syncCommitsFetched: undefined,
+      syncLastProgressAt: Date.now(),
+      syncPipeline: "stack",
+    });
+
+    if (repo) {
+      await refreshOwnerDirectoryCacheForOwner(ctx, repo.owner);
+    }
   },
 });
 

@@ -50,6 +50,7 @@ import type * as lib_notification_urls from "../lib/notification_urls.js";
 import type * as lib_package_metrics from "../lib/package_metrics.js";
 import type * as lib_presence from "../lib/presence.js";
 import type * as lib_profile_claims from "../lib/profile_claims.js";
+import type * as lib_repo_sync_pipeline from "../lib/repo_sync_pipeline.js";
 import type * as lib_resync_throttle from "../lib/resync_throttle.js";
 import type * as lib_sentry_reporting from "../lib/sentry_reporting.js";
 import type * as lib_stack_score from "../lib/stack_score.js";
@@ -189,6 +190,7 @@ declare const fullApi: ApiFromModules<{
   "lib/package_metrics": typeof lib_package_metrics;
   "lib/presence": typeof lib_presence;
   "lib/profile_claims": typeof lib_profile_claims;
+  "lib/repo_sync_pipeline": typeof lib_repo_sync_pipeline;
   "lib/resync_throttle": typeof lib_resync_throttle;
   "lib/sentry_reporting": typeof lib_sentry_reporting;
   "lib/stack_score": typeof lib_stack_score;

@@ -11,9 +11,11 @@ import {
 import { isValidRepoName } from "@stackmatch/security/input";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { mutation } from "../_generated/server";
 import { refreshOwnerDirectoryCacheForOwner } from "../lib/directory_cache";
 import { getAdminContext, writeModerationAuditLog } from "../lib/moderation";
+import { resolveRepoSyncPipeline } from "../lib/repo_sync_pipeline";
 
 const visibilityValidator = v.union(
   v.literal(PROFILE_VISIBILITY_PUBLIC),
@@ -55,6 +57,12 @@ function assertReason(reason: string): string {
     throw new ConvexError(`Reason must be ${ADMIN_ACTION_REASON_MAX_LENGTH} characters or less.`);
   }
   return normalized;
+}
+
+function getRetryFetchRepo(repo: Pick<Doc<"repos">, "syncPipeline" | "syncStage">) {
+  return resolveRepoSyncPipeline(repo) === "stack"
+    ? internal.stack.fetch_repo.fetchRepo
+    : internal.github.fetch_repo.fetchRepo;
 }
 
 export const setProfileVisibility = mutation({
@@ -133,7 +141,7 @@ export const retryFailedOwnerRepos = mutation({
 
     const firstQueuedRepo = failedRepos[0];
     if (firstQueuedRepo && !ownerSyncing) {
-      await ctx.scheduler.runAfter(0, internal.github.fetch_repo.fetchRepo, {
+      await ctx.scheduler.runAfter(0, getRetryFetchRepo(firstQueuedRepo), {
         repoId: firstQueuedRepo._id,
         owner: firstQueuedRepo.owner,
         name: firstQueuedRepo.name,
@@ -193,7 +201,7 @@ export const retryRepoSync = mutation({
 
     const shouldStartImmediately = !ownerSyncing && repo.syncStatus !== "syncing";
     if (shouldStartImmediately) {
-      await ctx.scheduler.runAfter(0, internal.github.fetch_repo.fetchRepo, {
+      await ctx.scheduler.runAfter(0, getRetryFetchRepo(repo), {
         repoId: repo._id,
         owner: repo.owner,
         name: repo.name,

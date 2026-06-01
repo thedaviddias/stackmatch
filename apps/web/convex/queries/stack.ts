@@ -187,6 +187,7 @@ interface OwnerPageDataResult {
   syncCounts: {
     total: number;
     pending: number;
+    queued: number;
     syncing: number;
     synced: number;
     error: number;
@@ -1890,12 +1891,13 @@ async function buildOwnerPageData(
     (acc, repo) => {
       acc.total += 1;
       if (repo.syncStatus === "pending") acc.pending += 1;
+      if (repo.syncStatus === "queued") acc.queued += 1;
       if (repo.syncStatus === "syncing") acc.syncing += 1;
       if (repo.syncStatus === "synced") acc.synced += 1;
       if (repo.syncStatus === "error") acc.error += 1;
       return acc;
     },
-    { total: 0, pending: 0, syncing: 0, synced: 0, error: 0 }
+    { total: 0, pending: 0, queued: 0, syncing: 0, synced: 0, error: 0 }
   );
   const publicLastSyncedAt = ownerRepos.reduce<number | undefined>((latest, repo) => {
     if (repo.syncStatus !== "synced" || repo.lastSyncedAt == null) return latest;

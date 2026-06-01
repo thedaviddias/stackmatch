@@ -184,7 +184,10 @@ export function RepoDashboardContent({
     );
   }
 
-  const isSyncInProgress = repo?.syncStatus === "pending" || repo?.syncStatus === "syncing";
+  const isSyncInProgress =
+    repo?.syncStatus === "pending" ||
+    repo?.syncStatus === "queued" ||
+    repo?.syncStatus === "syncing";
 
   return (
     <div className="py-8">
@@ -247,7 +250,7 @@ export function RepoDashboardContent({
         <div className="mt-12 flex items-center justify-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-purple-400/80 animate-in fade-in slide-in-from-top-2 duration-500">
           <Loader2 className="h-3 w-3 animate-spin" />
           <span>
-            {repo.syncStatus === "pending"
+            {repo.syncStatus === "pending" || repo.syncStatus === "queued"
               ? "Queued for analysis"
               : getSyncStageLabel(
                   repo.syncStage as string | undefined,

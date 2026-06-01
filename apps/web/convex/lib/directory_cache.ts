@@ -46,7 +46,8 @@ export function buildPublicProfilesSet(profiles: Doc<"profiles">[]) {
 
 export function addRepoToOwnerAggregate(owners: Map<string, OwnerAggregate>, repo: Doc<"repos">) {
   const existing = owners.get(repo.owner);
-  const isRepoSyncing = repo.syncStatus === "pending" || repo.syncStatus === "syncing";
+  const isRepoSyncing =
+    repo.syncStatus === "pending" || repo.syncStatus === "syncing" || repo.syncStatus === "queued";
   const repoLastIndexedAt = repo.lastSyncedAt ?? repo.requestedAt;
 
   if (existing) {

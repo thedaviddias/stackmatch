@@ -1,5 +1,10 @@
 "use node";
 
+import {
+  GITHUB_REST_API_MAX_RETRIES,
+  GITHUB_TOKEN_INVALID_OR_REVOKED_ERROR,
+} from "@stackmatch/constants/sync";
+import { SECOND_MS } from "@stackmatch/constants/time";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
@@ -9,10 +14,9 @@ import {
   fetchGitHubRestWithPublicFallback,
   getGitHubHeaders,
   getRetryDelayMs,
+  isGitHubTokenInvalidResponse,
 } from "./github_api";
 import { hydrateOwnerProfileFromGitHub } from "./owner_profile";
-
-const MAX_RETRIES = 3;
 
 export const refreshOwnerProfile = internalAction({
   args: {
@@ -106,18 +110,26 @@ export const fetchRepo = internalAction({
       });
     }
 
+    if (isGitHubTokenInvalidResponse(response)) {
+      await ctx.runMutation(internal.github.ingest_repo.markError, {
+        repoId: args.repoId,
+        error: GITHUB_TOKEN_INVALID_OR_REVOKED_ERROR,
+      });
+      return;
+    }
+
     // Handle rate limiting — schedule retry instead of permanent error
     if (rateLimitInfo.isRateLimited) {
-      if (retryCount >= MAX_RETRIES) {
+      if (retryCount >= GITHUB_REST_API_MAX_RETRIES) {
         await ctx.runMutation(internal.github.ingest_repo.markError, {
           repoId: args.repoId,
-          error: `Rate limited after ${MAX_RETRIES} retries`,
+          error: `Rate limited after ${GITHUB_REST_API_MAX_RETRIES} retries`,
         });
         return;
       }
       const delayMs = getRetryDelayMs(rateLimitInfo);
       console.log(
-        `[fetchRepo] Rate limited for ${args.owner}/${args.name}, retrying in ${Math.round(delayMs / 1000)}s (attempt ${retryCount + 1}/${MAX_RETRIES})`
+        `[fetchRepo] Rate limited for ${args.owner}/${args.name}, retrying in ${Math.round(delayMs / SECOND_MS)}s (attempt ${retryCount + 1}/${GITHUB_REST_API_MAX_RETRIES})`
       );
       await ctx.scheduler.runAfter(delayMs, internal.github.fetch_repo.fetchRepo, {
         repoId: args.repoId,

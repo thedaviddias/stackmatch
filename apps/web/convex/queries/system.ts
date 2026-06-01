@@ -1,3 +1,7 @@
+import {
+  GITHUB_REST_API_DEFAULT_LIMIT,
+  GITHUB_REST_API_MIN_REMAINING_FOR_SCANS,
+} from "@stackmatch/constants/sync";
 import { internalQuery } from "../_generated/server";
 
 /**
@@ -13,19 +17,36 @@ export const checkGitHubQuota = internalQuery({
       .withIndex("by_key", (q) => q.eq("key", key))
       .unique();
 
-    if (!status) return { allowed: true, remaining: 5000 };
+    if (!status) {
+      return {
+        allowed: true,
+        remaining: GITHUB_REST_API_DEFAULT_LIMIT,
+        resetAt: null,
+        retryAfterMs: 0,
+      };
+    }
 
     const { remaining, resetAt } = status.value;
     const now = Date.now();
 
     // If reset timestamp has passed, assume quota is refreshed
-    if (now > resetAt) return { allowed: true, remaining: 5000 };
+    if (now > resetAt) {
+      return {
+        allowed: true,
+        remaining: GITHUB_REST_API_DEFAULT_LIMIT,
+        resetAt,
+        retryAfterMs: 0,
+      };
+    }
 
-    // Critical Threshold: If < 500 requests remaining (~10%), pause non-essential background scans
+    // Pause public scans before the token is fully exhausted so new profiles stay queued.
+    const retryAfterMs = Math.max(0, resetAt - now);
     return {
-      allowed: remaining > 500,
+      allowed: remaining > GITHUB_REST_API_MIN_REMAINING_FOR_SCANS,
       remaining,
       isExhausted: remaining === 0,
+      resetAt,
+      retryAfterMs,
     };
   },
 });

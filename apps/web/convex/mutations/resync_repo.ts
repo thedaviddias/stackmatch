@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import { hasValidAnalyzeApiKey } from "../lib/analyze_api_key";
+import { resolveRepoSyncPipeline } from "../lib/repo_sync_pipeline";
 
 export const resyncRepo = mutation({
   args: {
@@ -79,6 +80,7 @@ export const resyncRepo = mutation({
 
     // Reset this repo to pending
     const now = Date.now();
+    const pipeline = resolveRepoSyncPipeline(repo);
     await ctx.db.patch(repo._id, {
       syncStatus: "pending",
       syncError: undefined,
@@ -86,7 +88,7 @@ export const resyncRepo = mutation({
       syncCommitsFetched: undefined,
       requestedAt: now,
       syncLastProgressAt: now,
-      syncPipeline: "github",
+      syncPipeline: pipeline,
     });
 
     // If no other repo for this owner is currently syncing, start immediately
@@ -98,7 +100,11 @@ export const resyncRepo = mutation({
       .first();
 
     if (!ownerSyncing) {
-      await ctx.scheduler.runAfter(0, internal.github.fetch_repo.fetchRepo, {
+      const fetchRepo =
+        pipeline === "stack"
+          ? internal.stack.fetch_repo.fetchRepo
+          : internal.github.fetch_repo.fetchRepo;
+      await ctx.scheduler.runAfter(0, fetchRepo, {
         repoId: repo._id,
         owner: repo.owner,
         name: repo.name,

@@ -1,9 +1,13 @@
+import { GITHUB_SECONDARY_RATE_LIMIT_RETRY_MS } from "@stackmatch/constants/sync";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   extractRateLimitInfo,
   fetchGitHubRestWithPublicFallback,
   getGitHubHeaders,
+  getGitHubRateLimitDelayMs,
+  getRetryAfterDelayMs,
   getRetryDelayMs,
+  isGitHubTokenInvalidResponse,
 } from "../github_api";
 
 afterEach(() => {
@@ -102,6 +106,69 @@ describe("getRetryDelayMs", () => {
   });
 });
 
+describe("getRetryAfterDelayMs", () => {
+  it("uses Retry-After seconds when present", () => {
+    expect(
+      getRetryAfterDelayMs(
+        new Response(null, {
+          status: 429,
+          headers: { "Retry-After": "45" },
+        })
+      )
+    ).toBe(45_000);
+  });
+
+  it("ignores invalid Retry-After values", () => {
+    expect(
+      getRetryAfterDelayMs(
+        new Response(null, {
+          status: 429,
+          headers: { "Retry-After": "later" },
+        })
+      )
+    ).toBeNull();
+  });
+});
+
+describe("getGitHubRateLimitDelayMs", () => {
+  it("uses primary rate limit reset headers", async () => {
+    const now = 1_780_340_000_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    await expect(
+      getGitHubRateLimitDelayMs(
+        new Response(JSON.stringify({ message: "API rate limit exceeded" }), {
+          status: 403,
+          headers: {
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String((now + 30_000) / 1000),
+          },
+        })
+      )
+    ).resolves.toBe(31_000);
+  });
+
+  it("uses Retry-After for secondary limits", async () => {
+    await expect(
+      getGitHubRateLimitDelayMs(
+        new Response(JSON.stringify({ message: "secondary rate limit" }), {
+          status: 429,
+          headers: { "Retry-After": "30" },
+        })
+      )
+    ).resolves.toBe(30_000);
+  });
+
+  it("falls back for secondary limit messages without Retry-After", async () => {
+    await expect(
+      getGitHubRateLimitDelayMs(
+        new Response(JSON.stringify({ message: "You have exceeded a secondary rate limit" }), {
+          status: 403,
+        })
+      )
+    ).resolves.toBe(GITHUB_SECONDARY_RATE_LIMIT_RETRY_MS);
+  });
+});
+
 // ─── getGitHubHeaders ────────────────────────────────────────────────────
 
 describe("getGitHubHeaders", () => {
@@ -159,13 +226,12 @@ describe("fetchGitHubRestWithPublicFallback", () => {
     });
   });
 
-  it("retries without Authorization when the configured token is unauthorized", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ message: "Bad credentials" }), { status: 401 })
-      )
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+  it("does not retry without Authorization when the configured token is unauthorized", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: "Bad credentials" }), {
+        status: 401,
+      })
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const response = await fetchGitHubRestWithPublicFallback(
@@ -173,26 +239,14 @@ describe("fetchGitHubRestWithPublicFallback", () => {
       "stale-token"
     );
 
-    expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "https://api.github.com/repos/AvdLee/SwiftUIKitView",
-      {
-        headers: {
-          accept: "application/vnd.github.v3+json",
-          authorization: "token stale-token",
-        },
-      }
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://api.github.com/repos/AvdLee/SwiftUIKitView",
-      {
-        headers: {
-          accept: "application/vnd.github.v3+json",
-        },
-      }
-    );
+    expect(response.status).toBe(401);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith("https://api.github.com/repos/AvdLee/SwiftUIKitView", {
+      headers: {
+        accept: "application/vnd.github.v3+json",
+        authorization: "token stale-token",
+      },
+    });
   });
 
   it("does not retry unrelated 403 responses", async () => {
@@ -210,5 +264,15 @@ describe("fetchGitHubRestWithPublicFallback", () => {
 
     expect(response.status).toBe(403);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isGitHubTokenInvalidResponse", () => {
+  it("treats 401 responses as invalid configured token failures", () => {
+    expect(isGitHubTokenInvalidResponse(new Response(null, { status: 401 }))).toBe(true);
+  });
+
+  it("does not treat rate-limit 403 responses as invalid token failures", () => {
+    expect(isGitHubTokenInvalidResponse(new Response(null, { status: 403 }))).toBe(false);
   });
 });

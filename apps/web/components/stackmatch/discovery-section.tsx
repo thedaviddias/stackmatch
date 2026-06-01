@@ -6,7 +6,7 @@ interface DiscoverySectionProps {
   icon: ReactNode;
   subtitle?: string;
   count?: number;
-  layout: "horizontal" | "grid";
+  layout: "horizontal" | "grid" | "compact-grid";
   children: ReactNode;
 }
 
@@ -19,7 +19,7 @@ export function DiscoverySection({
   children,
 }: DiscoverySectionProps) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-discovery-section={title}>
       <div className="flex items-start gap-3 px-1">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-th-accent-1 shadow-sm dark:border-white/5 dark:bg-white/5">
           {icon}
@@ -44,10 +44,11 @@ export function DiscoverySection({
       </div>
 
       <div
+        data-discovery-layout={layout}
         className={cn(
-          layout === "horizontal"
-            ? "grid grid-cols-1 gap-4 md:grid-cols-2"
-            : "grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-5"
+          layout === "horizontal" && "grid grid-cols-1 gap-4 md:grid-cols-2",
+          layout === "compact-grid" && "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3",
+          layout === "grid" && "grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-5"
         )}
       >
         {children}
