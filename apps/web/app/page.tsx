@@ -36,8 +36,7 @@ import { getI18n } from "@/lib/re-exports/i18n";
 import { logger } from "@/lib/re-exports/logger";
 import { createMetadata, createWebSiteJsonLd } from "@/lib/re-exports/seo";
 
-// ISR: revalidate every 60 seconds (removed force-dynamic which was overriding this)
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 const copy = getI18n();
 const HOME_LEADERBOARD_LIMIT = 12;
 const HOME_RECENT_USERS_LIMIT = 40;

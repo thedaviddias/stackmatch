@@ -1,7 +1,7 @@
 import { type ComponentPropsWithoutRef, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import HomePage from "../page";
+import HomePage, { dynamic } from "../page";
 
 const {
   listClaimedDevelopersDirectoryRowsMock,
@@ -144,6 +144,10 @@ describe("HomePage", () => {
     listGlobalStackLeaderboardMock.mockResolvedValue([]);
     listIndexedUsersWithProfilesMock.mockResolvedValue([]);
     listWeeklyTopStackersMock.mockResolvedValue([]);
+  });
+
+  it("renders dynamically so newly submitted owners are visible on reload", () => {
+    expect(dynamic).toBe("force-dynamic");
   });
 
   it("renders the product surface without sponsor or empty top stacker sections", async () => {

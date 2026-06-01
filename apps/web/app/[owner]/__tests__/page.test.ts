@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchQuery } from "@/data/server";
-import OwnerPage, { generateMetadata } from "../page";
+import OwnerPage, { dynamic, generateMetadata } from "../page";
 
 const {
   fetchQueryMock,
@@ -68,6 +68,10 @@ describe("/[owner] page", () => {
     vi.unstubAllGlobals();
   });
 
+  it("renders dynamically so newly submitted owners are visible immediately", () => {
+    expect(dynamic).toBe("force-dynamic");
+  });
+
   it("returns not found for unknown owner slugs", async () => {
     fetchQueryMocked.mockResolvedValueOnce(null).mockResolvedValueOnce({ exists: false });
 
@@ -95,6 +99,31 @@ describe("/[owner] page", () => {
     });
     expect(ownerPageContentMock).toHaveBeenCalledWith({
       owner: "octocat",
+      serverData,
+    });
+  });
+
+  it("refetches public owner data when a cached null route now exists", async () => {
+    const serverData = { owner: "avdlee", profile: { visibility: "public" } };
+    fetchQueryMocked
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ exists: true })
+      .mockResolvedValueOnce(serverData);
+
+    const element = await OwnerPage({ params: Promise.resolve({ owner: "avdlee" }) });
+    renderToStaticMarkup(element);
+
+    expect(fetchQueryMocked).toHaveBeenNthCalledWith(1, publicOwnerPageDataQuery, {
+      owner: "avdlee",
+    });
+    expect(fetchQueryMocked).toHaveBeenNthCalledWith(2, ownerPageRouteStateQuery, {
+      owner: "avdlee",
+    });
+    expect(fetchQueryMocked).toHaveBeenNthCalledWith(3, publicOwnerPageDataQuery, {
+      owner: "avdlee",
+    });
+    expect(ownerPageContentMock).toHaveBeenCalledWith({
+      owner: "avdlee",
       serverData,
     });
   });
@@ -183,7 +212,10 @@ describe("/[owner] page", () => {
   });
 
   it("keeps existing private profiles on the private-profile path", async () => {
-    fetchQueryMocked.mockResolvedValueOnce(null).mockResolvedValueOnce({ exists: true });
+    fetchQueryMocked
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ exists: true })
+      .mockResolvedValueOnce(null);
 
     const element = await OwnerPage({ params: Promise.resolve({ owner: "private-dev" }) });
     renderToStaticMarkup(element);

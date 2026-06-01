@@ -18,10 +18,7 @@ import {
 } from "@/lib/re-exports/seo";
 import { OwnerPageContent } from "./owner-page-content";
 
-// ISR: revalidate every 60 seconds. Server pre-fetches for SEO;
-// client re-fetches real-time data through the authenticated Convex provider.
-export const dynamic = "force-static";
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 const i18n = getI18n();
 const OWNER_PAGE_SERVER_DATA_CACHE_KEY = "owner-page-server-data-v1";
 
@@ -36,6 +33,10 @@ const getCachedOwnerPageData = unstable_cache(
   { revalidate: OWNER_PAGE_SERVER_DATA_CACHE_REVALIDATE_SECONDS }
 );
 type CachedOwnerPageData = Awaited<ReturnType<typeof getCachedOwnerPageData>>;
+
+async function getFreshOwnerPageData(owner: string): Promise<CachedOwnerPageData> {
+  return fetchQuery(api.queries.stack.getPublicOwnerPageData, { owner });
+}
 
 interface GitHubOwnerResponse {
   type?: string | null;
@@ -112,9 +113,10 @@ export async function generateMetadata({
 export default async function OwnerPage({ params }: { params: Promise<{ owner: string }> }) {
   const { owner } = await params;
 
-  const cachedData = await getCachedOwnerPageData(owner);
+  let cachedData = await getCachedOwnerPageData(owner);
   if (cachedData === null) {
     await assertOwnerRouteExists(owner);
+    cachedData = await getFreshOwnerPageData(owner);
   }
   const data = await overlayCurrentOwnerType(owner, cachedData);
 
