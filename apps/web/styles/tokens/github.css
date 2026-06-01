@@ -330,7 +330,7 @@ html:not(.dark)[data-theme="github"] [data-theme-label="eyebrow"] {
   color: var(--fgColor-default);
 }
 
-[data-theme="github"] [data-theme-section="compatibility-title"] svg,
+[data-theme="github"] [data-theme-section="stack-fingerprint-title"] svg,
 [data-theme="github"] [data-theme-section="stackmates-title"] svg,
 [data-theme="github"] [data-theme-card="snapshot"] svg {
   color: var(--fgColor-muted);

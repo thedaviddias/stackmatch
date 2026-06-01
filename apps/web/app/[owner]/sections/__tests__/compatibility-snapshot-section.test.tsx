@@ -63,7 +63,7 @@ describe("CompatibilitySnapshotSection", () => {
 
     render(<CompatibilitySnapshotSection {...baseProps} viewerLogin="viewer" isAuthenticated />);
 
-    expect(screen.getByRole("heading", { name: /compatibility snapshot/i })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: /stack fingerprint/i })).not.toBeNull();
     expect(screen.getByText("42%")).not.toBeNull();
     expect(screen.getByText(/3 shared public packages/i)).not.toBeNull();
     expect(screen.getAllByText("react").length).toBeGreaterThan(0);
@@ -139,7 +139,7 @@ describe("CompatibilitySnapshotSection", () => {
       />
     );
 
-    expect(screen.getByText(/compatibility snapshot/i)).not.toBeNull();
+    expect(screen.getByText(/stack fingerprint/i)).not.toBeNull();
     expect(screen.getByText("typescript")).not.toBeNull();
     expect(screen.queryByText("undefined")).toBeNull();
   });
@@ -167,7 +167,7 @@ describe("CompatibilitySnapshotSection", () => {
     expect(
       screen.getByRole("link", { name: /sign in to compare/i }).getAttribute("href")
     ).toContain("/login");
-    expect(screen.getByText(/what stands out/i)).not.toBeNull();
+    expect(screen.getByText(/what defines this stack/i)).not.toBeNull();
     expect(useQueryMock).toHaveBeenCalledWith(comparisonQuery, "skip");
   });
 
@@ -181,7 +181,7 @@ describe("CompatibilitySnapshotSection", () => {
       />
     );
 
-    expect(screen.getByText(/public stack depth/i)).not.toBeNull();
+    expect(screen.getByText(/public dependency graph/i)).not.toBeNull();
     expect(screen.getAllByText(/24/).length).toBeGreaterThan(0);
     expect(screen.getByText(/public deps across 6 repos/i)).not.toBeNull();
     expect(screen.getByRole("link", { name: /keep syncing public repositories/i })).not.toBeNull();

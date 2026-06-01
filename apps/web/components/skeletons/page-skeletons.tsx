@@ -39,11 +39,11 @@ export function OwnerPageSkeleton() {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 flex-1 min-w-0">
             {/* Avatar + rank badge */}
             <div className="relative shrink-0">
-              <div className="h-[140px] w-[140px] animate-pulse rounded-full bg-muted border-4 border-card dark:bg-neutral-800 dark:border-neutral-900" />
+              <div className="size-[140px] animate-pulse rounded-full bg-muted border-4 border-card dark:bg-neutral-800 dark:border-neutral-900" />
               <div className="absolute bottom-2 right-2 h-8 w-12 animate-pulse rounded-lg bg-muted border-2 border-card dark:bg-neutral-800 dark:border-neutral-900" />
             </div>
 
-            <div className="flex flex-col text-center sm:text-left space-y-6 min-w-0 w-full">
+            <div className="flex min-w-0 w-full flex-col gap-6 text-center sm:text-left">
               {/* Name + handle */}
               <div className="space-y-2">
                 <Skeleton className="h-10 w-56 max-w-full" />
@@ -82,6 +82,19 @@ export function OwnerPageSkeleton() {
         </div>
       </section>
 
+      {/* ── Stack Fingerprint ─────────────────────────────────── */}
+      <section className="space-y-5">
+        <div className="px-2 space-y-1">
+          <Skeleton className="h-7 w-44" />
+          <Skeleton className="h-4 w-80 max-w-full opacity-40" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <SurfaceSkeleton className="h-36 rounded-2xl" />
+          <SurfaceSkeleton className="h-36 rounded-2xl" />
+          <SurfaceSkeleton className="h-36 rounded-2xl" />
+        </div>
+      </section>
+
       {/* ── Your Stackmates ────────────────────────────────────── */}
       <section className="space-y-6">
         <div className="px-2 space-y-1">
@@ -92,18 +105,6 @@ export function OwnerPageSkeleton() {
           <SurfaceSkeleton className="h-48 rounded-3xl" />
           <SurfaceSkeleton className="h-48 rounded-3xl" />
           <SurfaceSkeleton className="h-48 rounded-3xl" />
-        </div>
-      </section>
-
-      {/* ── Stack Fingerprint ─────────────────────────────────── */}
-      <section className="space-y-5">
-        <div className="px-2 space-y-1">
-          <Skeleton className="h-7 w-44" />
-          <Skeleton className="h-4 w-80 max-w-full opacity-40" />
-        </div>
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.5fr)]">
-          <SurfaceSkeleton className="h-28 rounded-2xl" />
-          <SurfaceSkeleton className="h-28 rounded-2xl" />
         </div>
       </section>
 

@@ -4,7 +4,7 @@ import { ROUTES } from "@stackmatch/config";
 import { ArrowRight, BadgeCheck, GitCompareArrows, Lightbulb, Lock, Sparkles } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { api } from "@/data/api";
 import { useQuery } from "@/data/react";
 import { buildLoginUrlForCurrentLocation } from "@/lib/auth/login-url";
@@ -23,6 +23,11 @@ interface CompatibilityPackage {
   depCount: number;
   devDepCount: number;
 }
+
+const EMPTY_COMPATIBILITY_PACKAGES: CompatibilityPackage[] = [];
+const EMPTY_SIGNALS: string[] = [];
+const subscribeToStaticSnapshot = () => () => undefined;
+const getServerLoginUrlSnapshot = () => ROUTES.login;
 
 interface CompatibilitySnapshotSectionProps {
   owner: string;
@@ -201,14 +206,14 @@ function SharedStackCard({
   totalRepoCount: number;
 }) {
   const title = isOwnerViewer
-    ? "Public stack depth"
+    ? "Public dependency graph"
     : viewerLogin
-      ? "Your public overlap"
+      ? "Your stack overlap"
       : "Compare your stack";
 
   return (
     <SnapshotCard
-      eyebrow="Shared Stack"
+      eyebrow="Fingerprint Depth"
       title={title}
       icon={<GitCompareArrows className="size-3.5 text-th-accent-1" />}
     >
@@ -221,7 +226,7 @@ function SharedStackCard({
       )}
       {isComparisonLoading && (
         <p className="mt-3 text-xs font-bold text-muted-foreground dark:text-neutral-500">
-          Resolving your GitHub login...
+          Resolving your GitHub login&hellip;
         </p>
       )}
     </SnapshotCard>
@@ -311,8 +316,8 @@ function AnonymousComparisonCta({ owner, loginUrl }: { owner: string; loginUrl: 
 function StrongSignalsCard({ strongSignals }: { strongSignals: string[] }) {
   return (
     <SnapshotCard
-      eyebrow="Strong Signals"
-      title={strongSignals.length > 0 ? "What stands out" : "Signals pending"}
+      eyebrow="Signature Signals"
+      title={strongSignals.length > 0 ? "What defines this stack" : "Signals pending"}
       icon={<Sparkles className="size-3.5 text-emerald-500" />}
     >
       {strongSignals.length > 0 ? (
@@ -375,13 +380,17 @@ export function CompatibilitySnapshotSection({
   viewerLogin,
   isAuthenticated,
   isOwnerViewer,
-  topPackages = [],
-  languages = [],
-  topics = [],
+  topPackages = EMPTY_COMPATIBILITY_PACKAGES,
+  languages = EMPTY_SIGNALS,
+  topics = EMPTY_SIGNALS,
   publicPackageCount,
   totalRepoCount,
 }: CompatibilitySnapshotSectionProps) {
-  const [loginUrl, setLoginUrl] = useState<string>(ROUTES.login);
+  const loginUrl = useSyncExternalStore(
+    subscribeToStaticSnapshot,
+    buildLoginUrlForCurrentLocation,
+    getServerLoginUrlSnapshot
+  );
   const comparisonArgs =
     viewerLogin && !isOwnerViewer ? ({ ownerA: viewerLogin, ownerB: owner } as const) : "skip";
   const comparison: CompatibilityComparison | undefined = useQuery(
@@ -410,19 +419,15 @@ export function CompatibilitySnapshotSection({
     totalRepoCount > 0 ||
     (comparison?.sharedCount ?? 0) > 0;
 
-  useEffect(() => {
-    setLoginUrl(buildLoginUrlForCurrentLocation());
-  }, []);
-
   return (
     <section className="space-y-5">
-      <div data-theme-section="compatibility-title" className="px-2">
+      <div data-theme-section="stack-fingerprint-title" className="px-2">
         <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight text-foreground dark:text-white">
           <GitCompareArrows className="size-6 text-th-accent-1" />
-          Compatibility Snapshot
+          Stack Fingerprint
         </h2>
         <p className="mt-1 text-sm font-medium text-muted-foreground dark:text-neutral-400">
-          Public stack signals that explain where this profile fits.
+          The technical identity behind this profile: dependencies, overlap, languages, and topics.
         </p>
       </div>
 

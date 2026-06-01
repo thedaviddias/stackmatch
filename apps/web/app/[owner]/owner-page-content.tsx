@@ -41,7 +41,7 @@ import {
 import { CompatibilitySnapshotSection } from "./sections/compatibility-snapshot/compatibility-snapshot-section";
 import { NotableProjectsSection } from "./sections/notable-projects-section";
 import { ProfileHeader } from "./sections/profile-header";
-import { StackFingerprintSection } from "./sections/stack-fingerprint-section";
+import { StackSignalsSection } from "./sections/stack-fingerprint-section";
 import { StackmatesSection } from "./sections/stackmates-section";
 import { type SyncAlertState, SyncAlerts } from "./sections/sync-alerts";
 import { TopDepsSection } from "./sections/top-deps-section";
@@ -549,7 +549,7 @@ function OwnerPageLoadedContent({
           </ErrorBoundary>
         ) : (
           <>
-            {/* 4. Compatibility Snapshot - why this profile is useful */}
+            {/* 4. Stack Fingerprint - technical identity summary */}
             <ErrorBoundary level="section">
               <CompatibilitySnapshotSection
                 owner={owner}
@@ -569,14 +569,7 @@ function OwnerPageLoadedContent({
               <StackmatesSection data={data} viewAs={viewAs} isOwnerViewer={isOwnerViewer} />
             </ErrorBoundary>
 
-            {/* 6. Languages & Topics - broad identity signals */}
-            {hasLanguagesOrTopics && (
-              <ErrorBoundary level="section">
-                <StackFingerprintSection languages={languages} topics={topics} />
-              </ErrorBoundary>
-            )}
-
-            {/* 7. Top Dependencies - detailed package list */}
+            {/* 6. Top Dependencies - detailed package list */}
             <ErrorBoundary level="section">
               <TopDepsSection
                 topPackages={data.topPackages}
@@ -586,6 +579,13 @@ function OwnerPageLoadedContent({
                 totalRepoCount={data.syncCounts.total}
               />
             </ErrorBoundary>
+
+            {/* 7. Languages & Topics - broad identity signals */}
+            {hasLanguagesOrTopics && (
+              <ErrorBoundary level="section">
+                <StackSignalsSection languages={languages} topics={topics} />
+              </ErrorBoundary>
+            )}
 
             {/* 8. Notable public projects */}
             <ErrorBoundary level="section">
