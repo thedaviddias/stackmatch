@@ -21,13 +21,13 @@ jobs:
       (startsWith(github.event.comment.body, '@all-contributors please add'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
 
@@ -58,7 +58,7 @@ jobs:
           npx all-contributors-cli generate
 
       - name: Commit and Push changes
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: update contributors [skip ci]"
           file_pattern: 'README.md .all-contributorsrc'
