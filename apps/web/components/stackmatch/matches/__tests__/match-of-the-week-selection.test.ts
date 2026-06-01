@@ -9,6 +9,7 @@ function makeMatch(owner: string, isBlurred = false): Stackmate {
     owner,
     avatarUrl: `https://github.com/${owner}.png`,
     jaccard: 0.5,
+    hybridScore: 0.5,
     sharedPackageCount: 5,
     publicRepoCount: 3,
     totalStars: 10,

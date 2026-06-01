@@ -18,6 +18,7 @@ export interface Stackmate {
   owner: string;
   avatarUrl?: string;
   jaccard: number;
+  hybridScore: number;
   sharedPackageCount: number;
   publicRepoCount: number;
   totalStars: number;
@@ -49,6 +50,10 @@ export interface Stackmate {
 const STACKMATE_CARD_AVATAR_SIZE = 96;
 const MATCH_SCORE_PERCENT_SCALE = 100;
 const STACKMATE_LOAD_MORE_STEP = 12;
+
+export function getOverallMatchPercent(match: Stackmate): number {
+  return (match.hybridScore ?? match.jaccard) * MATCH_SCORE_PERCENT_SCALE;
+}
 
 interface StackmateGridCopy {
   emptyTitle: string;
@@ -163,7 +168,7 @@ export function StackmateGrid({
                 repoCount={match.publicRepoCount}
                 isSyncing={false}
                 isOnline={isOwnerOnline(presenceByOwner, match.owner)}
-                matchScore={match.jaccard * MATCH_SCORE_PERCENT_SCALE}
+                matchScore={getOverallMatchPercent(match)}
                 power={match.profile?.stackScore}
                 topStacks={match.profile?.topStacks}
                 starsCount={match.starsCount}

@@ -5,9 +5,18 @@ import { DiscoveryFeed } from "../discovery-feed";
 import type { Stackmate } from "../stackmate-grid";
 
 vi.mock("@/components/cards/user-card", () => ({
-  UserCard: ({ owner, profileStatus }: { owner: string; profileStatus?: string }) => (
+  UserCard: ({
+    owner,
+    matchScore,
+    profileStatus,
+  }: {
+    owner: string;
+    matchScore?: number;
+    profileStatus?: string;
+  }) => (
     <div data-testid={`card-${owner}`}>
       owner:{owner}
+      {typeof matchScore === "number" ? <span>score:{Math.round(matchScore)}</span> : null}
       {profileStatus ? <span>{profileStatus}</span> : null}
     </div>
   ),
@@ -37,12 +46,19 @@ function makeMatch(
     owner,
     avatarUrl: `https://github.com/${owner}.png`,
     jaccard: 0.19,
+    hybridScore: 0.42,
     sharedPackageCount: 5,
     publicRepoCount: 3,
     totalStars: 10,
     profile,
     ...overrides,
   };
+}
+
+function getDiscoverySection(title: string): HTMLElement {
+  const section = screen.getByText(title).closest("[data-discovery-section]");
+  expect(section).not.toBeNull();
+  return section as HTMLElement;
 }
 
 function renderFeed(matches: Stackmate[], ownerType?: OwnerType) {
@@ -163,7 +179,76 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
     expect(within(freshFaces as HTMLElement).queryByTestId("card-indexed")).not.toBeInTheDocument();
   });
 
-  it("does not duplicate users already claimed by Weekly Picks", () => {
+  it("renders Best Matches first as the full ranked match list", () => {
+    renderFeed([
+      makeMatch(
+        "weekly-a",
+        {
+          name: "Weekly Match A",
+          avatarUrl: "https://github.com/weekly-a.png",
+          followers: 1,
+          isClaimed: false,
+          indexedAt: NOW - 20 * DAY_MS,
+        },
+        { hybridScore: 0.91, jaccard: 0.2 }
+      ),
+      makeMatch(
+        "weekly-b",
+        {
+          name: "Weekly Match B",
+          avatarUrl: "https://github.com/weekly-b.png",
+          followers: 1,
+          isClaimed: false,
+          indexedAt: NOW - 20 * DAY_MS,
+        },
+        { hybridScore: 0.82, jaccard: 0.15 }
+      ),
+      makeMatch(
+        "claimed",
+        {
+          name: "Claimed User",
+          avatarUrl: "https://github.com/claimed.png",
+          followers: 1,
+          isClaimed: true,
+          joinedAt: NOW,
+          indexedAt: NOW,
+        },
+        { hybridScore: 0.73, jaccard: 0.12 }
+      ),
+    ]);
+
+    const bestMatches = getDiscoverySection("Best Matches");
+    const weeklyPicks = getDiscoverySection("Weekly Picks");
+
+    expect(
+      bestMatches.compareDocumentPosition(weeklyPicks) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(within(bestMatches).getByTestId("card-weekly-a")).toBeInTheDocument();
+    expect(within(bestMatches).getByTestId("card-weekly-b")).toBeInTheDocument();
+    expect(within(bestMatches).getByTestId("card-claimed")).toBeInTheDocument();
+  });
+
+  it("uses hybrid score for the visible match percentage", () => {
+    renderFeed([
+      makeMatch(
+        "overall-score",
+        {
+          name: "Overall Score",
+          avatarUrl: "https://github.com/overall-score.png",
+          followers: 1,
+          isClaimed: false,
+          indexedAt: NOW - 20 * DAY_MS,
+        },
+        { hybridScore: 0.83, jaccard: 0.05 }
+      ),
+    ]);
+
+    const bestMatches = getDiscoverySection("Best Matches");
+    expect(within(bestMatches).getByText("score:83")).toBeInTheDocument();
+    expect(within(bestMatches).queryByText("score:5")).not.toBeInTheDocument();
+  });
+
+  it("does not duplicate users already claimed by Weekly Picks into later highlights", () => {
     renderFeed([
       makeMatch(
         "weekly-a",
@@ -194,8 +279,12 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
     expect(screen.getByText("Weekly Picks")).toBeInTheDocument();
     expect(screen.getAllByText("Weekly Pick")).toHaveLength(2);
     expect(screen.queryByText("Fresh Faces")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("card-weekly-a")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("card-weekly-b")).not.toBeInTheDocument();
+    expect(
+      within(getDiscoverySection("Best Matches")).getByTestId("card-weekly-a")
+    ).toBeInTheDocument();
+    expect(
+      within(getDiscoverySection("Best Matches")).getByTestId("card-weekly-b")
+    ).toBeInTheDocument();
   });
 
   it("keeps a weekly match visible when package-heavy graphs have low Jaccard", () => {

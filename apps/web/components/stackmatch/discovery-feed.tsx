@@ -31,7 +31,7 @@ import { cn } from "@/lib/storage/utils";
 import { DiscoverySection } from "./discovery-section";
 import { WeeklyPickCard } from "./matches/match-of-the-week";
 import { pickWeeklyPicks } from "./matches/match-of-the-week-selection";
-import { type Stackmate, StackmateGrid } from "./stackmate-grid";
+import { getOverallMatchPercent, type Stackmate, StackmateGrid } from "./stackmate-grid";
 
 const i18n = getI18n();
 
@@ -45,7 +45,6 @@ const DISCOVERY_CARD_TOP_STACK_LIMIT = 5;
 const DISCOVERY_CARD_MOBILE_TOP_STACK_LIMIT = 3;
 const COMPACT_DISCOVERY_CARD_AVATAR_SIZE = 48;
 const COMPACT_DISCOVERY_CARD_TOP_STACK_LIMIT = 3;
-const SCORE_PERCENT_MULTIPLIER = 100;
 const FRESH_FACES_SECTION_LIMIT = 6;
 const NEW_TO_GRAPH_SECTION_LIMIT = 6;
 const STACK_TWINS_SECTION_LIMIT = 4;
@@ -253,7 +252,7 @@ function HorizontalCard({
         repoCount={match.publicRepoCount}
         isSyncing={false}
         isOnline={isOnline}
-        matchScore={match.jaccard * SCORE_PERCENT_MULTIPLIER}
+        matchScore={getOverallMatchPercent(match)}
         power={match.profile?.stackScore}
         topStacks={match.profile?.topStacks}
         topStackLimit={topStackLimit}
@@ -338,7 +337,7 @@ function CompactDiscoveryCard({
   const [showFallbackAvatar, setShowFallbackAvatar] = useState(false);
   const ownerInitial = match.owner.charAt(0).toUpperCase() || "?";
   const displayName = match.profile?.name ?? `@${match.owner}`;
-  const matchScore = Math.round(match.jaccard * SCORE_PERCENT_MULTIPLIER);
+  const matchScore = Math.round(getOverallMatchPercent(match));
   const stackScore =
     typeof match.profile?.stackScore === "number"
       ? `${Math.round(match.profile.stackScore)}%`
@@ -550,67 +549,61 @@ export function DiscoveryFeed({
   const copy = getDiscoveryCopy(isOwnerViewer, isOrganization);
 
   // ── Build sections with cascading deduplication ──────────────
-  // Each section excludes owners already claimed by earlier sections,
-  // so users never appear twice across Weekly Picks / Fresh Faces /
-  // Stack Twins / Near You. Best Matches shows the remaining pool.
+  // Highlight sections exclude owners already claimed by earlier highlight
+  // sections. Best Matches is the primary ranked list and keeps the full pool.
 
-  const { weeklyPicks, freshFaces, newToGraph, stackTwins, nearYou, mentors, bestMatchPool } =
-    useMemo(() => {
-      const claimed = new Set<string>();
+  const { weeklyPicks, freshFaces, newToGraph, stackTwins, nearYou, mentors } = useMemo(() => {
+    const claimed = new Set<string>();
 
-      // 1. Weekly Picks — use the ranked matches from the backend. Raw
-      // Jaccard can drop after private packages hydrate even when overlap is meaningful.
-      const picks = pickWeeklyPicks(matches, viewerOwner, weekStart);
-      for (const pick of picks) claimed.add(pick.owner);
+    // 1. Weekly Picks — use the ranked matches from the backend. Raw
+    // Jaccard can drop after private packages hydrate even when overlap is meaningful.
+    const picks = pickWeeklyPicks(matches, viewerOwner, weekStart);
+    for (const pick of picks) claimed.add(pick.owner);
 
-      // 2. Fresh Faces — claimed < recent window, not already claimed
-      const ff = matches
-        .filter((m) => !m.isBlurred && !claimed.has(m.owner) && isRecentlyClaimed(m, now))
-        .slice(0, FRESH_FACES_SECTION_LIMIT);
-      for (const m of ff) claimed.add(m.owner);
+    // 2. Fresh Faces — claimed < recent window, not already claimed
+    const ff = matches
+      .filter((m) => !m.isBlurred && !claimed.has(m.owner) && isRecentlyClaimed(m, now))
+      .slice(0, FRESH_FACES_SECTION_LIMIT);
+    for (const m of ff) claimed.add(m.owner);
 
-      // 3. New to the Graph — recently indexed but not claimed
-      const ng = matches
-        .filter((m) => !m.isBlurred && !claimed.has(m.owner) && isRecentlyIndexed(m, now))
-        .slice(0, NEW_TO_GRAPH_SECTION_LIMIT);
-      for (const m of ng) claimed.add(m.owner);
+    // 3. New to the Graph — recently indexed but not claimed
+    const ng = matches
+      .filter((m) => !m.isBlurred && !claimed.has(m.owner) && isRecentlyIndexed(m, now))
+      .slice(0, NEW_TO_GRAPH_SECTION_LIMIT);
+    for (const m of ng) claimed.add(m.owner);
 
-      // 4. Stack Twins — Jaccard >= threshold, not already claimed
-      const st = matches
-        .filter((m) => !m.isBlurred && !claimed.has(m.owner) && m.jaccard >= STACK_TWIN_THRESHOLD)
-        .sort((a, b) => b.jaccard - a.jaccard)
-        .slice(0, STACK_TWINS_SECTION_LIMIT);
-      for (const m of st) claimed.add(m.owner);
+    // 4. Stack Twins — Jaccard >= threshold, not already claimed
+    const st = matches
+      .filter((m) => !m.isBlurred && !claimed.has(m.owner) && m.jaccard >= STACK_TWIN_THRESHOLD)
+      .sort((a, b) => b.jaccard - a.jaccard)
+      .slice(0, STACK_TWINS_SECTION_LIMIT);
+    for (const m of st) claimed.add(m.owner);
 
-      // 5. Near You — matching location, not already claimed
-      const ny = selectNearYou(matches, claimed, viewerLocationCity, viewerLocationCountryCode);
-      for (const m of ny) claimed.add(m.owner);
+    // 5. Near You — matching location, not already claimed
+    const ny = selectNearYou(matches, claimed, viewerLocationCity, viewerLocationCountryCode);
+    for (const m of ny) claimed.add(m.owner);
 
-      // 6. Mentors With Your Stack — higher Stack Score than the owner, not already claimed.
-      const mt = selectMentors(matches, claimed, ownerStackScore);
-      for (const m of mt) claimed.add(m.owner);
+    // 6. Mentors With Your Stack — higher Stack Score than the owner, not already claimed.
+    const mt = selectMentors(matches, claimed, ownerStackScore);
+    for (const m of mt) claimed.add(m.owner);
 
-      // 7. Best Matches — everything NOT claimed by earlier sections
-      const bp = matches.filter((m) => !claimed.has(m.owner));
-
-      return {
-        weeklyPicks: picks,
-        freshFaces: ff,
-        newToGraph: ng,
-        stackTwins: st,
-        nearYou: ny,
-        mentors: mt,
-        bestMatchPool: bp,
-      };
-    }, [
-      matches,
-      viewerOwner,
-      weekStart,
-      now,
-      viewerLocationCity,
-      viewerLocationCountryCode,
-      ownerStackScore,
-    ]);
+    return {
+      weeklyPicks: picks,
+      freshFaces: ff,
+      newToGraph: ng,
+      stackTwins: st,
+      nearYou: ny,
+      mentors: mt,
+    };
+  }, [
+    matches,
+    viewerOwner,
+    weekStart,
+    now,
+    viewerLocationCity,
+    viewerLocationCountryCode,
+    ownerStackScore,
+  ]);
 
   if (matches.length === 0) {
     return <DiscoveryEmptyState isOwnerViewer={isOwnerViewer} copy={copy} />;
@@ -620,6 +613,25 @@ export function DiscoveryFeed({
 
   return (
     <div className="space-y-10">
+      {/* Best Matches — primary backend-ranked list with pagination/hide/gate */}
+      <div>
+        <DiscoverySection
+          title="Best Matches"
+          icon={<Sparkles className="size-4" />}
+          subtitle={copy.bestMatchesSubtitle}
+          layout="grid"
+        >
+          <div className="col-span-full">
+            <StackmateGrid
+              matches={matches}
+              totalMatchCount={totalMatchCount}
+              isOwnerViewer={isOwnerViewer}
+              ownerType={ownerType}
+            />
+          </div>
+        </DiscoverySection>
+      </div>
+
       {/* Weekly Picks — only shown if quality matches exist */}
       {weeklyPicks.length > 0 && (
         <div>
@@ -757,31 +769,6 @@ export function DiscoveryFeed({
 
       {/* Thin-feed nudge — keeps a near-empty feed feeling intentional */}
       {isThinFeed && <ThinFeedBanner isOwnerViewer={isOwnerViewer} copy={copy} />}
-
-      {/* Best Matches — deduplicated pool with pagination/hide/gate */}
-      {bestMatchPool.length > 0 && (
-        <div>
-          <DiscoverySection
-            title="Best Matches"
-            icon={<Sparkles className="size-4" />}
-            subtitle={copy.bestMatchesSubtitle}
-            layout="grid"
-          >
-            <div className="col-span-full">
-              <StackmateGrid
-                matches={bestMatchPool}
-                totalMatchCount={
-                  totalMatchCount != null
-                    ? Math.max(0, totalMatchCount - (matches.length - bestMatchPool.length))
-                    : undefined
-                }
-                isOwnerViewer={isOwnerViewer}
-                ownerType={ownerType}
-              />
-            </div>
-          </DiscoverySection>
-        </div>
-      )}
     </div>
   );
 }

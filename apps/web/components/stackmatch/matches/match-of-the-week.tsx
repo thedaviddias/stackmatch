@@ -11,14 +11,13 @@ import Image from "next/image";
 import { useState } from "react";
 import { LinkCustom } from "@/components/ui/link";
 import { cn } from "@/lib/storage/utils";
-import type { Stackmate } from "../stackmate-grid";
+import { getOverallMatchPercent, type Stackmate } from "../stackmate-grid";
 
 interface WeeklyPickCardProps {
   match: Stackmate;
 }
 
 const WEEKLY_PICK_AVATAR_SIZE = 160;
-const PERCENT_MULTIPLIER = 100;
 
 function TopStackOverflowChip({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null;
@@ -43,7 +42,7 @@ export function WeeklyPickCard({ match }: WeeklyPickCardProps) {
     match.avatarUrl ??
     ROUTES.external.githubAvatar(match.owner, WEEKLY_PICK_AVATAR_SIZE);
   const displayName = match.profile?.name ?? `@${match.owner}`;
-  const matchPercent = Math.round(match.jaccard * PERCENT_MULTIPLIER);
+  const overallMatchPercent = Math.round(getOverallMatchPercent(match));
   const stackScore = match.profile?.stackScore;
   const profileStatus =
     match.profile?.isClaimed === true
@@ -121,7 +120,7 @@ export function WeeklyPickCard({ match }: WeeklyPickCardProps) {
             className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-3 py-1 text-[10px] font-black text-fuchsia-700 backdrop-blur-md dark:text-fuchsia-100"
           >
             <Handshake className="size-3 text-fuchsia-700 dark:text-fuchsia-400" />
-            {matchPercent}% Match
+            {overallMatchPercent}% Match
           </span>
           {typeof stackScore === "number" && (
             <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 dark:text-emerald-300">

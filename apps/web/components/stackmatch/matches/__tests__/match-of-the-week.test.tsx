@@ -25,6 +25,7 @@ function makeMatch(overrides: Partial<Stackmate> = {}): Stackmate {
     owner: "octocat",
     avatarUrl: "https://github.com/octocat.png",
     jaccard: 0.72,
+    hybridScore: 0.72,
     sharedPackageCount: 8,
     publicRepoCount: 12,
     totalStars: 42,
