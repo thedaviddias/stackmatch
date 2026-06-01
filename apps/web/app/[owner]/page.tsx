@@ -1,4 +1,9 @@
 import { ROUTES } from "@stackmatch/config";
+import {
+  normalizeGitHubOwnerType,
+  OWNER_TYPE_DEVELOPER,
+  type OwnerType,
+} from "@stackmatch/constants/owner";
 import { OWNER_PAGE_SERVER_DATA_CACHE_REVALIDATE_SECONDS } from "@stackmatch/constants/social";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
@@ -30,6 +35,57 @@ const getCachedOwnerPageData = unstable_cache(
   [OWNER_PAGE_SERVER_DATA_CACHE_KEY],
   { revalidate: OWNER_PAGE_SERVER_DATA_CACHE_REVALIDATE_SECONDS }
 );
+type CachedOwnerPageData = Awaited<ReturnType<typeof getCachedOwnerPageData>>;
+
+interface GitHubOwnerResponse {
+  type?: string | null;
+}
+
+async function fetchCurrentGitHubOwnerType(owner: string): Promise<OwnerType | undefined> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github.v3+json",
+  };
+
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
+  }
+
+  try {
+    const response = await fetch(`https://api.github.com/users/${encodeURIComponent(owner)}`, {
+      headers,
+      next: { revalidate: OWNER_PAGE_SERVER_DATA_CACHE_REVALIDATE_SECONDS },
+    });
+
+    if (!response.ok) return undefined;
+
+    const data = (await response.json()) as GitHubOwnerResponse;
+    return normalizeGitHubOwnerType(data.type);
+  } catch {
+    return undefined;
+  }
+}
+
+async function overlayCurrentOwnerType(
+  owner: string,
+  data: CachedOwnerPageData
+): Promise<CachedOwnerPageData> {
+  if (data?.profile?.ownerType !== OWNER_TYPE_DEVELOPER) {
+    return data;
+  }
+
+  const currentOwnerType = await fetchCurrentGitHubOwnerType(owner);
+  if (!currentOwnerType || currentOwnerType === data.profile.ownerType) {
+    return data;
+  }
+
+  return {
+    ...data,
+    profile: {
+      ...data.profile,
+      ownerType: currentOwnerType,
+    },
+  };
+}
 
 export async function generateMetadata({
   params,
@@ -56,10 +112,11 @@ export async function generateMetadata({
 export default async function OwnerPage({ params }: { params: Promise<{ owner: string }> }) {
   const { owner } = await params;
 
-  const data = await getCachedOwnerPageData(owner);
-  if (data === null) {
+  const cachedData = await getCachedOwnerPageData(owner);
+  if (cachedData === null) {
     await assertOwnerRouteExists(owner);
   }
+  const data = await overlayCurrentOwnerType(owner, cachedData);
 
   const jsonLd = data?.profile
     ? createOwnerProfileJsonLd({

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchQuery } from "@/data/server";
 import OwnerPage, { generateMetadata } from "../page";
 
@@ -64,6 +64,10 @@ describe("/[owner] page", () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("returns not found for unknown owner slugs", async () => {
     fetchQueryMocked.mockResolvedValueOnce(null).mockResolvedValueOnce({ exists: false });
 
@@ -116,6 +120,50 @@ describe("/[owner] page", () => {
     expect(markup).toContain('"@type":"Organization"');
     expect(markup).toContain('"@id":"https://stackmatch.dev/microsoft#organization"');
     expect(markup).toContain('"sameAs":["https://github.com/microsoft"');
+  });
+
+  it("overlays stale developer owner types from GitHub during server rendering", async () => {
+    const serverData = {
+      owner: "microsoft",
+      profile: {
+        ownerType: "developer",
+        name: "Microsoft",
+        visibility: "public",
+        avatarUrl: "https://github.com/microsoft.png",
+        bio: "Open source projects and samples from Microsoft",
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ type: "Organization" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    fetchQueryMocked.mockResolvedValueOnce(serverData);
+
+    const element = await OwnerPage({ params: Promise.resolve({ owner: "microsoft" }) });
+    const markup = renderToStaticMarkup(element);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/users/microsoft",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: "application/vnd.github.v3+json",
+        }),
+      })
+    );
+    expect(markup).toContain('"@type":"Organization"');
+    expect(ownerPageContentMock).toHaveBeenCalledWith({
+      owner: "microsoft",
+      serverData: {
+        ...serverData,
+        profile: {
+          ...serverData.profile,
+          ownerType: "organization",
+        },
+      },
+    });
   });
 
   it("keeps query-string UI state out of the static server page", async () => {
