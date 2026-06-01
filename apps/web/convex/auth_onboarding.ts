@@ -37,14 +37,14 @@ function getDisplayName(user: AuthUserBackfillRow): string {
   return user.username ?? user.displayUsername ?? user.name ?? user.email ?? "developer";
 }
 
-async function subscribeUserToLoginTopic(user: AuthUserBackfillRow) {
+async function optUserIntoStackmatchTopic(user: AuthUserBackfillRow) {
   if (!user.email) {
     return { status: "missing_email" as const };
   }
 
   const result = await subscribeContactToTopic({
     email: user.email,
-    topicId: EMAIL_RESEND_TOPICS.platformLogin,
+    topicId: EMAIL_RESEND_TOPICS.stackmatch,
     ...splitName(getDisplayName(user)),
   });
 
@@ -60,27 +60,21 @@ export const run = internalAction({
     email: v.string(),
     name: v.string(),
     githubLogin: v.optional(v.string()),
-    sendWelcome: v.boolean(),
   },
   handler: async (_ctx, args) => {
-    const nameParts = splitName(args.name);
-
-    const topicResult = await subscribeContactToTopic({
+    const topicResult = await optUserIntoStackmatchTopic({
+      _id: args.email,
       email: args.email,
-      topicId: EMAIL_RESEND_TOPICS.platformLogin,
-      ...nameParts,
+      name: args.name,
+      username: args.githubLogin,
     });
 
-    if (!topicResult.success) {
-      console.error("[authOnboarding] Failed to subscribe contact to Resend topic", {
+    if (topicResult.status === "error") {
+      console.error("[authOnboarding] Failed to subscribe contact to Stackmatch topic", {
         email: args.email,
-        topicId: EMAIL_RESEND_TOPICS.platformLogin,
+        topicId: EMAIL_RESEND_TOPICS.stackmatch,
         error: topicResult.error,
       });
-    }
-
-    if (!args.sendWelcome) {
-      return;
     }
 
     const emailResult = await sendEmail({
@@ -116,7 +110,7 @@ export const backfillExistingUsersToResendTopic = internalAction({
     limit: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
-  handler: async (ctx, { cursor = null, limit, dryRun = false }) => {
+  handler: async (ctx, { cursor = null, limit, dryRun = true }) => {
     const pageSize = Math.max(
       BACKFILL_MIN_LIMIT,
       Math.min(limit ?? BACKFILL_DEFAULT_LIMIT, BACKFILL_MAX_LIMIT)
@@ -149,7 +143,7 @@ export const backfillExistingUsersToResendTopic = internalAction({
         continue;
       }
 
-      const result = await subscribeUserToLoginTopic(user);
+      const result = await optUserIntoStackmatchTopic(user);
       results.push({
         authUserId: user._id,
         email: user.email,
@@ -160,7 +154,7 @@ export const backfillExistingUsersToResendTopic = internalAction({
 
     return {
       dryRun,
-      topicId: EMAIL_RESEND_TOPICS.platformLogin,
+      topicId: EMAIL_RESEND_TOPICS.stackmatch,
       isDone: page.isDone,
       continueCursor: page.continueCursor || null,
       subscribed: results.filter((result) => result.status === "subscribed").length,

@@ -41,7 +41,7 @@ export const EMAIL_URLS = {
 } as const;
 
 export const EMAIL_RESEND_TOPICS = {
-  platformLogin: "f8cb9fb4-f161-4bbf-b779-0c13a53a6727",
+  stackmatch: "247aa52d-443e-4ff9-8ce1-bfc56c388503",
 } as const;
 
 export const EMAIL_LEGAL = {

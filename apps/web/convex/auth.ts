@@ -29,7 +29,6 @@ const authOnboardingFn = requireModule(
     email: string;
     name: string;
     githubLogin?: string;
-    sendWelcome: boolean;
   }
 >;
 
@@ -47,8 +46,7 @@ function getDisplayName(user: AuthUserForOnboarding): string {
 
 async function scheduleAuthOnboarding(
   ctx: GenericMutationCtx<DataModel>,
-  user: AuthUserForOnboarding,
-  options: { sendWelcome: boolean }
+  user: AuthUserForOnboarding
 ) {
   if (!user.email) return;
 
@@ -57,7 +55,6 @@ async function scheduleAuthOnboarding(
     email: user.email,
     name: getDisplayName(user),
     ...(githubLogin ? { githubLogin } : {}),
-    sendWelcome: options.sendWelcome,
   });
 }
 
@@ -81,7 +78,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
     user: {
       onCreate: async (ctx, user) => {
         await claimProfileFromAuthUser(ctx, user);
-        await scheduleAuthOnboarding(ctx, user, { sendWelcome: true });
+        await scheduleAuthOnboarding(ctx, user);
       },
       onUpdate: async (ctx, user) => {
         await claimProfileFromAuthUser(ctx, user);
@@ -92,7 +89,6 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         const user = await authComponent.getAnyUserById(ctx, session.userId);
         if (user) {
           await claimProfileFromAuthUser(ctx, user);
-          await scheduleAuthOnboarding(ctx, user, { sendWelcome: false });
         }
       },
     },

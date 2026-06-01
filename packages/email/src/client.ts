@@ -105,16 +105,6 @@ export async function subscribeContactToTopic(
       return { success: true, id: createResult.data?.id };
     }
 
-    const updateResult = await client.contacts.update({
-      email,
-      firstName: options.firstName,
-      lastName: options.lastName,
-    });
-
-    if (updateResult.error) {
-      return { success: false, error: updateResult.error.message };
-    }
-
     const topicResult = await client.contacts.topics.update({
       email,
       topics: [topic],
@@ -124,7 +114,7 @@ export async function subscribeContactToTopic(
       return { success: false, error: topicResult.error.message };
     }
 
-    return { success: true, id: topicResult.data?.id ?? updateResult.data?.id };
+    return { success: true, id: topicResult.data?.id };
   } catch (err) {
     return {
       success: false,
