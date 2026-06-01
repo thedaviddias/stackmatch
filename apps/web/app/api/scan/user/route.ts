@@ -145,19 +145,7 @@ async function getScanSubmitter(): Promise<ScanSubmitter | undefined> {
   };
 }
 
-async function resolveScanRepos(
-  owner: string | undefined,
-  reposInput: ScanUserRepoInput[] | undefined
-): Promise<ScanUserRepoInput[] | NextResponse> {
-  const repos = normalizeUserScanInput(owner, reposInput);
-  if (repos.length > 0) {
-    return repos;
-  }
-
-  if (!owner) {
-    return jsonError("owner is required when repos are not provided", BAD_REQUEST_STATUS);
-  }
-
+async function resolveScanRepos(owner: string): Promise<ScanUserRepoInput[] | NextResponse> {
   try {
     return await fetchTopPublicRepos(owner);
   } catch (error) {
@@ -193,35 +181,65 @@ async function resolveScanRepos(
   }
 }
 
-async function requestScanForRepos({
+function resolveScanOwner(
+  owner: string | undefined,
+  reposInput: ScanUserRepoInput[] | undefined
+): string | NextResponse {
+  if (owner) {
+    return owner;
+  }
+
+  const repos = normalizeUserScanInput(undefined, reposInput);
+  if (repos.length === 0) {
+    return jsonError("owner is required when repos are not provided", BAD_REQUEST_STATUS);
+  }
+
+  const owners = new Map<string, string>();
+  for (const repo of repos) {
+    const normalizedOwner = normalizeGitHubOwnerInput(repo.owner);
+    if (!normalizedOwner) {
+      return jsonError(INVALID_OWNER_INPUT_MESSAGE, BAD_REQUEST_STATUS);
+    }
+    owners.set(normalizedOwner.toLowerCase(), normalizedOwner);
+  }
+
+  if (owners.size !== 1) {
+    return jsonError(
+      "All submitted repositories must belong to one GitHub owner.",
+      BAD_REQUEST_STATUS
+    );
+  }
+
+  const [inferredOwner] = owners.values();
+  if (!inferredOwner) {
+    return jsonError("owner is required when repos are not provided", BAD_REQUEST_STATUS);
+  }
+
+  return inferredOwner;
+}
+
+async function requestScanForOwner({
   request,
   owner,
-  repos,
   apiKey,
   submitter,
 }: {
   request: Request;
-  owner: string | undefined;
-  repos: ScanUserRepoInput[];
+  owner: string;
   apiKey: string;
   submitter: ScanSubmitter | undefined;
 }) {
+  const throttleResponse = await enforceScanThrottle(request, owner, apiKey, submitter);
+  if (throttleResponse) return throttleResponse;
+
+  const repos = await resolveScanRepos(owner);
+  if (repos instanceof NextResponse) return repos;
+
   if (repos.length === 0) {
     return jsonError("No public repositories found for this owner", NOT_FOUND_STATUS);
   }
 
-  const throttleOwner = owner ?? repos[0]?.owner;
-  if (!throttleOwner) {
-    return jsonError("owner is required", BAD_REQUEST_STATUS);
-  }
-
-  const ownerProfile =
-    (await fetchGitHubOwnerProfile(throttleOwner)) ?? getFallbackOwnerProfile(throttleOwner);
-
-  if (!owner) {
-    const throttleResponse = await enforceScanThrottle(request, throttleOwner, apiKey, submitter);
-    if (throttleResponse) return throttleResponse;
-  }
+  const ownerProfile = (await fetchGitHubOwnerProfile(owner)) ?? getFallbackOwnerProfile(owner);
 
   try {
     const result = await fetchMutation(api.mutations.request_user_scan.requestUserScan, {
@@ -234,7 +252,7 @@ async function requestScanForRepos({
     return NextResponse.json({ queued: result.length, results: result });
   } catch (error) {
     logger.error("requestUserScan mutation failed", error, {
-      owner: owner ?? repos[0]?.owner,
+      owner,
       repoCount: repos.length,
     });
 
@@ -264,15 +282,10 @@ export async function POST(request: Request) {
   const owner = resolveOwnerInput(body.owner);
   if (owner instanceof NextResponse) return owner;
 
+  const scanOwner = resolveScanOwner(owner, body.repos);
+  if (scanOwner instanceof NextResponse) return scanOwner;
+
   const submitter = await getScanSubmitter();
 
-  if (owner) {
-    const throttleResponse = await enforceScanThrottle(request, owner, apiKey, submitter);
-    if (throttleResponse) return throttleResponse;
-  }
-
-  const repos = await resolveScanRepos(owner, body.repos);
-  if (repos instanceof NextResponse) return repos;
-
-  return requestScanForRepos({ request, owner, repos, apiKey, submitter });
+  return requestScanForOwner({ request, owner: scanOwner, apiKey, submitter });
 }

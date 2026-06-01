@@ -192,6 +192,42 @@ describe("POST /api/scan/user", () => {
     expect(fetchGitHubOwnerProfileMock).toHaveBeenCalledWith("facebook");
   });
 
+  it("uses submitted repos only to infer the owner and queues GitHub-derived repos", async () => {
+    fetchTopPublicReposMock.mockResolvedValueOnce([{ owner: "octocat", name: "server-repo" }]);
+
+    const response = await POST(
+      makeRequest({ repos: [{ owner: "octocat", name: "client-supplied-repo" }] })
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchTopPublicReposMock).toHaveBeenCalledWith("octocat");
+    expect(fetchMutationMock).toHaveBeenNthCalledWith(
+      2,
+      "requestUserScan",
+      expect.objectContaining({
+        repos: [{ owner: "octocat", name: "server-repo" }],
+      })
+    );
+  });
+
+  it("rejects repo-only submissions that mix owners", async () => {
+    const response = await POST(
+      makeRequest({
+        repos: [
+          { owner: "octocat", name: "hello-world" },
+          { owner: "facebook", name: "react" },
+        ],
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "All submitted repositories must belong to one GitHub owner.",
+    });
+    expect(fetchMutationMock).not.toHaveBeenCalled();
+    expect(fetchTopPublicReposMock).not.toHaveBeenCalled();
+  });
+
   it("falls back to a minimal owner profile when GitHub profile hydration fails", async () => {
     fetchGitHubOwnerProfileMock.mockResolvedValueOnce(null);
     fetchTopPublicReposMock.mockResolvedValueOnce([{ owner: "htmlhint", name: "HTMLHint" }]);
@@ -268,6 +304,24 @@ describe("POST /api/scan/user", () => {
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "GitHub owner 'missing' was not found" });
+  });
+
+  it("does not queue repo-only submissions when GitHub cannot verify the inferred owner", async () => {
+    fetchMutationMock.mockReset();
+    fetchMutationMock.mockResolvedValueOnce({ allowed: true, retryAfterSeconds: 0, reason: null });
+    fetchTopPublicReposMock.mockRejectedValueOnce(
+      new GitHubPublicReposError("GitHub owner 'missing' was not found", "not_found", 404)
+    );
+
+    const response = await POST(makeRequest({ repos: [{ owner: "missing", name: "fake-repo" }] }));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "GitHub owner 'missing' was not found" });
+    expect(fetchMutationMock).toHaveBeenCalledTimes(1);
+    expect(fetchMutationMock).toHaveBeenCalledWith(
+      "throttleScanUser",
+      expect.objectContaining({ owner: "missing" })
+    );
   });
 
   it("returns GitHub rate errors distinctly", async () => {
