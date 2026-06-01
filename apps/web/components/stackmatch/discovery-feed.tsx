@@ -1,30 +1,15 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
-import {
-  DISCOVERY_THIN_FEED_THRESHOLD,
-  MENTOR_STACK_SCORE_MULTIPLIER,
-} from "@stackmatch/constants/feed";
+import { DISCOVERY_THIN_FEED_THRESHOLD } from "@stackmatch/constants/feed";
 import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import { FEED_RECENT_WINDOW_MS } from "@stackmatch/constants/social";
 import { DAY_MS } from "@stackmatch/constants/time";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
-import {
-  Clock,
-  Compass,
-  Dna,
-  GitBranch,
-  Handshake,
-  MapPin,
-  Search,
-  Sparkles,
-  Trophy,
-  UserPlus,
-} from "lucide-react";
+import { Clock, Compass, Handshake, Search, Sparkles, Trophy, UserPlus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { UserCard } from "@/components/cards/user-card";
 import { isOwnerOnline, usePresenceByOwners } from "@/components/presence/use-presence-by-owners";
 import { getI18n } from "@/lib/re-exports/i18n";
 import { cn } from "@/lib/storage/utils";
@@ -38,18 +23,10 @@ const i18n = getI18n();
 const FRESH_FACES_WINDOW_MS = FEED_RECENT_WINDOW_MS;
 const RECENTLY_UPDATED_WINDOW_DAYS = 7;
 const RECENTLY_UPDATED_WINDOW_MS = RECENTLY_UPDATED_WINDOW_DAYS * DAY_MS;
-const STACK_TWIN_THRESHOLD = 0.6;
 const HOT_STARS_THRESHOLD = 3;
-const DISCOVERY_CARD_AVATAR_SIZE = 96;
-const DISCOVERY_CARD_TOP_STACK_LIMIT = 5;
-const DISCOVERY_CARD_MOBILE_TOP_STACK_LIMIT = 3;
 const COMPACT_DISCOVERY_CARD_AVATAR_SIZE = 48;
 const COMPACT_DISCOVERY_CARD_TOP_STACK_LIMIT = 3;
-const FRESH_FACES_SECTION_LIMIT = 6;
-const NEW_TO_GRAPH_SECTION_LIMIT = 6;
-const STACK_TWINS_SECTION_LIMIT = 4;
-const NEAR_YOU_SECTION_LIMIT = 6;
-const MENTORS_SECTION_LIMIT = 6;
+const RECENT_ACTIVITY_SECTION_LIMIT = 6;
 
 type BadgeType = "new" | "updated" | "hot";
 
@@ -66,7 +43,6 @@ interface DiscoveryFeedProps {
   weekStart: number;
   viewerLocationCity?: string;
   viewerLocationCountryCode?: string;
-  /** Profile owner's Stack Score, used to surface higher-scored "mentor" matches. */
   ownerStackScore?: number;
   ownerType?: OwnerType;
 }
@@ -77,13 +53,7 @@ interface DiscoveryCopy {
   thinFeedTitle: string;
   thinFeedDescription: string;
   weeklyPicksSubtitle: string;
-  freshFacesSubtitle: string;
-  newToGraphSubtitle: string;
-  stackTwinsSubtitle: string;
-  nearYouTitle: string;
-  nearYouSubtitle: string;
-  mentorsTitle: string;
-  mentorsSubtitle: string;
+  recentActivitySubtitle: string;
   bestMatchesSubtitle: string;
 }
 
@@ -145,57 +115,29 @@ function isRecentlyIndexed(match: Stackmate, now: number): boolean {
   );
 }
 
-/** Candidates whose location matches the viewer's city or country, not already claimed. */
-function selectNearYou(
-  matches: Stackmate[],
-  claimed: Set<string>,
-  viewerLocationCity: string | undefined,
-  viewerLocationCountryCode: string | undefined
-): Stackmate[] {
-  if (!viewerLocationCity && !viewerLocationCountryCode) return [];
-  return matches
-    .filter((m) => {
-      if (m.isBlurred || !m.profile || claimed.has(m.owner)) return false;
-      if (
-        viewerLocationCity &&
-        m.profile.locationCity?.toLowerCase() === viewerLocationCity.toLowerCase()
-      ) {
-        return true;
-      }
-      return (
-        viewerLocationCountryCode != null &&
-        m.profile.locationCountryCode === viewerLocationCountryCode
-      );
-    })
-    .slice(0, NEAR_YOU_SECTION_LIMIT);
-}
-
-/**
- * Surfaces the "junior finds senior with the same stack" adjacency: candidates
- * whose Stack Score clears the owner's by the mentor multiplier. Returns empty
- * when the owner's score is unknown/zero (the threshold would admit everyone).
- */
-function selectMentors(
-  matches: Stackmate[],
-  claimed: Set<string>,
-  ownerStackScore: number | undefined
-): Stackmate[] {
-  if (!ownerStackScore || ownerStackScore <= 0) return [];
-  const mentorScoreThreshold = ownerStackScore * MENTOR_STACK_SCORE_MULTIPLIER;
-  return matches
-    .filter(
-      (m) =>
-        !m.isBlurred &&
-        !claimed.has(m.owner) &&
-        (m.profile?.stackScore ?? 0) >= mentorScoreThreshold
-    )
-    .sort((a, b) => (b.profile?.stackScore ?? 0) - (a.profile?.stackScore ?? 0))
-    .slice(0, MENTORS_SECTION_LIMIT);
-}
-
 function getProfileStatus(match: Stackmate) {
   if (match.profile?.isClaimed === true) return "claimed";
   if (match.profile?.indexedAt != null) return "indexed";
+  return undefined;
+}
+
+function getRecentActivityTimestamp(match: Stackmate, now: number): number | null {
+  if (isRecentlyClaimed(match, now) && match.profile?.joinedAt != null) {
+    return match.profile.joinedAt;
+  }
+  if (isRecentlyIndexed(match, now) && match.profile?.indexedAt != null) {
+    return match.profile.indexedAt;
+  }
+  return null;
+}
+
+function formatRecentActivityLabel(match: Stackmate, now: number): string | undefined {
+  if (isRecentlyClaimed(match, now) && match.profile?.joinedAt != null) {
+    return formatJoinedAgo(match.profile.joinedAt, now);
+  }
+  if (isRecentlyIndexed(match, now) && match.profile?.indexedAt != null) {
+    return formatIndexedAgo(match.profile.indexedAt, now);
+  }
   return undefined;
 }
 
@@ -220,53 +162,6 @@ function BadgeOverlay({ badges }: { badges: Badge[] }) {
           {badge.label}
         </span>
       ))}
-    </div>
-  );
-}
-
-function HorizontalCard({
-  match,
-  badges,
-  metaLabel,
-  isOnline,
-  topStackLimit = DISCOVERY_CARD_TOP_STACK_LIMIT,
-  mobileTopStackLimit = DISCOVERY_CARD_MOBILE_TOP_STACK_LIMIT,
-}: {
-  match: Stackmate;
-  badges: Badge[];
-  /** Optional recency label for horizontal discovery sections. */
-  metaLabel?: string;
-  isOnline: boolean;
-  topStackLimit?: number;
-  mobileTopStackLimit?: number;
-}) {
-  return (
-    <div className="relative min-w-0 pt-2">
-      <BadgeOverlay badges={badges} />
-      <UserCard
-        owner={match.owner}
-        avatarUrl={
-          match.avatarUrl ?? ROUTES.external.githubAvatar(match.owner, DISCOVERY_CARD_AVATAR_SIZE)
-        }
-        displayName={match.profile?.name ?? undefined}
-        repoCount={match.publicRepoCount}
-        isSyncing={false}
-        isOnline={isOnline}
-        matchScore={getOverallMatchPercent(match)}
-        power={match.profile?.stackScore}
-        topStacks={match.profile?.topStacks}
-        topStackLimit={topStackLimit}
-        mobileTopStackLimit={mobileTopStackLimit}
-        starsCount={match.starsCount}
-        profileStatus={getProfileStatus(match)}
-        ownerType={match.profile?.ownerType}
-      />
-      {metaLabel && (
-        <div className="mt-2 flex items-center gap-1 px-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
-          <Clock className="size-2.5" />
-          {metaLabel}
-        </div>
-      )}
     </div>
   );
 }
@@ -430,13 +325,7 @@ function getDiscoveryCopy(isOwnerViewer: boolean, isOrganization: boolean): Disc
       thinFeedDescription:
         "The graph is still growing. Explore the ecosystem to surface more related profiles.",
       weeklyPicksSubtitle: "Featured matches from this organization's strongest overlaps",
-      freshFacesSubtitle: "Recently joined profiles with matching stacks",
-      newToGraphSubtitle: "Recently indexed profiles with matching stacks",
-      stackTwinsSubtitle: "Profiles with nearly identical dependency graphs",
-      nearYouTitle: "Nearby Builders",
-      nearYouSubtitle: "Nearby profiles with similar stacks",
-      mentorsTitle: "Experienced Builders",
-      mentorsSubtitle: "Experienced profiles with similar dependency graphs",
+      recentActivitySubtitle: "Recently joined or indexed profiles with matching stacks",
       bestMatchesSubtitle: "Top matches based on this organization's dependency fingerprint",
     };
   }
@@ -451,13 +340,7 @@ function getDiscoveryCopy(isOwnerViewer: boolean, isOrganization: boolean): Disc
     thinFeedTitle: i18n.pages.discovery.thinFeedTitle,
     thinFeedDescription: i18n.pages.discovery.thinFeedDescription,
     weeklyPicksSubtitle: "Featured stackmates rotating from your strongest matches",
-    freshFacesSubtitle: "Recently joined stackmates with matching stacks",
-    newToGraphSubtitle: "Recently indexed stackmates with matching stacks",
-    stackTwinsSubtitle: "Developers with nearly identical dependency graphs",
-    nearYouTitle: "Near You",
-    nearYouSubtitle: "Stackmates in your area",
-    mentorsTitle: i18n.pages.discovery.mentorsTitle,
-    mentorsSubtitle: i18n.pages.discovery.mentorsSubtitle,
+    recentActivitySubtitle: "Recently joined or indexed stackmates with matching stacks",
     bestMatchesSubtitle: "Top matches based on your unique dependency fingerprint",
   };
 }
@@ -538,9 +421,6 @@ export function DiscoveryFeed({
   isOwnerViewer,
   viewerOwner,
   weekStart,
-  viewerLocationCity,
-  viewerLocationCountryCode,
-  ownerStackScore,
   ownerType,
 }: DiscoveryFeedProps) {
   const now = useMemo(() => Date.now(), []);
@@ -548,62 +428,42 @@ export function DiscoveryFeed({
   const isOrganization = ownerType === OWNER_TYPE_ORGANIZATION;
   const copy = getDiscoveryCopy(isOwnerViewer, isOrganization);
 
-  // ── Build sections with cascading deduplication ──────────────
-  // Highlight sections exclude owners already claimed by earlier highlight
-  // sections. Best Matches is the primary ranked list and keeps the full pool.
+  const { weeklyPicks, bestMatches, recentActivity, adjustedTotalMatchCount } = useMemo(() => {
+    const featuredOwners = new Set<string>();
 
-  const { weeklyPicks, freshFaces, newToGraph, stackTwins, nearYou, mentors } = useMemo(() => {
-    const claimed = new Set<string>();
-
-    // 1. Weekly Picks — use the ranked matches from the backend. Raw
-    // Jaccard can drop after private packages hydrate even when overlap is meaningful.
+    // Weekly Picks use the ranked matches from the backend. Raw Jaccard can drop
+    // after private packages hydrate even when overlap is meaningful.
     const picks = pickWeeklyPicks(matches, viewerOwner, weekStart);
-    for (const pick of picks) claimed.add(pick.owner);
+    for (const pick of picks) featuredOwners.add(pick.owner);
 
-    // 2. Fresh Faces — claimed < recent window, not already claimed
-    const ff = matches
-      .filter((m) => !m.isBlurred && !claimed.has(m.owner) && isRecentlyClaimed(m, now))
-      .slice(0, FRESH_FACES_SECTION_LIMIT);
-    for (const m of ff) claimed.add(m.owner);
+    const recent = matches
+      .map((match) => ({ match, recentAt: getRecentActivityTimestamp(match, now) }))
+      .filter(
+        (entry): entry is { match: Stackmate; recentAt: number } =>
+          entry.recentAt !== null &&
+          !entry.match.isBlurred &&
+          !featuredOwners.has(entry.match.owner)
+      )
+      .sort((a, b) => b.recentAt - a.recentAt)
+      .slice(0, RECENT_ACTIVITY_SECTION_LIMIT)
+      .map((entry) => entry.match);
 
-    // 3. New to the Graph — recently indexed but not claimed
-    const ng = matches
-      .filter((m) => !m.isBlurred && !claimed.has(m.owner) && isRecentlyIndexed(m, now))
-      .slice(0, NEW_TO_GRAPH_SECTION_LIMIT);
-    for (const m of ng) claimed.add(m.owner);
+    for (const match of recent) featuredOwners.add(match.owner);
 
-    // 4. Stack Twins — Jaccard >= threshold, not already claimed
-    const st = matches
-      .filter((m) => !m.isBlurred && !claimed.has(m.owner) && m.jaccard >= STACK_TWIN_THRESHOLD)
-      .sort((a, b) => b.jaccard - a.jaccard)
-      .slice(0, STACK_TWINS_SECTION_LIMIT);
-    for (const m of st) claimed.add(m.owner);
-
-    // 5. Near You — matching location, not already claimed
-    const ny = selectNearYou(matches, claimed, viewerLocationCity, viewerLocationCountryCode);
-    for (const m of ny) claimed.add(m.owner);
-
-    // 6. Mentors With Your Stack — higher Stack Score than the owner, not already claimed.
-    const mt = selectMentors(matches, claimed, ownerStackScore);
-    for (const m of mt) claimed.add(m.owner);
+    const rankedMatches = matches.filter((match) => !featuredOwners.has(match.owner));
+    const visibleFeaturedOwnerCount = featuredOwners.size;
+    const adjustedTotal =
+      totalMatchCount === undefined
+        ? undefined
+        : Math.max(0, totalMatchCount - visibleFeaturedOwnerCount);
 
     return {
       weeklyPicks: picks,
-      freshFaces: ff,
-      newToGraph: ng,
-      stackTwins: st,
-      nearYou: ny,
-      mentors: mt,
+      bestMatches: rankedMatches,
+      recentActivity: recent,
+      adjustedTotalMatchCount: adjustedTotal,
     };
-  }, [
-    matches,
-    viewerOwner,
-    weekStart,
-    now,
-    viewerLocationCity,
-    viewerLocationCountryCode,
-    ownerStackScore,
-  ]);
+  }, [matches, viewerOwner, weekStart, now, totalMatchCount]);
 
   if (matches.length === 0) {
     return <DiscoveryEmptyState isOwnerViewer={isOwnerViewer} copy={copy} />;
@@ -613,26 +473,7 @@ export function DiscoveryFeed({
 
   return (
     <div className="space-y-10">
-      {/* Best Matches — primary backend-ranked list with pagination/hide/gate */}
-      <div>
-        <DiscoverySection
-          title="Best Matches"
-          icon={<Sparkles className="size-4" />}
-          subtitle={copy.bestMatchesSubtitle}
-          layout="grid"
-        >
-          <div className="col-span-full">
-            <StackmateGrid
-              matches={matches}
-              totalMatchCount={totalMatchCount}
-              isOwnerViewer={isOwnerViewer}
-              ownerType={ownerType}
-            />
-          </div>
-        </DiscoverySection>
-      </div>
-
-      {/* Weekly Picks — only shown if quality matches exist */}
+      {/* Weekly Picks — highest-priority rotating recommendations */}
       {weeklyPicks.length > 0 && (
         <div>
           <DiscoverySection
@@ -649,118 +490,42 @@ export function DiscoveryFeed({
         </div>
       )}
 
-      {/* Fresh Faces — claimed users with "Joined X days ago" labels */}
-      {freshFaces.length > 0 && (
-        <div>
-          <DiscoverySection
-            title="Fresh Faces"
-            icon={<UserPlus className="size-4" />}
-            subtitle={copy.freshFacesSubtitle}
-            count={freshFaces.length}
-            layout="horizontal"
-          >
-            {freshFaces.map((match) => (
-              <HorizontalCard
-                key={match.owner}
-                match={match}
-                badges={computeBadges(match, now)}
-                isOnline={isOwnerOnline(presenceByOwner, match.owner)}
-                metaLabel={
-                  match.profile?.joinedAt ? formatJoinedAgo(match.profile.joinedAt, now) : undefined
-                }
-              />
-            ))}
-          </DiscoverySection>
-        </div>
-      )}
+      {/* Best Matches — primary backend-ranked list with pagination/hide/gate */}
+      <div>
+        <DiscoverySection
+          title="Best Matches"
+          icon={<Sparkles className="size-4" />}
+          subtitle={copy.bestMatchesSubtitle}
+          layout="grid"
+        >
+          <div className="col-span-full">
+            <StackmateGrid
+              matches={bestMatches}
+              totalMatchCount={adjustedTotalMatchCount}
+              isOwnerViewer={isOwnerViewer}
+              ownerType={ownerType}
+            />
+          </div>
+        </DiscoverySection>
+      </div>
 
-      {/* New to the Graph — indexed owners who have not claimed yet */}
-      {newToGraph.length > 0 && (
+      {/* Recent Activity — joined and indexed profiles, unique from earlier sections */}
+      {recentActivity.length > 0 && (
         <div>
           <DiscoverySection
-            title="New to the Graph"
-            icon={<GitBranch className="size-4" />}
-            subtitle={copy.newToGraphSubtitle}
-            count={newToGraph.length}
+            title="Recent Activity"
+            icon={<UserPlus className="size-4" />}
+            subtitle={copy.recentActivitySubtitle}
+            count={recentActivity.length}
             layout="compact-grid"
           >
-            {newToGraph.map((match) => (
+            {recentActivity.map((match) => (
               <CompactDiscoveryCard
                 key={match.owner}
                 match={match}
                 badges={computeBadges(match, now)}
                 isOnline={isOwnerOnline(presenceByOwner, match.owner)}
-                metaLabel={
-                  match.profile?.indexedAt
-                    ? formatIndexedAgo(match.profile.indexedAt, now)
-                    : undefined
-                }
-              />
-            ))}
-          </DiscoverySection>
-        </div>
-      )}
-
-      {/* Stack Twins */}
-      {stackTwins.length > 0 && (
-        <div>
-          <DiscoverySection
-            title="Stack Twins"
-            icon={<Dna className="size-4" />}
-            subtitle={copy.stackTwinsSubtitle}
-            count={stackTwins.length}
-            layout="horizontal"
-          >
-            {stackTwins.map((match) => (
-              <HorizontalCard
-                key={match.owner}
-                match={match}
-                badges={computeBadges(match, now)}
-                isOnline={isOwnerOnline(presenceByOwner, match.owner)}
-              />
-            ))}
-          </DiscoverySection>
-        </div>
-      )}
-
-      {/* Near You */}
-      {nearYou.length > 0 && (
-        <div>
-          <DiscoverySection
-            title={copy.nearYouTitle}
-            icon={<MapPin className="size-4" />}
-            subtitle={copy.nearYouSubtitle}
-            count={nearYou.length}
-            layout="horizontal"
-          >
-            {nearYou.map((match) => (
-              <HorizontalCard
-                key={match.owner}
-                match={match}
-                badges={computeBadges(match, now)}
-                isOnline={isOwnerOnline(presenceByOwner, match.owner)}
-              />
-            ))}
-          </DiscoverySection>
-        </div>
-      )}
-
-      {/* Mentors With Your Stack — higher Stack Score, shares the dependency graph */}
-      {mentors.length > 0 && (
-        <div>
-          <DiscoverySection
-            title={copy.mentorsTitle}
-            icon={<Trophy className="size-4" />}
-            subtitle={copy.mentorsSubtitle}
-            count={mentors.length}
-            layout="horizontal"
-          >
-            {mentors.map((match) => (
-              <HorizontalCard
-                key={match.owner}
-                match={match}
-                badges={computeBadges(match, now)}
-                isOnline={isOwnerOnline(presenceByOwner, match.owner)}
+                metaLabel={formatRecentActivityLabel(match, now)}
               />
             ))}
           </DiscoverySection>

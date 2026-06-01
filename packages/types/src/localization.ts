@@ -174,8 +174,6 @@ export interface AppCopy {
       exploreStacksCta: string;
       exploreDevelopersCta: string;
       signInCta: string;
-      mentorsTitle: string;
-      mentorsSubtitle: string;
     };
   };
   feedback: {

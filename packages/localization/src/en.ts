@@ -161,7 +161,7 @@ export const en: AppCopy = {
         "Top packages and repo signals show what you actually build with, not just what you list in a bio.",
       profileSignalStackmatesTitle: "Stackmates",
       profileSignalStackmatesDescription:
-        "Best Matches, Stack Twins, Fresh Faces, and Nearby stackers are grouped from your dependency graph.",
+        "Weekly Picks, Best Matches, and Recent Activity are grouped from your dependency graph.",
       profileSignalReputationTitle: "Reputation",
       profileSignalReputationDescription:
         "Stars, mutual matches, referrals, and public stack activity help your profile level up.",
@@ -290,8 +290,6 @@ export const en: AppCopy = {
       exploreStacksCta: "Explore trending stacks",
       exploreDevelopersCta: "Browse developers",
       signInCta: "Sign in to see your matches",
-      mentorsTitle: "Mentors With Your Stack",
-      mentorsSubtitle: "Seasoned developers who share your dependency graph",
     },
   },
   feedback: {

@@ -95,7 +95,7 @@ function makeWeeklyCandidates(count = 2): Stackmate[] {
   );
 }
 
-describe("DiscoveryFeed joined/indexed grouping", () => {
+describe("DiscoveryFeed sections", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -105,7 +105,7 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
     vi.useRealTimers();
   });
 
-  it("shows recent claimed users in Fresh Faces with joined labels", () => {
+  it("shows recent claimed users in Recent Activity with joined labels", () => {
     renderFeed([
       ...makeWeeklyCandidates(),
       makeMatch("claimed", {
@@ -118,17 +118,19 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
       }),
     ]);
 
-    const freshFaces = screen.getByText("Fresh Faces").closest("[data-discovery-section]");
-    expect(freshFaces).not.toBeNull();
-    expect(within(freshFaces as HTMLElement).getByTestId("card-claimed")).toBeInTheDocument();
+    const recentActivity = screen.getByText("Recent Activity").closest("[data-discovery-section]");
+    expect(recentActivity).not.toBeNull();
     expect(
-      within(freshFaces as HTMLElement).queryByTestId("compact-discovery-card-claimed")
+      within(recentActivity as HTMLElement).getByTestId("compact-discovery-card-claimed")
+    ).toBeInTheDocument();
+    expect(
+      within(recentActivity as HTMLElement).queryByTestId("card-claimed")
     ).not.toBeInTheDocument();
-    expect(within(freshFaces as HTMLElement).getByText("claimed")).toBeInTheDocument();
+    expect(within(recentActivity as HTMLElement).getByText("claimed")).toBeInTheDocument();
     expect(screen.getByText("Joined yesterday")).toBeInTheDocument();
   });
 
-  it("shows recent unclaimed indexed users in New to the Graph", () => {
+  it("shows recent unclaimed indexed users in Recent Activity", () => {
     renderFeed([
       ...makeWeeklyCandidates(),
       makeMatch("indexed", {
@@ -140,20 +142,22 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
       }),
     ]);
 
-    const newToGraph = screen.getByText("New to the Graph").closest("[data-discovery-section]");
-    expect(newToGraph).not.toBeNull();
+    const recentActivity = screen.getByText("Recent Activity").closest("[data-discovery-section]");
+    expect(recentActivity).not.toBeNull();
     expect(
-      (newToGraph as HTMLElement).querySelector('[data-discovery-layout="compact-grid"]')
+      (recentActivity as HTMLElement).querySelector('[data-discovery-layout="compact-grid"]')
     ).toBeInTheDocument();
     expect(
-      within(newToGraph as HTMLElement).getByTestId("compact-discovery-card-indexed")
+      within(recentActivity as HTMLElement).getByTestId("compact-discovery-card-indexed")
     ).toBeInTheDocument();
-    expect(within(newToGraph as HTMLElement).queryByTestId("card-indexed")).not.toBeInTheDocument();
-    expect(within(newToGraph as HTMLElement).getByText("indexed")).toBeInTheDocument();
+    expect(
+      within(recentActivity as HTMLElement).queryByTestId("card-indexed")
+    ).not.toBeInTheDocument();
+    expect(within(recentActivity as HTMLElement).getByText("indexed")).toBeInTheDocument();
     expect(screen.getByText("Indexed today")).toBeInTheDocument();
   });
 
-  it("does not show unclaimed indexed users in Fresh Faces", () => {
+  it("merges recent claimed and indexed users into Recent Activity", () => {
     renderFeed([
       ...makeWeeklyCandidates(),
       makeMatch("claimed", {
@@ -173,41 +177,25 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
       }),
     ]);
 
-    const freshFaces = screen.getByText("Fresh Faces").closest(".space-y-5");
-    expect(freshFaces).not.toBeNull();
-    expect(within(freshFaces as HTMLElement).getByTestId("card-claimed")).toBeInTheDocument();
-    expect(within(freshFaces as HTMLElement).queryByTestId("card-indexed")).not.toBeInTheDocument();
+    const recentActivity = getDiscoverySection("Recent Activity");
+    expect(
+      within(recentActivity).getByTestId("compact-discovery-card-claimed")
+    ).toBeInTheDocument();
+    expect(
+      within(recentActivity).getByTestId("compact-discovery-card-indexed")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Fresh Faces")).not.toBeInTheDocument();
+    expect(screen.queryByText("New to the Graph")).not.toBeInTheDocument();
   });
 
-  it("renders Best Matches first as the full ranked match list", () => {
+  it("renders Weekly Picks, Best Matches, then Recent Activity", () => {
     renderFeed([
+      ...makeWeeklyCandidates(5),
       makeMatch(
-        "weekly-a",
+        "recent",
         {
-          name: "Weekly Match A",
-          avatarUrl: "https://github.com/weekly-a.png",
-          followers: 1,
-          isClaimed: false,
-          indexedAt: NOW - 20 * DAY_MS,
-        },
-        { hybridScore: 0.91, jaccard: 0.2 }
-      ),
-      makeMatch(
-        "weekly-b",
-        {
-          name: "Weekly Match B",
-          avatarUrl: "https://github.com/weekly-b.png",
-          followers: 1,
-          isClaimed: false,
-          indexedAt: NOW - 20 * DAY_MS,
-        },
-        { hybridScore: 0.82, jaccard: 0.15 }
-      ),
-      makeMatch(
-        "claimed",
-        {
-          name: "Claimed User",
-          avatarUrl: "https://github.com/claimed.png",
+          name: "Recent Match",
+          avatarUrl: "https://github.com/recent.png",
           followers: 1,
           isClaimed: true,
           joinedAt: NOW,
@@ -217,19 +205,21 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
       ),
     ]);
 
-    const bestMatches = getDiscoverySection("Best Matches");
     const weeklyPicks = getDiscoverySection("Weekly Picks");
+    const bestMatches = getDiscoverySection("Best Matches");
+    const recentActivity = getDiscoverySection("Recent Activity");
 
     expect(
-      bestMatches.compareDocumentPosition(weeklyPicks) & Node.DOCUMENT_POSITION_FOLLOWING
+      weeklyPicks.compareDocumentPosition(bestMatches) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
-    expect(within(bestMatches).getByTestId("card-weekly-a")).toBeInTheDocument();
-    expect(within(bestMatches).getByTestId("card-weekly-b")).toBeInTheDocument();
-    expect(within(bestMatches).getByTestId("card-claimed")).toBeInTheDocument();
+    expect(
+      bestMatches.compareDocumentPosition(recentActivity) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it("uses hybrid score for the visible match percentage", () => {
     renderFeed([
+      ...makeWeeklyCandidates(5),
       makeMatch(
         "overall-score",
         {
@@ -248,7 +238,7 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
     expect(within(bestMatches).queryByText("score:5")).not.toBeInTheDocument();
   });
 
-  it("does not duplicate users already claimed by Weekly Picks into later highlights", () => {
+  it("does not duplicate Weekly Picks into Best Matches or Recent Activity", () => {
     renderFeed([
       makeMatch(
         "weekly-a",
@@ -278,13 +268,33 @@ describe("DiscoveryFeed joined/indexed grouping", () => {
 
     expect(screen.getByText("Weekly Picks")).toBeInTheDocument();
     expect(screen.getAllByText("Weekly Pick")).toHaveLength(2);
+    expect(
+      within(getDiscoverySection("Best Matches")).queryByTestId("card-weekly-a")
+    ).not.toBeInTheDocument();
+    expect(
+      within(getDiscoverySection("Best Matches")).queryByTestId("card-weekly-b")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent Activity")).not.toBeInTheDocument();
+  });
+
+  it("does not render removed discovery rail headings", () => {
+    renderFeed([
+      ...makeWeeklyCandidates(5),
+      makeMatch("recent", {
+        name: "Recent Match",
+        avatarUrl: "https://github.com/recent.png",
+        followers: 1,
+        isClaimed: true,
+        joinedAt: NOW,
+        indexedAt: NOW,
+      }),
+    ]);
+
     expect(screen.queryByText("Fresh Faces")).not.toBeInTheDocument();
-    expect(
-      within(getDiscoverySection("Best Matches")).getByTestId("card-weekly-a")
-    ).toBeInTheDocument();
-    expect(
-      within(getDiscoverySection("Best Matches")).getByTestId("card-weekly-b")
-    ).toBeInTheDocument();
+    expect(screen.queryByText("New to the Graph")).not.toBeInTheDocument();
+    expect(screen.queryByText("Stack Twins")).not.toBeInTheDocument();
+    expect(screen.queryByText("Near You")).not.toBeInTheDocument();
+    expect(screen.queryByText("Mentors With Your Stack")).not.toBeInTheDocument();
   });
 
   it("keeps a weekly match visible when package-heavy graphs have low Jaccard", () => {
