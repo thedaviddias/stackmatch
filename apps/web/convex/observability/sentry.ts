@@ -58,3 +58,27 @@ export const reportBackgroundFailure = internalAction({
     });
   },
 });
+
+export const reportProfileClaimFailure = internalAction({
+  args: {
+    stage: v.union(v.literal("auth"), v.literal("login"), v.literal("claim")),
+    error: v.string(),
+    owner: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    await captureConvexSentryEvent({
+      message: "Profile claim failed",
+      level: "error",
+      tags: {
+        area: "profile_claim",
+        stage: args.stage,
+        ...(args.owner ? { owner: args.owner } : {}),
+      },
+      extra: {
+        owner: args.owner,
+        error: args.error,
+      },
+      fingerprint: ["profile-claim-failed", args.stage],
+    });
+  },
+});

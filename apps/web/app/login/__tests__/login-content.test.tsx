@@ -6,7 +6,7 @@ import { axe } from "vitest-axe";
 import { LoginContent } from "../login-content";
 
 const mocks = vi.hoisted(() => ({
-  claimProfile: vi.fn(async () => undefined),
+  claimProfile: vi.fn<() => Promise<unknown>>(async () => undefined),
   fetch: vi.fn(),
   loggerError: vi.fn(),
   repairGitHubLogin: vi.fn(async () => null as string | null),
@@ -284,8 +284,9 @@ describe("LoginContent post-auth claiming", () => {
     await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/thedaviddias"));
     expect(mocks.loggerError).toHaveBeenCalledWith(
-      "Failed to queue profile scan after login:",
-      expect.any(Error)
+      "[UserAction] queue_profile_scan_after_login",
+      expect.any(Error),
+      { owner: "thedaviddias" }
     );
   });
 
@@ -307,7 +308,7 @@ describe("LoginContent post-auth claiming", () => {
     await waitFor(() => expect(mocks.repairGitHubLogin).toHaveBeenCalledTimes(1));
   });
 
-  it("shows recovery when profile claiming fails", async () => {
+  it("reports claim failures but still queues scan and redirects", async () => {
     mocks.useSession.mockReturnValue({
       session: {
         user: {
@@ -325,7 +326,48 @@ describe("LoginContent post-auth claiming", () => {
 
     render(<LoginContent />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Claim failed");
-    expect(mocks.replace).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.claimProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mocks.fetch).toHaveBeenCalledWith(
+        "/api/scan/resync-user",
+        expect.objectContaining({
+          body: JSON.stringify({ owner: "thedaviddias" }),
+        })
+      )
+    );
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/thedaviddias"));
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      "[UserAction] claim_profile_after_login",
+      expect.any(Error),
+      { owner: "thedaviddias" }
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reports structured claim failures returned by Convex", async () => {
+    mocks.useSession.mockReturnValue({
+      session: {
+        user: {
+          name: "David Dias",
+          image: "https://avatars.githubusercontent.com/u/123?v=4",
+        },
+      },
+      isPending: false,
+      error: null,
+    });
+    mocks.useQuery.mockImplementation((_query: unknown, args: unknown) =>
+      args === "skip" ? undefined : "thedaviddias"
+    );
+    mocks.claimProfile.mockResolvedValue({ ok: false, code: "auth_unavailable" });
+
+    render(<LoginContent />);
+
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/thedaviddias"));
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      "[UserAction] claim_profile_after_login",
+      expect.objectContaining({ message: "Profile claim failed: auth_unavailable" }),
+      { owner: "thedaviddias" }
+    );
   });
 });

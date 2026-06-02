@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalMutation, mutation } from "../_generated/server";
+import { internalMutation, type MutationCtx, mutation } from "../_generated/server";
 import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { refreshOwnerDirectoryCacheForOwner } from "../lib/directory_cache";
@@ -9,13 +9,54 @@ import { claimProfileForLogin, resolveProfileClaimedAt } from "../lib/profile_cl
 
 export { resolveProfileClaimedAt };
 
+type ClaimProfileStage = "auth" | "login" | "claim";
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function reportProfileClaimFailure(
+  ctx: MutationCtx,
+  args: { stage: ClaimProfileStage; error: unknown; owner?: string }
+) {
+  try {
+    await ctx.scheduler.runAfter(0, internal.observability.sentry.reportProfileClaimFailure, {
+      stage: args.stage,
+      error: getErrorMessage(args.error),
+      ...(args.owner ? { owner: args.owner } : {}),
+    });
+  } catch (reportError) {
+    console.error("[claimProfile] Failed to report profile claim failure to Sentry", reportError);
+  }
+}
+
 export const claimProfile = mutation({
   args: {},
   handler: async (ctx) => {
-    const user = await authComponent.getAuthUser(ctx);
+    let user: Awaited<ReturnType<typeof authComponent.getAuthUser>>;
+    try {
+      user = await authComponent.getAuthUser(ctx);
+    } catch (error) {
+      await reportProfileClaimFailure(ctx, { stage: "auth", error });
+      return { ok: false, code: "auth_unavailable" as const };
+    }
+
     const login = await resolveGitHubLogin(ctx, user);
-    if (!login) throw new Error("Unauthorized");
-    await claimProfileForLogin(ctx, login, { name: user.name, image: user.image });
+    if (!login) {
+      await reportProfileClaimFailure(ctx, {
+        stage: "login",
+        error: new Error("Unable to resolve GitHub login for authenticated user."),
+      });
+      return { ok: false, code: "login_unresolved" as const };
+    }
+
+    try {
+      await claimProfileForLogin(ctx, login, { name: user.name, image: user.image });
+      return { ok: true, owner: login };
+    } catch (error) {
+      await reportProfileClaimFailure(ctx, { stage: "claim", owner: login, error });
+      return { ok: false, code: "claim_failed" as const, owner: login };
+    }
   },
 });
 

@@ -25,6 +25,7 @@ import { authClient } from "@/lib/auth/auth-client";
 import { buildLoginUrl, getReturnToFromCurrentLocation } from "@/lib/auth/login-url";
 import { getWebAlert } from "@/lib/feedback/alert-registry";
 import { buildProfileRedirectUrl, isValidGitHubLogin } from "@/lib/leaderboard/login-redirect";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { getI18n } from "@/lib/re-exports/i18n";
 import { logger } from "@/lib/re-exports/logger";
 import { clearPendingReferral, getPendingReferral } from "@/lib/storage/pending-referral";
@@ -41,6 +42,9 @@ type ToggleStarMutation = (args: { targetOwner: string }) => Promise<{
 type ClaimProfileMutation = () => Promise<unknown>;
 type RedeemInviteMutation = (args: { code: string }) => Promise<{ referrerOwner: string }>;
 type RepairGitHubLoginAction = () => Promise<string | null>;
+type ClaimProfileResult =
+  | { ok: true; owner?: string }
+  | { ok: false; code: string; owner?: string };
 type LoginRepairState = {
   repairedLogin: string | null;
   status: "idle" | "repairing" | "completed";
@@ -182,6 +186,47 @@ async function queueProfileScan(owner: string) {
   }
 }
 
+function isClaimProfileResult(value: unknown): value is ClaimProfileResult {
+  return Boolean(value && typeof value === "object" && "ok" in value);
+}
+
+function getClaimProfileFailure(result: unknown): string | null {
+  if (!isClaimProfileResult(result) || result.ok) return null;
+  return result.code;
+}
+
+async function claimProfileAfterLogin({
+  owner,
+  claimProfile,
+}: {
+  owner: string;
+  claimProfile: ClaimProfileMutation;
+}): Promise<boolean> {
+  try {
+    const result = await claimProfile();
+    const failure = getClaimProfileFailure(result);
+    if (failure) {
+      throw new Error(`Profile claim failed: ${failure}`);
+    }
+
+    trackEvent("score_step_completed", { owner, step: "claim_profile" });
+    return true;
+  } catch (error) {
+    captureUserActionError("claim_profile_after_login", error, { owner });
+    return false;
+  }
+}
+
+async function queueProfileScanAfterLogin(owner: string): Promise<boolean> {
+  try {
+    await queueProfileScan(owner);
+    return true;
+  } catch (scanError) {
+    captureUserActionError("queue_profile_scan_after_login", scanError, { owner });
+    return false;
+  }
+}
+
 function usePostLoginRedirectFlow({
   session,
   isPending,
@@ -220,13 +265,8 @@ function usePostLoginRedirectFlow({
       try {
         if (!profileClaimed) {
           profileClaimStartedRef.current = true;
-          await claimProfile();
-          trackEvent("score_step_completed", { owner: resolvedLogin, step: "claim_profile" });
-          try {
-            await queueProfileScan(resolvedLogin);
-          } catch (scanError) {
-            logger.error("Failed to queue profile scan after login:", scanError);
-          }
+          await claimProfileAfterLogin({ owner: resolvedLogin, claimProfile });
+          await queueProfileScanAfterLogin(resolvedLogin);
           if (cancelled) return;
           setProfileClaimed(true);
         }
