@@ -128,5 +128,9 @@ describe("claimProfileForLogin feed events", () => {
       dedupeKey: "joined:alice",
       createdAt: NOW,
     });
+    expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(0, expect.anything(), {
+      targetOwner: "alice",
+      claimedAt: NOW,
+    });
   });
 });

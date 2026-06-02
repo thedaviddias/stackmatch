@@ -121,11 +121,6 @@
   color: var(--fgColor-muted);
 }
 
-[data-theme="github"] [data-theme-label="brand-mark"] {
-  background: var(--fgColor-default);
-  color: var(--bgColor-default);
-}
-
 /* Primer-like buttons */
 [data-theme="github"] [data-theme-button] {
   min-height: 32px;

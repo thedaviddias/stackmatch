@@ -1,9 +1,16 @@
 import { FEED_EVENT_TYPE_FOLLOWED } from "@stackmatch/constants/feed";
+import {
+  NOTIFICATION_CATEGORY_FOLLOWS,
+  NOTIFICATION_CATEGORY_PROFILES,
+  NOTIFICATION_TYPE_NEW_FOLLOWER,
+  NOTIFICATION_TYPE_PROFILE_CLAIMED,
+} from "@stackmatch/constants/notifications";
 import { getFeatureGates } from "@stackmatch/utils";
 import { anyApi } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import { type MutationCtx, mutation } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { internalMutation, type MutationCtx, mutation } from "../_generated/server";
 import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { assertFeatureGate, computeStackScore, incrementDailyAction } from "../lib/feature_gates";
@@ -31,6 +38,30 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+async function requireSignedInOwner(
+  ctx: MutationCtx,
+  actionLabel: string
+): Promise<{ githubLogin: string }> {
+  let user: Awaited<ReturnType<typeof authComponent.getAuthUser>>;
+  try {
+    user = await authComponent.getAuthUser(ctx);
+  } catch {
+    throw new ConvexError(`Authentication required. Please sign in to ${actionLabel}.`);
+  }
+
+  const githubLogin = await resolveGitHubLogin(ctx, user);
+  if (!githubLogin) {
+    throw new ConvexError("Cannot determine GitHub login. Please sign out and sign back in.");
+  }
+  await touchOwnerPresence(ctx, githubLogin);
+
+  return { githubLogin };
+}
+
+function isClaimedProfile(profile: Doc<"profiles"> | null | undefined): boolean {
+  return Boolean(profile?.isClaimed || profile?.memberNumber != null || profile?.claimedAt != null);
+}
+
 async function reportBackgroundFailure(
   ctx: MutationCtx,
   args: {
@@ -49,7 +80,7 @@ async function reportBackgroundFailure(
       error: getErrorMessage(args.error),
     });
   } catch (reportError) {
-    console.error("[toggleFollow] Failed to report background failure to Sentry", reportError);
+    console.error("[follows] Failed to report background failure to Sentry", reportError);
   }
 }
 
@@ -100,18 +131,7 @@ export const toggleFollow = mutation({
   },
   handler: async (ctx, { targetOwner }) => {
     // ── 1. Authenticate ────────────────────────────────────────
-    let user: Awaited<ReturnType<typeof authComponent.getAuthUser>>;
-    try {
-      user = await authComponent.getAuthUser(ctx);
-    } catch {
-      throw new ConvexError("Authentication required. Please sign in to follow developers.");
-    }
-
-    const githubLogin = await resolveGitHubLogin(ctx, user);
-    if (!githubLogin) {
-      throw new ConvexError("Cannot determine GitHub login. Please sign out and sign back in.");
-    }
-    await touchOwnerPresence(ctx, githubLogin);
+    const { githubLogin } = await requireSignedInOwner(ctx, "follow developers");
 
     // ── 2. Prevent self-follow ──────────────────────────────────
     if (githubLogin === targetOwner) {
@@ -193,8 +213,8 @@ export const toggleFollow = mutation({
       await ctx.runMutation(enqueueForOwnerFn, {
         recipientOwner: targetOwner,
         actorOwner: githubLogin,
-        category: "follows",
-        type: "new_follower",
+        category: NOTIFICATION_CATEGORY_FOLLOWS,
+        type: NOTIFICATION_TYPE_NEW_FOLLOWER,
         title: "You have a new follower",
         message: `${githubLogin} started following you.`,
         actionUrl: buildOwnerProfileNotificationUrl(githubLogin, process.env.NEXT_PUBLIC_BASE_URL),
@@ -231,5 +251,110 @@ export const toggleFollow = mutation({
     }
 
     return { followed: true };
+  },
+});
+
+/**
+ * Auth-gated mutation: watch an unclaimed profile and get notified when it is claimed.
+ *
+ * This is intentionally separate from follows:
+ * - watching does not require the target to be claimed yet
+ * - watching does not count against follow limits
+ * - watching does not notify the target until the claim actually happens
+ */
+export const toggleProfileClaimWatch = mutation({
+  args: {
+    targetOwner: v.string(),
+  },
+  handler: async (ctx, { targetOwner }) => {
+    const { githubLogin } = await requireSignedInOwner(ctx, "watch profile claims");
+
+    if (githubLogin === targetOwner) {
+      throw new ConvexError("You cannot watch your own profile claim.");
+    }
+
+    const targetProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_owner", (q) => q.eq("owner", targetOwner))
+      .first();
+
+    if (targetProfile?.visibility === "hidden" || targetProfile?.visibility === "private") {
+      throw new ConvexError("This profile is not available.");
+    }
+
+    if (isClaimedProfile(targetProfile)) {
+      return { watching: false, alreadyClaimed: true };
+    }
+
+    const existingWatch = await ctx.db
+      .query("profileClaimWatches")
+      .withIndex("by_watcher_target", (q) =>
+        q.eq("watcherOwner", githubLogin).eq("targetOwner", targetOwner)
+      )
+      .unique();
+
+    if (existingWatch) {
+      await ctx.db.delete(existingWatch._id);
+      return { watching: false, alreadyClaimed: false };
+    }
+
+    await ctx.db.insert("profileClaimWatches", {
+      watcherOwner: githubLogin,
+      targetOwner,
+      createdAt: Date.now(),
+    });
+
+    return { watching: true, alreadyClaimed: false };
+  },
+});
+
+export const notifyProfileClaimWatchers = internalMutation({
+  args: {
+    targetOwner: v.string(),
+    claimedAt: v.number(),
+  },
+  handler: async (ctx, { targetOwner, claimedAt }) => {
+    const watches = await ctx.db
+      .query("profileClaimWatches")
+      .withIndex("by_target", (q) => q.eq("targetOwner", targetOwner))
+      .collect();
+    let notified = 0;
+    let skipped = 0;
+
+    for (const watch of watches) {
+      if (watch.notifiedAt != null || watch.watcherOwner === targetOwner) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        await ctx.runMutation(enqueueForOwnerFn, {
+          recipientOwner: watch.watcherOwner,
+          actorOwner: targetOwner,
+          category: NOTIFICATION_CATEGORY_PROFILES,
+          type: NOTIFICATION_TYPE_PROFILE_CLAIMED,
+          title: `${targetOwner} claimed their StackMatch profile`,
+          message: `@${targetOwner} claimed their profile. You can now follow, star, and compare their stack.`,
+          actionUrl: buildOwnerProfileNotificationUrl(
+            targetOwner,
+            process.env.NEXT_PUBLIC_BASE_URL
+          ),
+          dedupeKey: `profile_claimed:${watch.watcherOwner}:${targetOwner}`,
+          allowEmail: true,
+        });
+        await ctx.db.patch(watch._id, { notifiedAt: claimedAt });
+        notified += 1;
+      } catch (error) {
+        console.error("[notifyProfileClaimWatchers] Failed to notify watcher", error);
+        await reportBackgroundFailure(ctx, {
+          action: "notify_profile_claim_watcher",
+          owner: watch.watcherOwner,
+          targetOwner,
+          error,
+        });
+      }
+    }
+
+    return { notified, skipped };
   },
 });

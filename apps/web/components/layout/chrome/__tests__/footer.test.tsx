@@ -15,6 +15,22 @@ function renderFooter() {
 }
 
 describe("Footer", () => {
+  it("uses the shared brand dot instead of the SM logo", () => {
+    const { container } = renderFooter();
+
+    expect(screen.getByText("Stackmatch").parentElement).not.toHaveTextContent("SM");
+    expect(container.querySelector("[data-theme-label='brand-mark']")).not.toBeInTheDocument();
+
+    const brandDot = container.querySelector("[data-brand-pulse-dot]");
+    expect(brandDot).toHaveAttribute("aria-hidden", "true");
+    expect(brandDot).toHaveClass("relative", "flex", "size-2.5", "shrink-0");
+    expect(container.querySelector("[data-brand-pulse-dot-halo]")).toHaveClass(
+      "animate-ping",
+      "bg-th-accent-1"
+    );
+    expect(container.querySelector("[data-brand-pulse-dot-core]")).toHaveClass("bg-th-accent-1");
+  });
+
   it("renders ownership and copyright without exposing email addresses", () => {
     renderFooter();
 

@@ -15,6 +15,10 @@ vi.mock("@/components/social/message-button", () => ({
   MessageButton: () => <button type="button" aria-label="Message" />,
 }));
 
+vi.mock("@/components/social/profile-claim-watch/profile-claim-watch-button", () => ({
+  ProfileClaimWatchButton: () => <button type="button">Notify when claimed</button>,
+}));
+
 vi.mock("@/components/social/profile-safety-menu", () => ({
   ProfileSafetyMenu: () => <button type="button" aria-label="Safety menu" />,
 }));
@@ -217,5 +221,13 @@ describe("ProfileHeader", () => {
 
     expect(screen.getByText("Organization")).toBeInTheDocument();
     expect(screen.queryByText("Verified Organization")).not.toBeInTheDocument();
+  });
+
+  it("shows a claim-watch action for unclaimed developer profiles", () => {
+    render(<ProfileHeader {...baseProps} state={{ ...baseProps.state, claimed: false }} />);
+
+    expect(screen.getByRole("button", { name: "Notify when claimed" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Follow" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /message/i })).not.toBeInTheDocument();
   });
 });

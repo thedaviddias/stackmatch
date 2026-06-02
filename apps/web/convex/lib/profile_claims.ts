@@ -93,6 +93,15 @@ export async function claimProfileForLogin(
     } catch (error) {
       console.error("[claimProfileForLogin] Failed to create feed event", error);
     }
+
+    try {
+      await ctx.scheduler.runAfter(0, internal.mutations.follows.notifyProfileClaimWatchers, {
+        targetOwner: login,
+        claimedAt: now,
+      });
+    } catch (error) {
+      console.error("[claimProfileForLogin] Failed to schedule claim watcher notifications", error);
+    }
   }
 
   return { newlyClaimed: !wasClaimed };

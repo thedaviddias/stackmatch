@@ -1,7 +1,12 @@
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
+
+function isClaimedProfile(profile: Doc<"profiles"> | null | undefined): boolean {
+  return Boolean(profile?.isClaimed || profile?.memberNumber != null || profile?.claimedAt != null);
+}
 
 /**
  * Check whether the authenticated user follows a given target.
@@ -27,6 +32,39 @@ export const getFollowStatus = query({
       .unique();
 
     return { isFollowing: follow !== null };
+  },
+});
+
+/**
+ * Check whether the authenticated user is watching an unclaimed profile for its first claim.
+ */
+export const getProfileClaimWatchStatus = query({
+  args: { targetOwner: v.string() },
+  handler: async (ctx, { targetOwner }) => {
+    const targetProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_owner", (q) => q.eq("owner", targetOwner))
+      .first();
+    const alreadyClaimed = isClaimedProfile(targetProfile);
+
+    let user: Awaited<ReturnType<typeof authComponent.getAuthUser>>;
+    try {
+      user = await authComponent.getAuthUser(ctx);
+    } catch {
+      return { isWatching: false, alreadyClaimed };
+    }
+
+    const githubLogin = await resolveGitHubLogin(ctx, user);
+    if (!githubLogin) return { isWatching: false, alreadyClaimed };
+
+    const watch = await ctx.db
+      .query("profileClaimWatches")
+      .withIndex("by_watcher_target", (q) =>
+        q.eq("watcherOwner", githubLogin).eq("targetOwner", targetOwner)
+      )
+      .unique();
+
+    return { isWatching: watch !== null, alreadyClaimed };
   },
 });
 

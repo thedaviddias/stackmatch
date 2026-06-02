@@ -1,4 +1,5 @@
 import { ROUTES, siteConfig } from "@stackmatch/config";
+import { BrandPulseDot } from "@/components/layout/chrome/brand-pulse-dot";
 import { ModeToggle } from "@/components/layout/theme/mode-toggle";
 import { ThemeSelector } from "@/components/layout/theme/theme-selector";
 import { LinkCustom } from "@/components/ui/link";
@@ -57,13 +58,8 @@ export function Footer() {
       <div className="mx-auto max-w-app px-4 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[minmax(220px,0.9fr)_minmax(0,1.6fr)]">
           <div className="max-w-sm space-y-4">
-            <div className="flex items-center gap-2 text-sm font-black tracking-tight text-foreground dark:text-white">
-              <div
-                data-theme-label="brand-mark"
-                className="flex size-7 items-center justify-center rounded-md bg-foreground font-display text-[10px] text-background"
-              >
-                SM
-              </div>
+            <div className="flex items-center gap-2.5 text-sm font-black tracking-tight text-foreground dark:text-white">
+              <BrandPulseDot />
               <span>Stackmatch</span>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground">

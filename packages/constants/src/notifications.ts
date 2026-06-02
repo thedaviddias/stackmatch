@@ -1,7 +1,16 @@
 import { HOUR_MS, MINUTE_MS } from "@stackmatch/constants/time";
 
-export const DEFAULT_NOTIFICATION_CATEGORY = "general";
-export const DEFAULT_NOTIFICATION_TYPE = "generic";
+export const NOTIFICATION_CATEGORY_FOLLOWS = "follows";
+export const NOTIFICATION_CATEGORY_GENERAL = "general";
+export const NOTIFICATION_CATEGORY_PROFILES = "profiles";
+export const NOTIFICATION_CATEGORY_STARS = "stars";
+
+export const NOTIFICATION_TYPE_GENERIC = "generic";
+export const NOTIFICATION_TYPE_NEW_FOLLOWER = "new_follower";
+export const NOTIFICATION_TYPE_PROFILE_CLAIMED = "profile_claimed";
+
+export const DEFAULT_NOTIFICATION_CATEGORY = NOTIFICATION_CATEGORY_GENERAL;
+export const DEFAULT_NOTIFICATION_TYPE = NOTIFICATION_TYPE_GENERIC;
 
 export const NOTIFICATION_MIN_DIGEST_WINDOW_MINUTES = 5;
 export const NOTIFICATION_MAX_DIGEST_WINDOW_MINUTES = 24 * 60;

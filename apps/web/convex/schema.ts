@@ -785,6 +785,19 @@ export default defineSchema({
     .index("by_pair", ["followerOwner", "followingOwner"])
     .index("by_created", ["createdAt"]),
 
+  // ─── Profile Claim Watch System ────────────────────────────
+  // Lets signed-in users watch indexed, unclaimed profiles and get
+  // notified when the owner claims their StackMatch profile.
+  profileClaimWatches: defineTable({
+    watcherOwner: v.string(),
+    targetOwner: v.string(),
+    createdAt: v.number(),
+    notifiedAt: v.optional(v.number()),
+  })
+    .index("by_watcher", ["watcherOwner", "createdAt"])
+    .index("by_watcher_target", ["watcherOwner", "targetOwner"])
+    .index("by_target", ["targetOwner", "createdAt"]),
+
   // ─── Activity Feed ────────────────────────────────────────
   feedEvents: defineTable({
     owner: v.string(), // who generated this event

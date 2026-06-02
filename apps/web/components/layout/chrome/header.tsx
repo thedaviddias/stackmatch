@@ -4,6 +4,7 @@ import { ROUTES } from "@stackmatch/config";
 import { cn } from "@stackmatch/utils/cn";
 import type { FocusEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { BrandPulseDot } from "@/components/layout/chrome/brand-pulse-dot";
 import { GitHubRepoStarLink } from "@/components/layout/chrome/github-repo-star-link";
 import { UserMenu } from "@/components/layout/chrome/user-menu";
 import { SearchTrigger } from "@/components/search/search-trigger";
@@ -128,10 +129,7 @@ export function Header() {
               href={ROUTES.home}
               className="group flex min-w-0 shrink-0 items-center gap-2.5"
             >
-              <span className="relative flex size-2.5 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-th-accent-1 opacity-75" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-th-accent-1" />
-              </span>
+              <BrandPulseDot />
               <span className="block min-w-0 truncate font-display text-lg font-black leading-none tracking-tight text-foreground transition-colors group-hover:text-th-accent-1-text dark:text-white">
                 stackmatch
               </span>
