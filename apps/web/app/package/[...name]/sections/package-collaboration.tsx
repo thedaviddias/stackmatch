@@ -108,20 +108,22 @@ export function PackageCollaboration({
           {relatedPreview.length > 0 ? (
             <div className="mt-4 space-y-2">
               {relatedPreview.slice(0, COMPANION_PREVIEW_LIMIT).map((pkg) => (
-                <div
+                <Link
                   key={pkg.packageName}
-                  className="flex items-center justify-between rounded-xl border border-neutral-800/50 bg-neutral-900/20 px-3 py-1.5 text-xs"
+                  href={ROUTES.package(pkg.packageName)}
+                  aria-label={`View ${pkg.packageName} package analysis`}
+                  className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-neutral-800/50 bg-neutral-900/20 px-3 py-1.5 text-xs transition-colors group/companion hover:border-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
-                  <span className="font-bold text-white truncate max-w-[100px]">
+                  <span className="min-w-0 break-all font-bold text-white transition-colors group-hover/companion:text-th-accent-1-text">
                     {pkg.packageName}
                   </span>
-                  <span className="text-[10px] text-neutral-500">
+                  <span className="whitespace-nowrap text-[10px] text-neutral-500">
                     lift{" "}
                     <span className="font-black text-white">
                       {pkg.liftScore?.toFixed(1) ?? "N.A"}
                     </span>
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (

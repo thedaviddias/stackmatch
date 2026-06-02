@@ -68,7 +68,7 @@ export async function resolveGitHubLogin(
  * This is extracted as a pure function so it can be unit-tested
  * independently of the Convex runtime.
  *
- * @param siteUrl      — The primary site URL (e.g. "https://aivshuman.dev")
+ * @param siteUrl      — The primary site URL (e.g. "https://stackmatch.dev")
  * @param extraOrigins — Optional comma-separated string of additional trusted origins
  *                        (e.g. from a TRUSTED_ORIGINS env var)
  */

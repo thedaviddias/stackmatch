@@ -1,10 +1,11 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ShareButtons } from "../share-buttons";
 
-const { toastErrorMock, toastSuccessMock } = vi.hoisted(() => ({
+const { toastErrorMock, toastSuccessMock, trackEventMock } = vi.hoisted(() => ({
   toastErrorMock: vi.fn(),
   toastSuccessMock: vi.fn(),
+  trackEventMock: vi.fn(),
 }));
 
 type FetchMock = typeof fetch & {
@@ -29,7 +30,7 @@ vi.mock("@stackmatch/hooks/use-sound", () => ({
 }));
 
 vi.mock("@stackmatch/tracking", () => ({
-  trackEvent: vi.fn(),
+  trackEvent: trackEventMock,
 }));
 
 vi.mock("@/lib/re-exports/logger", () => ({
@@ -45,6 +46,10 @@ describe("ShareButtons", () => {
     vi.stubGlobal("alert", vi.fn());
   });
 
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
   it("calls toast.error when copying image fails", async () => {
     (fetch as FetchMock).mockRejectedValueOnce(new Error("Network failure"));
 
@@ -52,8 +57,6 @@ describe("ShareButtons", () => {
       <ShareButtons
         label="octocat"
         type="user"
-        botPercentage="10"
-        humanPercentage="90"
         includesPrivateData={false}
         isOwnProfile={false}
         isSyncing={false}
@@ -77,8 +80,6 @@ describe("ShareButtons", () => {
       <ShareButtons
         label="octocat"
         type="user"
-        botPercentage="10"
-        humanPercentage="90"
         includesPrivateData={false}
         isOwnProfile={false}
         isSyncing={false}
@@ -99,5 +100,46 @@ describe("ShareButtons", () => {
 
     // Ensure alert is NOT called
     expect(window.alert).not.toHaveBeenCalled();
+  });
+
+  it("uses Stackmatch-native download filenames", async () => {
+    const blob = new Blob(["fake"], { type: "image/png" });
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(blob));
+    const createObjectUrl = vi.fn(() => "blob:stackmatch-card");
+    const revokeObjectUrl = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectUrl });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectUrl });
+
+    const { getByRole } = render(
+      <ShareButtons
+        label="octocat/demo"
+        type="repo"
+        includesPrivateData={false}
+        isOwnProfile={false}
+        isSyncing={false}
+      />
+    );
+    const appendedAnchors: HTMLAnchorElement[] = [];
+    const appendChildSpy = vi
+      .spyOn(document.body, "appendChild")
+      .mockImplementation((node: Node) => {
+        if (node instanceof HTMLAnchorElement) appendedAnchors.push(node);
+        return node;
+      });
+
+    fireEvent.click(getByRole("button", { name: /More share options/i }));
+    fireEvent.click(getByRole("button", { name: /Download PNG/i }));
+
+    await waitFor(() => {
+      expect(trackEventMock).toHaveBeenCalledWith("download_png", {
+        label: "octocat/demo",
+        type: "repo",
+      });
+    });
+
+    const anchor = appendedAnchors.at(-1);
+    if (!anchor) throw new Error("Expected download anchor to be appended");
+    expect(anchor.download).toBe("octocat-demo-stackmatch.png");
+    appendChildSpy.mockRestore();
   });
 });

@@ -2,6 +2,7 @@ import { ROUTES } from "@stackmatch/config";
 import { SectionTitle } from "@stackmatch/ui/section-title";
 import { Activity, Building2, Network, PackageSearch, Users } from "lucide-react";
 import Link from "next/link";
+import { PackageBriefShareButton } from "./package-brief-share-button";
 
 interface RelatedPackage {
   packageName: string;
@@ -34,13 +35,14 @@ export function PackageEcosystemIntelligence({
   relatedPackages,
 }: PackageEcosystemIntelligenceProps) {
   const preview = relatedPackages.slice(0, RELATED_PACKAGE_PREVIEW_LIMIT);
+  const companionPackages = preview.map((pkg) => pkg.packageName);
 
   return (
     <section className="space-y-6">
       <SectionTitle
         variant="h2"
-        title="Ecosystem Intelligence"
-        description={`Early public adoption signals for ${packageName}, built from indexed package manifests.`}
+        title="Package Ecosystem Brief"
+        description={`Public and aggregate adoption signals for ${packageName}, built from indexed package manifests.`}
         icon={Network}
         iconClassName="text-cyan-400"
       />
@@ -83,18 +85,46 @@ export function PackageEcosystemIntelligence({
           <div>
             <p className="flex items-center gap-2 text-sm font-black text-white">
               <PackageSearch className="size-4 text-th-accent-1" />
-              Adjacent Stack Signals
+              Adoption Brief
             </p>
             <p className="mt-1 text-sm font-medium text-neutral-500">
-              Packages that frequently appear beside {packageName}.
+              Who uses this, what appears beside it, and which communities are forming around it.
             </p>
           </div>
-          <Link
-            href={ROUTES.companies}
-            className="text-[10px] font-black uppercase tracking-widest text-th-accent-1-text hover:text-th-accent-1"
-          >
-            Sponsor pilots
-          </Link>
+          <PackageBriefShareButton
+            packageName={packageName}
+            developerOwnerCount={developerOwnerCount}
+            organizationOwnerCount={organizationOwnerCount}
+            activeOwners30d={activeOwners30d}
+            companionPackages={companionPackages}
+          />
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-neutral-800 bg-black/30 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+              Who Uses This
+            </p>
+            <p className="mt-2 text-sm font-medium leading-relaxed text-neutral-400">
+              Indexed developers and organizations with {packageName} in public manifests.
+            </p>
+          </div>
+          <div className="rounded-xl border border-neutral-800 bg-black/30 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+              What Appears Beside It
+            </p>
+            <p className="mt-2 text-sm font-medium leading-relaxed text-neutral-400">
+              Companion packages show adjacent stack context for maintainers and DevRel teams.
+            </p>
+          </div>
+          <div className="rounded-xl border border-neutral-800 bg-black/30 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+              Privacy Boundary
+            </p>
+            <p className="mt-2 text-sm font-medium leading-relaxed text-neutral-400">
+              Company-facing signals stay public or aggregate-only.
+            </p>
+          </div>
         </div>
 
         {preview.length > 0 ? (
@@ -117,6 +147,14 @@ export function PackageEcosystemIntelligence({
             More indexed owners are needed before adjacent stack signals become stable.
           </p>
         )}
+        <div className="mt-5">
+          <Link
+            href={ROUTES.companies}
+            className="text-[10px] font-black uppercase tracking-widest text-th-accent-1-text hover:text-th-accent-1"
+          >
+            Company ecosystem options
+          </Link>
+        </div>
       </div>
     </section>
   );

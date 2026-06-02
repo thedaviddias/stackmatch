@@ -189,7 +189,7 @@ export function StatsSummary({
       : "Percent of analyzed commits from maintenance bots.";
 
   const rankTooltip = isGlobal
-    ? "Aggregated global view across all indexed repositories currently tracked in AI vs Human."
+    ? "Aggregated global view across all indexed repositories currently tracked by Stackmatch."
     : "Developer rank is derived from the Human percentage shown in this summary.";
 
   return (

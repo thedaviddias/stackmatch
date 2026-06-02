@@ -139,6 +139,7 @@ Good first areas:
 - Improve package, topic, language, and profile discovery flows.
 - Tighten accessibility and performance for public pages.
 - Refine Convex ingestion and sync reliability.
+- Strengthen sponsor transparency, package ecosystem briefs, and contributor recognition.
 
 Before contributing, read [CONTRIBUTING.md](./CONTRIBUTING.md). This repo uses pnpm, Conventional Commits, Lefthook, centralized constants governance, and data-boundary rules for Convex access.
 

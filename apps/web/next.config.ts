@@ -88,7 +88,7 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       `script-src 'self' 'unsafe-eval' 'unsafe-inline' https://openpanel.dev https://*.sentry.io ${toolbarScriptSrc}`,
       `style-src 'self' 'unsafe-inline' ${toolbarStyleSrc}`,
-      `img-src 'self' blob: data: ${toolbarImgSrc} https://github.com https://avatars.githubusercontent.com https://unavatar.io https://aivshuman.dev https://www.google.com https://*.gstatic.com`,
+      `img-src 'self' blob: data: ${toolbarImgSrc} https://github.com https://avatars.githubusercontent.com https://unavatar.io https://www.google.com https://*.gstatic.com`,
       `font-src 'self' ${toolbarFontSrc}`,
       `connect-src 'self' https://*.convex.cloud https://*.convex.site wss://*.convex.cloud https://api.openpanel.dev https://api.github.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io ${toolbarConnectSrc} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*`,
       `frame-src 'self' ${toolbarFrameSrc}`,

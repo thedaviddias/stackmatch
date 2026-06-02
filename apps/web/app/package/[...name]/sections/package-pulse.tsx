@@ -10,6 +10,19 @@ interface PackagePulseProps {
 }
 
 const PERCENT_MULTIPLIER = 100;
+const WEEKLY_DOWNLOADS_CAPTION = "last 7 days";
+const DOWNLOADS_UNAVAILABLE_CAPTION = "downloads unavailable";
+
+function formatWeeklyDownloadsCaption(
+  weeklyDownloads: number | null | undefined,
+  momentumPct: number | null | undefined
+): string {
+  if (momentumPct != null) {
+    return `${momentumPct >= 0 ? "+" : ""}${momentumPct.toFixed(1)}% vs 4w`;
+  }
+
+  return weeklyDownloads != null ? WEEKLY_DOWNLOADS_CAPTION : DOWNLOADS_UNAVAILABLE_CAPTION;
+}
 
 export function PackagePulse({
   totalOwnerCount,
@@ -76,9 +89,7 @@ export function PackagePulse({
           {formatMaybe(weeklyDownloads, formatDownloads)}
         </p>
         <p className="text-[10px] font-bold text-neutral-500 mt-1">
-          {momentumPct != null
-            ? `${momentumPct >= 0 ? "+" : ""}${momentumPct.toFixed(1)}% vs 4w`
-            : "insufficient data"}
+          {formatWeeklyDownloadsCaption(weeklyDownloads, momentumPct)}
         </p>
       </div>
     </section>

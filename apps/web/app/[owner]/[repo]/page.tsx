@@ -36,9 +36,8 @@ export default async function RepoPage({
   const fullName = `${owner}/${repoName}`;
 
   // Parallel fetch initial data on the server for zero-CLS and faster TTFB
-  const [repoData, summary, contributors] = await Promise.all([
+  const [repoData, contributors] = await Promise.all([
     fetchQuery(api.queries.repos.getRepoBySlug, { owner, name: repoName }),
-    fetchQuery(api.queries.stats.getRepoSummary, { repoFullName: fullName }),
     fetchQuery(api.queries.contributors.getContributorBreakdown, { repoFullName: fullName }),
   ]);
 
@@ -48,7 +47,6 @@ export default async function RepoPage({
         owner={owner}
         repoName={repoName}
         initialRepo={repoData}
-        initialSummary={summary}
         initialContributors={contributors ?? []}
       />
       <script type="application/ld+json">

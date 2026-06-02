@@ -92,6 +92,7 @@ export async function generateMetadata({
     description: i18n.metadata.pages.package.description(packageName),
     path: `/package/${encodeURIComponent(packageName)}`,
     keywords: i18n.metadata.pages.package.keywords(packageName),
+    ogImage: ROUTES.api.og.package(packageName),
   });
 }
 
@@ -241,7 +242,7 @@ export default async function PackagePage({ params }: { params: Promise<{ name: 
         />
 
         {/* 7. Technical Registry Details (Ecosystem Signals) */}
-        <PackageRegistryDetails npmData={npmData} />
+        <PackageRegistryDetails packageName={data.packageName} npmData={npmData} />
 
         {/* 8. Full Related Packages Context */}
         <PackageRelated packageName={data.packageName} relatedPackages={data.relatedPackages} />

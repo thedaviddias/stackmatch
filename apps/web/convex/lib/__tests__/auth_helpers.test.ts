@@ -3,27 +3,27 @@ import { buildTrustedOrigins } from "../auth_helpers";
 
 describe("buildTrustedOrigins", () => {
   it("always includes the siteUrl itself", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev");
-    expect(origins).toContain("https://aivshuman.dev");
+    const origins = buildTrustedOrigins("https://stackmatch.dev");
+    expect(origins).toContain("https://stackmatch.dev");
   });
 
   it("includes localhost for local development", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev");
+    const origins = buildTrustedOrigins("https://stackmatch.dev");
     expect(origins).toContain("http://localhost:3000");
   });
 
   it("includes the portless local app URL for local development", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev");
+    const origins = buildTrustedOrigins("https://stackmatch.dev");
     expect(origins).toContain("https://stackmatch-web.localhost");
   });
 
   it("includes 127.0.0.1 for local development", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev");
+    const origins = buildTrustedOrigins("https://stackmatch.dev");
     expect(origins).toContain("http://127.0.0.1:3000");
   });
 
   it("includes Vercel preview deployment wildcard", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev");
+    const origins = buildTrustedOrigins("https://stackmatch.dev");
     expect(origins.some((o: string) => o.includes("vercel.app"))).toBe(true);
   });
 
@@ -36,34 +36,37 @@ describe("buildTrustedOrigins", () => {
 
   it("includes extra origins from comma-separated string", () => {
     const origins = buildTrustedOrigins(
-      "https://aivshuman.dev",
-      "https://staging.aivshuman.dev,https://custom.example.com"
+      "https://stackmatch.dev",
+      "https://staging.stackmatch.dev,https://custom.example.com"
     );
-    expect(origins).toContain("https://staging.aivshuman.dev");
+    expect(origins).toContain("https://staging.stackmatch.dev");
     expect(origins).toContain("https://custom.example.com");
   });
 
   it("handles empty extra origins gracefully", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev", "");
+    const origins = buildTrustedOrigins("https://stackmatch.dev", "");
     expect(origins.length).toBeGreaterThanOrEqual(3); // siteUrl + localhost + vercel
   });
 
   it("handles undefined extra origins", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev", undefined);
+    const origins = buildTrustedOrigins("https://stackmatch.dev", undefined);
     expect(origins.length).toBeGreaterThanOrEqual(3);
   });
 
   it("trims whitespace from extra origins", () => {
     const origins = buildTrustedOrigins(
-      "https://aivshuman.dev",
-      "  https://staging.aivshuman.dev  , https://test.example.com  "
+      "https://stackmatch.dev",
+      "  https://staging.stackmatch.dev  , https://test.example.com  "
     );
-    expect(origins).toContain("https://staging.aivshuman.dev");
+    expect(origins).toContain("https://staging.stackmatch.dev");
     expect(origins).toContain("https://test.example.com");
   });
 
   it("ignores empty entries in comma-separated extra origins", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev", "https://a.com,,, ,https://b.com");
+    const origins = buildTrustedOrigins(
+      "https://stackmatch.dev",
+      "https://a.com,,, ,https://b.com"
+    );
     expect(origins).toContain("https://a.com");
     expect(origins).toContain("https://b.com");
     // Should not contain empty strings
@@ -72,17 +75,17 @@ describe("buildTrustedOrigins", () => {
 
   it("deduplicates extra origins against default origins", () => {
     const origins = buildTrustedOrigins(
-      "https://aivshuman.dev",
-      "http://localhost:3000,https://aivshuman.dev"
+      "https://stackmatch.dev",
+      "http://localhost:3000,https://stackmatch.dev"
     );
     const localhostCount = origins.filter((o: string) => o === "http://localhost:3000").length;
-    const siteUrlCount = origins.filter((o: string) => o === "https://aivshuman.dev").length;
+    const siteUrlCount = origins.filter((o: string) => o === "https://stackmatch.dev").length;
     expect(localhostCount).toBe(1);
     expect(siteUrlCount).toBe(1);
   });
 
   it("returns a plain array (not a Set)", () => {
-    const origins = buildTrustedOrigins("https://aivshuman.dev");
+    const origins = buildTrustedOrigins("https://stackmatch.dev");
     expect(Array.isArray(origins)).toBe(true);
   });
 });

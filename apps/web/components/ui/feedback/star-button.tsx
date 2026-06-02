@@ -15,6 +15,7 @@ import { useMutation } from "@/data/react";
 import { buildLoginUrlForCurrentLocation } from "@/lib/auth/login-url";
 import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { savePendingStar } from "@/lib/storage/pending-star";
+import { trackEvent } from "@/lib/storage/tracking";
 import { cn } from "@/lib/storage/utils";
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
@@ -41,6 +42,37 @@ function formatCompactNumber(value: number): string {
 interface CountDeltaState {
   starCount: number | undefined;
   starDelta: number;
+}
+
+function getStarTrackingSurface(variant: NonNullable<StarButtonProps["variant"]>) {
+  return variant === "action" ? "profile_header" : "stackmatch_card";
+}
+
+function trackStarResult({
+  targetOwner,
+  variant,
+  starred,
+  isMatch,
+}: {
+  targetOwner: string;
+  variant: NonNullable<StarButtonProps["variant"]>;
+  starred: boolean;
+  isMatch?: boolean;
+}) {
+  const surface = getStarTrackingSurface(variant);
+  trackEvent("star_toggled", {
+    targetOwner,
+    starred,
+    surface,
+  });
+
+  if (isMatch) {
+    trackEvent("mutual_match_created", {
+      targetOwner,
+      surface,
+    });
+    toast.success(`It's a match! You and @${targetOwner} starred each other!`);
+  }
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handles auth gating, optimistic UI, and action/segmented render variants.
@@ -103,6 +135,12 @@ export function StarButton({
       const result = await toggleStar({ targetOwner });
       const nextStarred = result.starred;
       setStarred(nextStarred);
+      trackStarResult({
+        targetOwner,
+        starred: nextStarred,
+        variant,
+        isMatch: result.isMatch,
+      });
 
       const correctionDelta = Number(nextStarred) - Number(optimisticStarred);
       if (correctionDelta !== 0) {
@@ -111,10 +149,6 @@ export function StarButton({
 
       void queryClient.invalidateQueries({ queryKey: ["top-stackers-directory"] });
       void queryClient.invalidateQueries({ queryKey: ["developers-directory"] });
-
-      if (result.isMatch) {
-        toast.success(`It's a match! You and @${targetOwner} starred each other!`);
-      }
     } catch (error) {
       setStarred(wasStarred);
       applyStarDelta(-optimisticDelta);
@@ -123,7 +157,7 @@ export function StarButton({
     } finally {
       setIsLoading(false);
     }
-  }, [session, starred, targetOwner, toggleStar, router, applyStarDelta, queryClient]);
+  }, [session, starred, targetOwner, toggleStar, router, applyStarDelta, queryClient, variant]);
 
   if (variant === "action") {
     return (

@@ -62,8 +62,12 @@ export const ROUTES = {
     githubAvatar: (owner: string, size = 120) => `https://github.com/${owner}.png?size=${size}`,
     twitter: (text: string, url: string) =>
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
-    aivshuman: (owner: string) => `https://aivshuman.dev/${encodeURIComponent(owner)}`,
     npm: (packageName: string) => `https://www.npmjs.com/package/${packageName}`,
+    jsDelivrPackage: (packageName: string) => `https://www.jsdelivr.com/package/npm/${packageName}`,
+    stackOverflowTag: (tag: string) =>
+      `https://stackoverflow.com/questions/tagged/${encodeURIComponent(tag)}`,
+    librariesIoPackage: (packageName: string) =>
+      `https://libraries.io/npm/${encodeURIComponent(packageName)}`,
     skills: (query: string) => `https://skills.sh/?q=${encodeURIComponent(query)}`,
     sponsor: "https://github.com/sponsors/thedaviddias",
     aiTools: {
@@ -123,6 +127,7 @@ export const ROUTES = {
       user: (owner: string) => `/api/og/user?owner=${encodeURIComponent(owner)}`,
       repo: (owner: string, name: string) =>
         `/api/og/repo?owner=${encodeURIComponent(owner)}&name=${encodeURIComponent(name)}`,
+      package: (name: string) => `/api/og/package?name=${encodeURIComponent(name)}`,
     },
   },
 } as const;

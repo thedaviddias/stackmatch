@@ -18,6 +18,7 @@ interface StackmatesSectionCopy {
   heading: string;
   descriptions: Record<IntelTab, string>;
   emptyStarsDescription: string;
+  emptyConnectionsDescription: string;
 }
 
 const developerSectionCopy: StackmatesSectionCopy = {
@@ -27,7 +28,10 @@ const developerSectionCopy: StackmatesSectionCopy = {
     connections: "Mutual matches who starred each other's stack.",
     stars: "Stackers who have recently starred your profile.",
   },
-  emptyStarsDescription: "Star this stacker to recognize their engineering DNA!",
+  emptyStarsDescription:
+    "Star this stacker to recognize their stack. If they star you back, a mutual match can unlock messaging.",
+  emptyConnectionsDescription:
+    "Star compatible stackers and invite peers. Mutual stars become private connections here.",
 };
 
 const organizationSectionCopy: StackmatesSectionCopy = {
@@ -37,7 +41,10 @@ const organizationSectionCopy: StackmatesSectionCopy = {
     connections: "Profiles with reciprocal stack stars.",
     stars: "Stackers who have recently starred this profile.",
   },
-  emptyStarsDescription: "Star this profile to recognize its engineering DNA!",
+  emptyStarsDescription:
+    "Star this profile to recognize its stack. Reciprocal stars create a stronger social signal.",
+  emptyConnectionsDescription:
+    "Verified organizations can use public package and adopter surfaces to build this graph.",
 };
 
 interface StackmatesSectionProps {
@@ -251,6 +258,9 @@ export function StackmatesSection({ data, viewAs, isOwnerViewer }: StackmatesSec
                 <Handshake className="h-10 w-10 text-muted-foreground mb-4 mx-auto dark:text-neutral-600" />
                 <p className="font-bold text-muted-foreground dark:text-neutral-400">
                   No mutual matches this week.
+                </p>
+                <p className="mx-auto mt-2 max-w-xs text-xs font-black uppercase leading-relaxed tracking-widest text-muted-foreground dark:text-neutral-500">
+                  {copy.emptyConnectionsDescription}
                 </p>
               </div>
             ) : (

@@ -78,7 +78,6 @@ Track status in this table during the migration. Do not paste secret values into
 | `SENTRY_PUBLIC_KEY` | Vercel | env var | preview, production | Sentry project settings | Sentry integration | No | No |
 | `SENTRY_OTLP_TRACES_URL` | Vercel | env var | preview, production | Sentry project settings | tracing/log pipeline | No | No |
 | `SENTRY_VERCEL_LOG_DRAIN_URL` | Vercel | env var | preview, production | Sentry/Vercel integration | log drain integration | No | No |
-| `NEXT_PUBLIC_AIVSHUMAN_CONVEX_SITE_URL` | Vercel | env var | any configured environment | AI vs Human Convex deployment | cross-app profile link | No | No |
 
 ## Execution Order
 

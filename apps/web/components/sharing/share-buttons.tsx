@@ -11,7 +11,7 @@ import {
   MoreHorizontal,
   Share,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { ButtonCustom } from "@/components/ui/button";
 import { logger } from "@/lib/re-exports/logger";
@@ -20,16 +20,34 @@ import { trackEvent } from "@/lib/storage/tracking";
 interface ShareButtonsProps {
   label: string;
   type: "user" | "repo";
-  botPercentage: string;
-  /** Actual human-only percentage (excludes both AI and automation) */
-  humanPercentage: string;
-  targetId?: string;
   /** Whether the user has private data linked */
   includesPrivateData?: boolean;
   /** Whether the viewer is the profile owner */
   isOwnProfile?: boolean;
   /** Whether data is currently syncing */
   isSyncing?: boolean;
+}
+
+const SYNC_PULSE_DURATION_MS = 5000;
+
+function subscribeBrowserSnapshot() {
+  return () => {};
+}
+
+function getBrowserUrl() {
+  return window.location.href;
+}
+
+function getServerUrl() {
+  return "";
+}
+
+function getNativeShareAvailability() {
+  return typeof navigator !== "undefined" && "share" in navigator;
+}
+
+function getServerNativeShareAvailability() {
+  return false;
 }
 
 const XLogo = () => (
@@ -42,8 +60,6 @@ const XLogo = () => (
 export function ShareButtons({
   label,
   type,
-  botPercentage,
-  humanPercentage,
   includesPrivateData,
   isOwnProfile,
   isSyncing,
@@ -55,32 +71,36 @@ export function ShareButtons({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { playClick, playSuccess, playToggle } = useSound();
 
-  // Browser-only state: URL and native share capability (single initialization)
-  const [browserState, setBrowserState] = useState({ url: "", hasNativeShare: false });
-
   // Track sync transitions to trigger a pulse effect for the owner
-  const [isPulsing, setIsPulsing] = useState(false);
-  const prevIsSyncing = useRef(isSyncing);
+  const [syncPulse, setSyncPulse] = useState({
+    wasSyncing: isSyncing,
+    isPulsing: false,
+  });
 
-  useEffect(() => {
-    // If sync just finished and this is the owner's profile
-    if (prevIsSyncing.current === true && isSyncing === false && isOwnProfile) {
-      setIsPulsing(true);
-      // Let it pulse for 5 seconds to grab attention
-      const timeout = setTimeout(() => setIsPulsing(false), 5000);
-      return () => clearTimeout(timeout);
-    }
-    prevIsSyncing.current = isSyncing;
-  }, [isSyncing, isOwnProfile]);
-
-  useEffect(() => {
-    setBrowserState({
-      url: window.location.href,
-      hasNativeShare: typeof navigator !== "undefined" && "share" in navigator,
+  if (syncPulse.wasSyncing !== isSyncing) {
+    setSyncPulse({
+      wasSyncing: isSyncing,
+      isPulsing: syncPulse.wasSyncing === true && isSyncing === false && isOwnProfile === true,
     });
-  }, []);
+  }
 
-  const { url, hasNativeShare } = browserState;
+  const isPulsing = syncPulse.isPulsing;
+
+  useEffect(() => {
+    if (!isPulsing) return;
+    const timeout = setTimeout(
+      () => setSyncPulse((current) => ({ ...current, isPulsing: false })),
+      SYNC_PULSE_DURATION_MS
+    );
+    return () => clearTimeout(timeout);
+  }, [isPulsing]);
+
+  const url = useSyncExternalStore(subscribeBrowserSnapshot, getBrowserUrl, getServerUrl);
+  const hasNativeShare = useSyncExternalStore(
+    subscribeBrowserSnapshot,
+    getNativeShareAvailability,
+    getServerNativeShareAvailability
+  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -106,19 +126,11 @@ export function ShareButtons({
   const canDownloadPrivate = isOwnProfile && includesPrivateData && type === "user";
 
   const getShareText = () => {
-    const aiVal = Number.parseFloat(botPercentage);
-    const humanVal = Number.parseFloat(humanPercentage).toFixed(1);
+    if (type === "repo") {
+      return `Project signals for ${label}: popularity, freshness, stack footprint, and repository setup on Stackmatch.`;
+    }
 
-    if (aiVal < 2) {
-      return `100% Organic Code. 🌿 My GitHub contributions are purely human-made. Check my breakdown:`;
-    }
-    if (aiVal < 10) {
-      return `Proof of Human: ${humanVal}% of my code is handcrafted. ✍️ Still keeping it real in the age of AI:`;
-    }
-    if (aiVal < 40) {
-      return `Turns out I'm ${aiVal}% Cyborg. 🦾 AI is my co-pilot on GitHub. Check the breakdown:`;
-    }
-    return `The future of coding is collaborative. 🤖 ${aiVal}% of my commits are AI-assisted. Am I more bot than you?`;
+    return `My Stackmatch profile maps my GitHub package fingerprint, stackmates, and public dependency graph.`;
   };
 
   const twitterUrl = ROUTES.external.twitter(getShareText(), url);
@@ -165,8 +177,9 @@ export function ShareButtons({
       const item = new ClipboardItem({ "image/png": blob });
       await navigator.clipboard.write([item]);
       trackEvent("copy_card", { label, type });
+      trackEvent("share_card_copied", { label, type, surface: "share_buttons" });
       playSuccess();
-      toast.success("Custom card copied to clipboard!");
+      toast.success("Stackmatch card copied to clipboard!");
     } catch (err) {
       logger.error("Failed to copy image", err);
       toast.error("Failed to copy card. Try downloading it instead.");
@@ -188,7 +201,7 @@ export function ShareButtons({
       const blobUrl = URL.createObjectURL(blob);
       const link = document.body.appendChild(document.createElement("a"));
       link.href = blobUrl;
-      link.download = `${label.replace("/", "-")}${usePrivate ? "-private" : ""}-aivshuman.png`;
+      link.download = `${label.replace("/", "-")}${usePrivate ? "-private" : ""}-stackmatch.png`;
       link.click();
       trackEvent(usePrivate ? "download_private_png" : "download_png", { label, type });
       playSuccess();
@@ -202,7 +215,7 @@ export function ShareButtons({
       toast.error("Failed to download image. Opening in a new tab instead.");
       const link = document.body.appendChild(document.createElement("a"));
       link.href = ogImageUrl;
-      link.download = `${label.replace("/", "-")}-aivshuman.png`;
+      link.download = `${label.replace("/", "-")}-stackmatch.png`;
       link.target = "_blank";
       link.click();
       setTimeout(() => link.remove(), 100);
@@ -223,9 +236,9 @@ export function ShareButtons({
         className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
       >
         {copyImageLoading ? (
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+          <div className="size-4 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
         ) : (
-          <ImageIcon className="h-4 w-4" />
+          <ImageIcon className="size-4" aria-hidden="true" />
         )}
         Copy Card
       </ButtonCustom>
@@ -237,13 +250,13 @@ export function ShareButtons({
         onClick={() => {
           trackEvent("post_to_x", { label, type });
           playClick();
-          setIsPulsing(false); // Stop pulsing on click
+          setSyncPulse((current) => ({ ...current, isPulsing: false }));
         }}
         variant="outline"
         size="sm"
         className={
           isPulsing
-            ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-black animate-[pulse_1.5s_cubic-bezier(0.4,0,0.6,1)_infinite] text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+            ? "animate-[pulse_1.5s_cubic-bezier(0.4,0,0.6,1)_infinite] text-foreground shadow-[0_0_15px_rgba(59,130,246,0.35)] ring-2 ring-blue-500 ring-offset-2 ring-offset-background dark:text-white dark:shadow-[0_0_15px_rgba(59,130,246,0.5)] dark:ring-offset-black"
             : ""
         }
       >
@@ -255,12 +268,12 @@ export function ShareButtons({
       <ButtonCustom type="button" onClick={handleCopyLink} variant="outline" size="sm">
         {copied ? (
           <>
-            <Check className="h-4 w-4 text-green-500" />
+            <Check className="size-4 text-green-500" aria-hidden="true" />
             Copied
           </>
         ) : (
           <>
-            <Copy className="h-4 w-4" />
+            <Copy className="size-4" aria-hidden="true" />
             Copy Link
           </>
         )}
@@ -278,23 +291,26 @@ export function ShareButtons({
           variant={isOpen ? "inverse" : "outline"}
           size="icon-sm"
         >
-          <MoreHorizontal className="h-4 w-4" />
+          <MoreHorizontal className="size-4" aria-hidden="true" />
         </ButtonCustom>
 
         {isOpen && (
-          <div className="absolute right-0 mt-2 w-56 origin-top-right overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none z-50 animate-in fade-in zoom-in-95 duration-100">
+          <div className="absolute right-0 z-50 mt-2 w-56 origin-top-right overflow-hidden rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-2xl ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100 dark:border-neutral-800 dark:bg-neutral-950">
             <ButtonCustom
               type="button"
               onClick={() => handleDownloadImage(false)}
               aria-disabled={downloadLoading}
               variant="ghost"
               size="sm"
-              className="w-full justify-start whitespace-nowrap text-neutral-200 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+              className="w-full justify-start whitespace-nowrap text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-50 dark:text-neutral-200"
             >
               {downloadLoading ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+                <div className="size-4 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
               ) : (
-                <Download className="h-4 w-4 text-green-400" />
+                <Download
+                  className="size-4 text-green-700 dark:text-green-400"
+                  aria-hidden="true"
+                />
               )}
               Download PNG
             </ButtonCustom>
@@ -306,9 +322,12 @@ export function ShareButtons({
                 aria-disabled={downloadLoading}
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start whitespace-nowrap text-neutral-200 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                className="w-full justify-start whitespace-nowrap text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-50 dark:text-neutral-200"
               >
-                <EyeOff className="h-4 w-4 text-purple-400" />
+                <EyeOff
+                  className="size-4 text-purple-700 dark:text-purple-400"
+                  aria-hidden="true"
+                />
                 Download with Private
               </ButtonCustom>
             )}
@@ -319,9 +338,9 @@ export function ShareButtons({
                 onClick={handleNativeShare}
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start whitespace-nowrap text-neutral-200"
+                className="w-full justify-start whitespace-nowrap text-foreground dark:text-neutral-200"
               >
-                <Share className="h-4 w-4 text-blue-400" />
+                <Share className="size-4 text-blue-700 dark:text-blue-400" aria-hidden="true" />
                 System Share
               </ButtonCustom>
             )}

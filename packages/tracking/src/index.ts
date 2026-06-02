@@ -14,8 +14,11 @@ type TrackingEvents = {
   analyze_repo: { owner: string; repo: string };
   resync: { owner: string };
   resync_repo: { owner: string; repo: string };
+  scan_completed: { owner: string; source?: string };
+  score_step_completed: { owner?: string; step: string };
   // Sharing
   copy_card: { label: string; type: "user" | "repo" };
+  share_card_copied: { label: string; type: "user" | "repo" | "package"; surface?: string };
   post_to_x: { label: string; type: "user" | "repo" };
   copy_link: { label: string; type: "user" | "repo" };
   download_png: { label: string; type: "user" | "repo" };
@@ -23,6 +26,12 @@ type TrackingEvents = {
   system_share: { label: string; type: "user" | "repo" };
   invite_open: { source: "nudge" | "manage_menu" };
   invite_link_copy: Record<string, never>;
+  invite_landing_seen: { authenticated: boolean };
+  invite_redeemed: { source: "invite_route" | "login_pending_referral" };
+  star_toggled: { targetOwner: string; starred: boolean; surface?: string };
+  mutual_match_created: { targetOwner: string; surface?: string };
+  package_brief_shared: { packageName: string; surface?: string };
+  company_cta_clicked: { cta: string; surface: string };
   // Embed
   copy_embed: { format: "markdown" | "html" };
   // Leaderboards

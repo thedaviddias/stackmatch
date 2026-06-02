@@ -21,6 +21,12 @@ export default defineSchema({
     fullName: v.string(),
     description: v.optional(v.string()),
     stars: v.optional(v.number()),
+    forksCount: v.optional(v.number()),
+    openIssuesCount: v.optional(v.number()),
+    licenseName: v.optional(v.string()),
+    licenseSpdxId: v.optional(v.string()),
+    homepageUrl: v.optional(v.string()),
+    isArchived: v.optional(v.boolean()),
     language: v.optional(v.string()), // Primary language by bytes (GitHub Linguist)
     topics: v.optional(v.array(v.string())), // User-applied repo topics (e.g. ["nextjs", "react"])
     defaultBranch: v.string(),

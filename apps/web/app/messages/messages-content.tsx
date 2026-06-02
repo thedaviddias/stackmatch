@@ -1,5 +1,6 @@
 "use client";
 
+import { ROUTES } from "@stackmatch/config";
 import { Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -72,8 +73,15 @@ function ConversationList() {
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-8 text-center">
             <Mail className="h-8 w-8 text-neutral-600" />
             <p className="text-sm text-neutral-400">
-              No conversations yet. Star someone and get starred back to start chatting!
+              No conversations yet. Star compatible stackers and message them once they star you
+              back this week.
             </p>
+            <Link
+              href={ROUTES.developers}
+              className="mt-2 rounded-full border border-neutral-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-neutral-300 transition-colors hover:bg-neutral-900 hover:text-white"
+            >
+              Browse developers
+            </Link>
           </div>
         ) : (
           <div className="space-y-1">

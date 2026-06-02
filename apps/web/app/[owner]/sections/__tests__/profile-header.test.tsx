@@ -3,10 +3,6 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ProfileHeader } from "../profile-header";
 
-vi.mock("@/lib/hooks/use-aivshuman-profile", () => ({
-  useAiVsHumanProfile: () => ({ data: false }),
-}));
-
 vi.mock("@/components/social/follow-button", () => ({
   FollowButton: () => <button type="button">Follow</button>,
 }));

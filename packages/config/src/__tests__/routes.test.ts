@@ -33,9 +33,17 @@ describe("ROUTES", () => {
     expect(ROUTES.external.twitter("hello world", "https://stackmatch.dev/r/ALPHA1")).toBe(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent("hello world")}&url=${encodeURIComponent("https://stackmatch.dev/r/ALPHA1")}`
     );
-    expect(ROUTES.external.aivshuman("octocat")).toBe("https://aivshuman.dev/octocat");
     expect(ROUTES.external.npm("@stackmatch/web")).toBe(
       "https://www.npmjs.com/package/@stackmatch/web"
+    );
+    expect(ROUTES.external.jsDelivrPackage("@stackmatch/web")).toBe(
+      "https://www.jsdelivr.com/package/npm/@stackmatch/web"
+    );
+    expect(ROUTES.external.stackOverflowTag("react.js")).toBe(
+      "https://stackoverflow.com/questions/tagged/react.js"
+    );
+    expect(ROUTES.external.librariesIoPackage("@stackmatch/web")).toBe(
+      "https://libraries.io/npm/%40stackmatch%2Fweb"
     );
     expect(ROUTES.external.skills("react hooks")).toBe("https://skills.sh/?q=react%20hooks");
   });
@@ -45,6 +53,9 @@ describe("ROUTES", () => {
     expect(ROUTES.api.og.user("octo cat")).toBe("/api/og/user?owner=octo%20cat");
     expect(ROUTES.api.og.repo("octo cat", "stack/match")).toBe(
       "/api/og/repo?owner=octo%20cat&name=stack%2Fmatch"
+    );
+    expect(ROUTES.api.og.package("@stackmatch/web")).toBe(
+      "/api/og/package?name=%40stackmatch%2Fweb"
     );
   });
 });

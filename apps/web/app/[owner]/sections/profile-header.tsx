@@ -2,7 +2,6 @@ import { ROUTES } from "@stackmatch/config";
 import { INVITE_BONUS_MAX_SCORE } from "@stackmatch/constants/invite";
 import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import {
-  Bot,
   Building2,
   CheckCircle2,
   ExternalLink,
@@ -27,7 +26,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StarButton } from "@/components/ui/feedback/star-button";
 import { profileActionButtonClassName } from "@/components/ui/profile-action-button";
-import { useAiVsHumanProfile } from "@/lib/hooks/use-aivshuman-profile";
 import { getI18n } from "@/lib/re-exports/i18n";
 import { cn, formatCompactNumber, formatJoinDate } from "@/lib/storage/utils";
 
@@ -171,7 +169,6 @@ export function ProfileHeader({
   const isOrganizationVerified = isOrganization && state.organizationVerified === true;
   const profileImage =
     profile?.avatarUrl ?? ROUTES.external.githubAvatar(owner, PROFILE_AVATAR_SIZE);
-  const { data: hasAiVsHumanProfile } = useAiVsHumanProfile(owner);
   const hasVisibleFollowers = Boolean(followCounts && followCounts.followers > 0);
   const hasVisibleFollowing = Boolean(followCounts && followCounts.following > 0);
   const hasProfileMeta = Boolean(profile?.joinedAt);
@@ -231,7 +228,8 @@ export function ProfileHeader({
                   </p>
                   <p className="text-xs font-medium leading-relaxed text-muted-foreground dark:text-zinc-300">
                     A profile strength signal based on identity, stack depth, profile context,
-                    invites, and community trust.
+                    invites, and community trust. Higher scores unlock stronger discovery, follows,
+                    and messaging.
                   </p>
                 </div>
               }
@@ -291,19 +289,6 @@ export function ProfileHeader({
                 <ExternalLink className="size-3 opacity-0 group-hover/gh:opacity-60 transition-opacity" />
               </a>
             </div>
-
-            {hasAiVsHumanProfile && (
-              <a
-                href={ROUTES.external.aivshuman(owner)}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="group/avh mt-2 flex items-center justify-center sm:justify-start gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors dark:text-neutral-500 dark:hover:text-white"
-              >
-                <Bot className="size-3.5" />
-                AI vs Human
-                <ExternalLink className="size-3 opacity-0 group-hover/avh:opacity-60 transition-opacity" />
-              </a>
-            )}
 
             {hasVisibleHeaderMeta && (
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -433,34 +418,34 @@ export function ProfileHeader({
                       <ScoreGrowthItem
                         done={!!isClaimed}
                         label="Claim Profile (+15)"
-                        action="Sign in with GitHub to verify ownership."
+                        action="Sign in with GitHub so your stack card has a trusted owner."
                       />
                       <ScoreGrowthItem
                         done={!!summary.personalizedWithPrivate}
                         label="Private Sync (+15)"
-                        action="Connect private repository analysis."
+                        action="Optionally add aggregate private stack signals without exposing repos."
                       />
                       <ScoreGrowthItem
                         done={hasBioAndSocials}
                         label="Bio & Socials (+20)"
-                        action="Add a GitHub bio and a website or X link."
+                        action="Add profile context so stackmates know why to connect."
                       />
                       <ScoreGrowthItem
                         done={hasStackDepth}
                         label="Stack Depth (+20)"
-                        action="Sync more public repositories to deepen your fingerprint."
+                        action="Sync more public repositories to sharpen match explanations."
                       />
                       <ScoreGrowthProgressItem
                         current={referralPoints}
                         max={INVITE_BONUS_MAX_SCORE}
                         label="Invite Bonus (+15)"
-                        action="Invite stackmates to earn referral points."
+                        action="Invite stackmates; both profiles earn referral points."
                       />
                       <ScoreGrowthProgressItem
                         current={communityScore}
                         max={COMMUNITY_STARS_MAX_SCORE}
                         label="Community (+15)"
-                        action="Earn stars from the Stackmatch community."
+                        action="Earn stars and mutual matches from compatible stackers."
                       />
                     </ul>
                     <DropdownMenuItem asChild className="mt-2 cursor-pointer rounded-xl py-2.5">

@@ -34,9 +34,9 @@ This project is built with:
 
 4. **Run the development server**
    ```bash
-   pnpm dev
+   pnpm --filter @stackmatch/web dev
    ```
-   This will start both the Next.js dev server and the Convex backend listener.
+   This starts portless for Next.js plus the Convex backend watcher. Use the printed portless URL, usually `http://stackmatch-web.localhost:1355`.
 
 ## 📦 Adding New Features
 
@@ -44,6 +44,13 @@ If you are adding new data points or visualizations:
 1. Ensure types are correctly defined in `convex/schema.ts`.
 2. Use aliases (`@/*`) for all imports.
 3. Avoid using `any` at all costs — use proper TypeScript interfaces.
+4. Keep company-facing data public or aggregate-only. Private sync must remain developer-controlled.
+
+Good first contribution areas:
+- Improve page copy, onboarding states, and documentation.
+- Add focused tests for scoring, invite, package, and profile flows.
+- Improve accessibility and responsive behavior on public pages.
+- Refine package, topic, language, and organization discovery surfaces.
 
 ## 🚀 Submitting Changes
 

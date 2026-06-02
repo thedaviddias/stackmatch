@@ -1,6 +1,6 @@
 import { ROUTES } from "@stackmatch/config";
 import { BarChart3, Building2, Network, PackageSearch, ShieldCheck, Users } from "lucide-react";
-import Link from "next/link";
+import { TrackedProductLink } from "@/components/analytics/tracked-product-link";
 import { createMetadata, createWebPageJsonLd } from "@/lib/re-exports/seo";
 
 export const metadata = createMetadata({
@@ -12,35 +12,35 @@ export const metadata = createMetadata({
 
 const INTELLIGENCE_CARDS = [
   {
-    title: "Ecosystem discovery",
+    title: "Package Ecosystem Brief",
     description:
-      "Explore developers, organizations, and repos already using packages near your stack.",
+      "A shareable package page artifact showing public adopters, active owners, adjacent packages, and adoption context.",
     icon: Network,
   },
   {
-    title: "Package adoption",
-    description: "Use public package manifests to spot early co-usage and community patterns.",
+    title: "Verified Organization Profile",
+    description:
+      "A public organization surface that connects maintained packages, adopters, top repos, and GitHub-verified ownership.",
     icon: PackageSearch,
   },
   {
-    title: "Developer cohorts",
+    title: "Sponsor Support Surface",
     description:
-      "Learn which developer cohorts may be worth supporting, interviewing, or inviting.",
+      "Transparent placement for companies supporting the developer graph, without privileged access to private data.",
     icon: Users,
   },
 ] as const;
 
-const SPONSOR_SURFACES = [
-  "Founding sponsor badge",
-  "Package page pilot",
-  "Verified organization pilot",
-  "Qualitative ecosystem notes",
+const COMPANY_OFFERS = [
+  "Package Ecosystem Brief",
+  "Verified Organization Profile",
+  "Sponsor Support Surface",
 ] as const;
 
 const SAMPLE_REPORT_ROWS = [
-  { label: "Package co-usage", value: "Pilot", trend: "Early" },
-  { label: "Verified org profiles", value: "Pilot", trend: "Early" },
-  { label: "Sponsor placements", value: "Testing", trend: "Early" },
+  { label: "Public package adopters", value: "Brief", trend: "Aggregate" },
+  { label: "Maintained package graph", value: "Verified", trend: "Public" },
+  { label: "Sponsor support context", value: "Surface", trend: "Transparent" },
 ] as const;
 
 export default function CompaniesPage() {
@@ -65,26 +65,31 @@ export default function CompaniesPage() {
             </div>
             <div className="space-y-4">
               <h1 className="max-w-3xl text-4xl font-black tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Understand who is already building with your ecosystem.
+                Turn public stack adoption into a useful ecosystem surface.
               </h1>
               <p className="max-w-2xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
-                Stackmatch just launched. The first sponsor-friendly work is about validating which
-                public stack signals help DevTools teams understand and support relevant builders.
+                Stackmatch gives DevTools teams a developer-first way to understand public package
+                adoption, maintained package graphs, and adjacent communities without turning
+                private sync into a company lead source.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link
+              <TrackedProductLink
                 href={ROUTES.sponsors}
+                cta="sponsor_stackmatch"
+                surface="companies_page_hero"
                 className="rounded-full bg-foreground px-5 py-3 text-xs font-black uppercase tracking-widest text-background transition-opacity hover:opacity-85"
               >
                 Sponsor Stackmatch
-              </Link>
-              <Link
+              </TrackedProductLink>
+              <TrackedProductLink
                 href={ROUTES.package("react")}
+                cta="view_package_brief"
+                surface="companies_page_hero"
                 className="rounded-full border border-border px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
               >
-                View package signal
-              </Link>
+                View package brief
+              </TrackedProductLink>
             </div>
           </div>
 
@@ -93,7 +98,7 @@ export default function CompaniesPage() {
               <div>
                 <p className="text-sm font-black text-foreground">Launch-stage sponsor pilots</p>
                 <p className="mt-1 text-xs font-medium text-muted-foreground">
-                  Early surfaces to validate before formal packaging
+                  Concrete company-facing surfaces based on public signals
                 </p>
               </div>
               <BarChart3 className="size-5 text-th-accent-1" />
@@ -147,9 +152,9 @@ export default function CompaniesPage() {
             </section>
 
             <section className="rounded-2xl border border-border bg-card/70 p-6 dark:bg-white/[0.03]">
-              <p className="text-sm font-black text-foreground">Sponsor surfaces</p>
+              <p className="text-sm font-black text-foreground">Company offers</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {SPONSOR_SURFACES.map((surface) => (
+                {COMPANY_OFFERS.map((surface) => (
                   <div
                     key={surface}
                     className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-bold text-foreground dark:bg-black/20"

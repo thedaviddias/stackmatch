@@ -1,6 +1,6 @@
 import { ROUTES } from "@stackmatch/config";
 import { BarChart3, CheckCircle2, Handshake, Network, PackageSearch, Shield } from "lucide-react";
-import Link from "next/link";
+import { TrackedProductLink } from "@/components/analytics/tracked-product-link";
 import { createMetadata, createWebPageJsonLd } from "@/lib/re-exports/seo";
 
 export const metadata = createMetadata({
@@ -12,33 +12,33 @@ export const metadata = createMetadata({
 
 const SPONSOR_TIERS = [
   {
-    title: "Founding Sponsor",
+    title: "Package Ecosystem Brief",
     price: "Early access",
     description:
-      "Support the launch and help shape the first sponsor surfaces before formal packages exist.",
-    features: ["Early sponsor badge", "Feedback calls", "Public thank-you placement"],
+      "Support a package page artifact that helps maintainers, DevRel teams, and developers understand public adoption.",
+    features: ["Public adopter summary", "Adjacent package context", "Shareable brief"],
   },
   {
-    title: "Ecosystem Pilot",
+    title: "Verified Organization Profile",
     price: "Limited",
     description:
-      "Explore one package or category with lightweight public-signal notes and product feedback.",
-    features: ["One package/community focus", "Qualitative findings", "Privacy-safe boundaries"],
+      "Verify organization ownership and connect maintained packages, public repos, and adopter communities.",
+    features: ["Verified org badge", "Maintained package surface", "Public profile review"],
   },
   {
-    title: "Verified Org Pilot",
+    title: "Sponsor Support Surface",
     price: "Invite-only",
     description:
-      "Test organization verification and help define what company profiles should become.",
-    features: ["Verified org badge", "Public profile review", "CTA and positioning feedback"],
+      "Show ecosystem support without buying private access, inbox priority, or hidden lead data.",
+    features: ["Transparent sponsor placement", "Supporter recognition", "Privacy-safe boundaries"],
   },
 ] as const;
 
 const REPORT_EXAMPLES = [
-  "Which public stacks already overlap with our tool?",
-  "Which package pages should exist first?",
-  "What would make verified org profiles useful?",
-  "Which sponsor placements feel helpful instead of noisy?",
+  "Which public owners already depend on a package?",
+  "Which packages appear beside it most often?",
+  "Which maintained packages should connect to a verified org profile?",
+  "Which sponsor surfaces help developers instead of interrupting them?",
 ] as const;
 
 export default function SponsorsPage() {
@@ -63,27 +63,30 @@ export default function SponsorsPage() {
             </div>
             <div className="space-y-4">
               <h1 className="max-w-3xl text-4xl font-black tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Help shape Stackmatch while the ecosystem is still forming.
+                Support Stackmatch without compromising developer trust.
               </h1>
               <p className="max-w-2xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
-                Stackmatch just launched. Founding sponsors support the project early, get a close
-                look at public stack signals, and help define useful sponsor surfaces before we turn
-                them into formal packages.
+                Sponsors help keep the developer network free while getting transparent,
+                public-signal surfaces around packages, organizations, and ecosystem support.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link
+              <TrackedProductLink
                 href={ROUTES.legal.contact}
+                cta="start_sponsor_conversation"
+                surface="sponsors_page_hero"
                 className="rounded-full bg-foreground px-5 py-3 text-xs font-black uppercase tracking-widest text-background transition-opacity hover:opacity-85"
               >
                 Start sponsor conversation
-              </Link>
-              <Link
+              </TrackedProductLink>
+              <TrackedProductLink
                 href={ROUTES.companies}
+                cta="devtools_overview"
+                surface="sponsors_page_hero"
                 className="rounded-full border border-border px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
               >
                 DevTools overview
-              </Link>
+              </TrackedProductLink>
             </div>
           </div>
 
@@ -151,9 +154,9 @@ export default function SponsorsPage() {
                 What Sponsors Get
               </p>
               <p className="mt-3 text-sm font-medium leading-relaxed text-muted-foreground">
-                Today, sponsors get direct involvement, early visibility, and a chance to shape the
-                first package, organization, and community surfaces. Formal paid inventory comes
-                after usage proves which pages people actually value.
+                Sponsors get early visibility on package, organization, and community surfaces that
+                are useful to developers first. Paid inventory stays tied to support and aggregate
+                ecosystem insight, not private access.
               </p>
             </section>
 

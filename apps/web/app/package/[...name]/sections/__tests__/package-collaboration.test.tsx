@@ -1,3 +1,4 @@
+import { ROUTES } from "@stackmatch/config";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -32,5 +33,28 @@ describe("PackageCollaboration", () => {
 
     expect(repoLink).toHaveAttribute("href", "/thedaviddias/llms-txt-hub");
     expect(repoLink).not.toHaveAttribute("href", "/thedaviddias");
+  });
+
+  it("links companion confidence rows to package pages", () => {
+    render(
+      <PackageCollaboration
+        topReposUsingPackage={[]}
+        relatedPreview={[
+          {
+            packageName: "@radix-ui/react-dialog",
+            coOccurrenceCount: 12,
+            liftScore: 10,
+          },
+        ]}
+        activeOwners30d={1}
+        totalOwnerCount={2}
+      />
+    );
+
+    const packageLink = screen.getByRole("link", {
+      name: "View @radix-ui/react-dialog package analysis",
+    });
+
+    expect(packageLink).toHaveAttribute("href", ROUTES.package("@radix-ui/react-dialog"));
   });
 });

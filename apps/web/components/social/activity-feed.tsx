@@ -1,5 +1,6 @@
 "use client";
 
+import { ROUTES } from "@stackmatch/config";
 import {
   EyeOff,
   GitBranch,
@@ -170,9 +171,15 @@ export function ActivityFeed({ mode, limit = 20 }: ActivityFeedProps) {
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-8 text-center">
         <p className="text-sm text-neutral-400">
           {mode === "personal"
-            ? "Follow developers to see their activity here."
-            : "No activity yet. Be the first!"}
+            ? "Follow developers with adjacent stacks to turn their stars, scans, and matches into your feed."
+            : "No activity yet. Scan a profile or star a stacker to create the first signal."}
         </p>
+        <Link
+          href={mode === "personal" ? ROUTES.developers : ROUTES.home}
+          className="rounded-full border border-neutral-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-neutral-300 transition-colors hover:bg-neutral-900 hover:text-white"
+        >
+          {mode === "personal" ? "Browse developers" : "Start a scan"}
+        </Link>
       </div>
     );
   }

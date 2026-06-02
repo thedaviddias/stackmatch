@@ -41,6 +41,20 @@ describe("trackEvent", () => {
     });
   });
 
+  it("fires growth loop events", () => {
+    trackEvent("scan_completed", { owner: "octocat", source: "login" });
+    trackEvent("score_step_completed", { owner: "octocat", step: "claim_profile" });
+
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "scan_completed", {
+      owner: "octocat",
+      source: "login",
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "score_step_completed", {
+      owner: "octocat",
+      step: "claim_profile",
+    });
+  });
+
   // --- Sharing events ---
 
   it("fires copy_card event with label and type", () => {
@@ -48,6 +62,20 @@ describe("trackEvent", () => {
     expect(openPanelSpy).toHaveBeenCalledWith("track", "copy_card", {
       label: "test-user",
       type: "user",
+    });
+  });
+
+  it("fires share_card_copied event with surface context", () => {
+    trackEvent("share_card_copied", {
+      label: "test-user",
+      type: "user",
+      surface: "profile_header",
+    });
+
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "share_card_copied", {
+      label: "test-user",
+      type: "user",
+      surface: "profile_header",
     });
   });
 
@@ -64,11 +92,48 @@ describe("trackEvent", () => {
   it("fires invite events", () => {
     trackEvent("invite_open", { source: "manage_menu" });
     trackEvent("invite_link_copy", {});
+    trackEvent("invite_landing_seen", { authenticated: true });
+    trackEvent("invite_redeemed", { source: "invite_route" });
 
     expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_open", {
       source: "manage_menu",
     });
     expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_link_copy", {});
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_landing_seen", {
+      authenticated: true,
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_redeemed", {
+      source: "invite_route",
+    });
+  });
+
+  it("fires social and company growth events", () => {
+    trackEvent("star_toggled", {
+      targetOwner: "octocat",
+      starred: true,
+      surface: "profile_header",
+    });
+    trackEvent("mutual_match_created", { targetOwner: "octocat", surface: "profile_header" });
+    trackEvent("package_brief_shared", { packageName: "react", surface: "package_page" });
+    trackEvent("company_cta_clicked", { cta: "package_brief", surface: "companies_page" });
+
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "star_toggled", {
+      targetOwner: "octocat",
+      starred: true,
+      surface: "profile_header",
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "mutual_match_created", {
+      targetOwner: "octocat",
+      surface: "profile_header",
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "package_brief_shared", {
+      packageName: "react",
+      surface: "package_page",
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "company_cta_clicked", {
+      cta: "package_brief",
+      surface: "companies_page",
+    });
   });
 
   // --- Embed events ---

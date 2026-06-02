@@ -181,7 +181,7 @@ export const clientSentryOptions: BrowserOptions = {
     // Convex API
     /^https:\/\/.*\.convex\.cloud/,
     // Our own API routes
-    /^https:\/\/aivshuman\.dev\/api/,
+    /^https:\/\/stackmatch\.dev\/api/,
     /^https:\/\/.*\.vercel\.app\/api/,
   ],
 };

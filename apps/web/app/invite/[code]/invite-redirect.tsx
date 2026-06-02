@@ -10,6 +10,7 @@ import { api } from "@/data/api";
 import { useAction, useMutation, useQuery } from "@/data/react";
 import { buildProfileRedirectUrl, isValidGitHubLogin } from "@/lib/leaderboard/login-redirect";
 import { savePendingReferral } from "@/lib/storage/pending-referral";
+import { trackEvent } from "@/lib/storage/tracking";
 
 type RedeemInviteMutation = (args: { code: string }) => Promise<{ referrerOwner: string }>;
 type RepairGitHubLoginAction = () => Promise<string | null>;
@@ -65,6 +66,8 @@ async function redeemResolvedInvite({
   try {
     const result = await redeemInviteCode({ code });
     if (isCancelled()) return;
+    trackEvent("invite_redeemed", { source: "invite_route" });
+    trackEvent("score_step_completed", { owner: inviteeLogin, step: "invite_bonus" });
     toast.success(`You and @${result.referrerOwner} both earned +5 Stack Score.`);
     router.replace(profileUrl);
   } catch (err: unknown) {
@@ -91,6 +94,7 @@ export function InviteRedirect({ code }: { code: string }) {
     api.mutations.invite_codes.redeemInviteCode
   );
   const repairGitHubLogin = useAction(api.auth.repairMyGitHubLogin);
+  const landingSeenRef = useRef(false);
   const processedRef = useRef(false);
 
   useEffect(() => {
@@ -98,6 +102,10 @@ export function InviteRedirect({ code }: { code: string }) {
 
     // Wait for auth state to resolve
     if (isPending) return undefined;
+    if (!landingSeenRef.current) {
+      landingSeenRef.current = true;
+      trackEvent("invite_landing_seen", { authenticated: Boolean(session?.user) });
+    }
     // Prevent double-execution
     if (processedRef.current) return undefined;
 
@@ -142,12 +150,29 @@ export function InviteRedirect({ code }: { code: string }) {
   }, [isPending, session, myGitHubLogin, code, router, redeemInviteCode, repairGitHubLogin]);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+    <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 px-4 text-center">
       <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
         <Sparkles className="h-8 w-8 text-pink-400" />
       </div>
-      <p className="text-sm font-black uppercase tracking-widest text-neutral-400 animate-pulse">
-        Activating your invite...
+      <div>
+        <h1 className="text-2xl font-black tracking-tight text-white">Activating your invite</h1>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-neutral-400">
+          This link connects your GitHub profile to Stackmatch, applies the referral bonus, and
+          helps both profiles move closer to stronger stack discovery.
+        </p>
+      </div>
+      <div className="grid w-full gap-2 sm:grid-cols-3">
+        {["Claim profile", "+5 Stack Score", "Find stackmates"].map((step) => (
+          <div
+            key={step}
+            className="rounded-xl border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-neutral-400"
+          >
+            {step}
+          </div>
+        ))}
+      </div>
+      <p className="animate-pulse text-xs font-black uppercase tracking-widest text-neutral-500">
+        Redirecting through GitHub
       </p>
     </div>
   );

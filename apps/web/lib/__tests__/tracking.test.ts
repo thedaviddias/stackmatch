@@ -30,10 +30,16 @@ describe("trackEvent", () => {
 
   it("passes correct props for copy_card event", () => {
     trackEvent("copy_card", { label: "test-user", type: "user" });
+    trackEvent("share_card_copied", { label: "test-user", type: "user", surface: "share_menu" });
 
     expect(openPanelSpy).toHaveBeenCalledWith("track", "copy_card", {
       label: "test-user",
       type: "user",
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "share_card_copied", {
+      label: "test-user",
+      type: "user",
+      surface: "share_menu",
     });
   });
 
@@ -46,9 +52,17 @@ describe("trackEvent", () => {
   it("passes correct props for invite events", () => {
     trackEvent("invite_open", { source: "nudge" });
     trackEvent("invite_link_copy", {});
+    trackEvent("invite_landing_seen", { authenticated: false });
+    trackEvent("invite_redeemed", { source: "login_pending_referral" });
 
     expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_open", { source: "nudge" });
     expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_link_copy", {});
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_landing_seen", {
+      authenticated: false,
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "invite_redeemed", {
+      source: "login_pending_referral",
+    });
   });
 
   it("passes correct props for leaderboard events", () => {

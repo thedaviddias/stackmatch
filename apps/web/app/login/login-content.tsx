@@ -1,7 +1,17 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
-import { Eye, EyeOff, Hash, Lock, Shield, ShieldCheck } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Fingerprint,
+  GitBranch,
+  Hash,
+  Lock,
+  Shield,
+  ShieldCheck,
+  Star,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -19,6 +29,7 @@ import { getI18n } from "@/lib/re-exports/i18n";
 import { logger } from "@/lib/re-exports/logger";
 import { clearPendingReferral, getPendingReferral } from "@/lib/storage/pending-referral";
 import { clearPendingStar, getPendingStar } from "@/lib/storage/pending-star";
+import { trackEvent } from "@/lib/storage/tracking";
 
 const i18n = getI18n();
 
@@ -103,6 +114,8 @@ function processPendingReferral(
 
   redeemInviteCode({ code: pendingReferral.code })
     .then((result) => {
+      trackEvent("invite_redeemed", { source: "login_pending_referral" });
+      trackEvent("score_step_completed", { step: "invite_bonus" });
       toast.success(i18n.feedback.login.referralWelcome(result.referrerOwner));
     })
     .catch((error: unknown) => {
@@ -208,6 +221,7 @@ function usePostLoginRedirectFlow({
         if (!profileClaimed) {
           profileClaimStartedRef.current = true;
           await claimProfile();
+          trackEvent("score_step_completed", { owner: resolvedLogin, step: "claim_profile" });
           try {
             await queueProfileScan(resolvedLogin);
           } catch (scanError) {
@@ -520,6 +534,47 @@ function LoginPrivacyDetails() {
   );
 }
 
+const LOGIN_ACTIVATION_STEPS = [
+  {
+    title: "Public scan",
+    description: "We scan public package manifests and queue your Stackmatch profile sync.",
+    icon: GitBranch,
+  },
+  {
+    title: "Stack fingerprint",
+    description: "Your top packages, languages, topics, and repo signals become a public identity.",
+    icon: Fingerprint,
+  },
+  {
+    title: "Social unlocks",
+    description:
+      "Claiming improves Stack Score and unlocks stronger stars, follows, feed, and matches.",
+    icon: Star,
+  },
+] as const;
+
+function LoginActivationPath() {
+  return (
+    <div className="mt-12 grid gap-3 sm:grid-cols-3">
+      {LOGIN_ACTIVATION_STEPS.map((step) => {
+        const Icon = step.icon;
+        return (
+          <div
+            key={step.title}
+            className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4"
+          >
+            <Icon className="size-4 text-th-accent-1" />
+            <h2 className="mt-3 text-sm font-black text-white">{step.title}</h2>
+            <p className="mt-1 text-xs font-medium leading-relaxed text-neutral-400">
+              {step.description}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Login page content with privacy explanation.
  *
@@ -642,6 +697,10 @@ export function LoginContent() {
           isSigningIn={isSigningIn}
           onSignIn={handleSignIn}
         />
+      </ErrorBoundary>
+
+      <ErrorBoundary level="widget">
+        <LoginActivationPath />
       </ErrorBoundary>
 
       <ErrorBoundary level="section">

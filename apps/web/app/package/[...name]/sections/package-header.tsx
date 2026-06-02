@@ -124,7 +124,7 @@ export function PackageHeader({
             <span
               key={kw}
               data-theme-label="topic"
-              className="rounded-xl border border-neutral-800 bg-black/20 px-3 py-1.5 text-[11px] font-bold text-neutral-500 transition-all hover:border-neutral-700 hover:text-neutral-300 hover:bg-black/40"
+              className="rounded-xl border border-neutral-800 bg-black/20 px-3 py-1.5 text-[11px] font-bold text-neutral-500"
             >
               {kw}
             </span>
