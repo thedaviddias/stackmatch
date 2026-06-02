@@ -1,18 +1,35 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S pnpm exec tsx
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
+import { api } from "../apps/web/convex/_generated/api.js";
 
 const DEFAULT_ENV_FILE = "/private/tmp/stackmatch-vercel-prod.env";
 const CONVEX_CLOUD_PATTERN = /^https:\/\/([a-z0-9-]+)\.convex\.cloud\/?$/;
 const CONVEX_SITE_PATTERN = /^https:\/\/([a-z0-9-]+)\.convex\.site\/?$/;
+const GITHUB_API_BASE_URL = "https://api.github.com";
+const GITHUB_JSON_ACCEPT_HEADER = "application/vnd.github.v3+json";
+const GITHUB_OWNER_REPOS_FETCH_PAGE_SIZE = 100;
+const GITHUB_NOT_FOUND_STATUS = 404;
+const GITHUB_RATE_LIMIT_STATUS = 429;
+const WEB_REQUIRE = createRequire(new URL("../apps/web/package.json", import.meta.url));
+const { normalizeGitHubOwnerType } = await import(
+  pathToFileURL(WEB_REQUIRE.resolve("@stackmatch/constants/owner")).href
+);
+const { GITHUB_PUBLIC_REPOS_SCAN_LIMIT } = await import(
+  pathToFileURL(WEB_REQUIRE.resolve("@stackmatch/constants/sync")).href
+);
 
 function usage() {
   console.error(`Usage:
   pnpm convex:prod --env-file <file> deploy [convex deploy args...]
   pnpm convex:prod --env-file <file> run <functionName> [jsonArgs]
   pnpm convex:prod --env-file <file> check-scan-readiness
+  pnpm convex:prod --env-file <file> queue-owner-scan <githubOwner> [--write]
   pnpm backfill:auth-profiles:prod --env-file <file> [--limit 10] [--cursor CURSOR] [--write]
+  pnpm queue-owner-scan:prod -- <githubOwner> [--write]
 
 Env file must be pulled from Vercel production, for example:
   vercel env pull /private/tmp/stackmatch-vercel-prod.env --environment=production --yes
@@ -80,6 +97,10 @@ function resolveDeployment(env) {
   return deployment;
 }
 
+function getConvexCloudUrl(deployment) {
+  return `https://${deployment}.convex.cloud`;
+}
+
 function runPnpm(commandArgs, env) {
   const result = spawnSync("pnpm", commandArgs, {
     cwd: process.cwd(),
@@ -143,6 +164,37 @@ function buildRunEnv(env) {
   return childEnv;
 }
 
+function parseQueueOwnerScanArgs(args) {
+  const options = {
+    dryRun: true,
+    owner: "",
+  };
+
+  while (args.length > 0) {
+    const arg = args.shift();
+    if (arg === "--write") {
+      options.dryRun = false;
+      continue;
+    }
+    if (arg === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+    if (!options.owner) {
+      options.owner = arg ?? "";
+      continue;
+    }
+    throw new Error(`Unknown queue-owner-scan argument: ${arg}`);
+  }
+
+  options.owner = options.owner.trim();
+  if (!options.owner) {
+    throw new Error("queue-owner-scan requires a GitHub owner");
+  }
+
+  return options;
+}
+
 function buildBackfillArgs(env, args) {
   const payload = {
     apiKey: env.ANALYZE_API_KEY,
@@ -177,6 +229,136 @@ function buildBackfillArgs(env, args) {
   }
 
   return JSON.stringify(payload);
+}
+
+function buildGitHubHeaders(env) {
+  const token = env.GITHUB_TOKEN?.trim();
+  return {
+    Accept: GITHUB_JSON_ACCEPT_HEADER,
+    ...(token ? { Authorization: `token ${token}` } : {}),
+  };
+}
+
+async function fetchGitHubJson(path, env) {
+  const response = await fetch(`${GITHUB_API_BASE_URL}${path}`, {
+    headers: buildGitHubHeaders(env),
+  });
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const body = await response.clone().json();
+      if (typeof body.message === "string") {
+        message = `${message}: ${body.message}`;
+      }
+    } catch {
+      // Keep the status-only message when GitHub returns a non-JSON error body.
+    }
+
+    if (
+      response.status === GITHUB_RATE_LIMIT_STATUS ||
+      response.headers.get("x-ratelimit-remaining") === "0"
+    ) {
+      throw new Error(`GitHub rate limit reached: ${message}`);
+    }
+
+    if (response.status === GITHUB_NOT_FOUND_STATUS) {
+      throw new Error(`GitHub owner was not found: ${message}`);
+    }
+
+    throw new Error(`GitHub request failed: ${message}`);
+  }
+
+  return response.json();
+}
+
+function parseGitHubTimestamp(value) {
+  if (!value) return undefined;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : undefined;
+}
+
+function normalizeOwnerProfile(owner, profile) {
+  return {
+    ...(profile.name ? { name: profile.name } : {}),
+    avatarUrl: profile.avatar_url ?? `https://github.com/${owner}.png?size=200`,
+    followers: profile.followers ?? 0,
+    ...(profile.bio ? { bio: profile.bio } : {}),
+    ...(profile.blog ? { website: profile.blog } : {}),
+    ...(profile.twitter_username ? { x: profile.twitter_username } : {}),
+    ...(profile.location ? { location: profile.location } : {}),
+    ...(profile.company ? { company: profile.company } : {}),
+    ownerType: normalizeGitHubOwnerType(profile.type),
+  };
+}
+
+function normalizeRepos(repos, fallbackOwner) {
+  return repos
+    .filter((repo) => !repo.fork && repo.name)
+    .sort((a, b) => (b.stargazers_count ?? 0) - (a.stargazers_count ?? 0))
+    .slice(0, GITHUB_PUBLIC_REPOS_SCAN_LIMIT)
+    .map((repo) => {
+      const pushedAt = parseGitHubTimestamp(repo.pushed_at);
+      return {
+        owner: repo.owner?.login ?? fallbackOwner,
+        name: repo.name,
+        ...(pushedAt !== undefined ? { pushedAt } : {}),
+      };
+    });
+}
+
+async function queueOwnerScan(env, deployment, options) {
+  if (!env.ANALYZE_API_KEY) {
+    throw new Error("ANALYZE_API_KEY is missing from the production env file");
+  }
+
+  const encodedOwner = encodeURIComponent(options.owner);
+  const [profile, fetchedRepos] = await Promise.all([
+    fetchGitHubJson(`/users/${encodedOwner}`, env),
+    fetchGitHubJson(
+      `/users/${encodedOwner}/repos?per_page=${GITHUB_OWNER_REPOS_FETCH_PAGE_SIZE}&type=public`,
+      env
+    ),
+  ]);
+
+  const canonicalOwner = profile.login ?? options.owner;
+  const repos = normalizeRepos(fetchedRepos, canonicalOwner);
+  const summary = {
+    deployment,
+    dryRun: options.dryRun,
+    owner: canonicalOwner,
+    totalFetchedRepos: fetchedRepos.length,
+    queuedCount: repos.length,
+    repos: repos.map((repo) => `${repo.owner}/${repo.name}`),
+  };
+
+  if (options.dryRun) {
+    console.log(JSON.stringify(summary, null, 2));
+    return;
+  }
+
+  const { ConvexHttpClient } = await import(
+    pathToFileURL(WEB_REQUIRE.resolve("convex/browser")).href
+  );
+  const client = new ConvexHttpClient(getConvexCloudUrl(deployment));
+  const results = await client.mutation(api.mutations.request_user_scan.requestUserScan, {
+    repos,
+    apiKey: env.ANALYZE_API_KEY,
+    ownerProfile: normalizeOwnerProfile(canonicalOwner, profile),
+  });
+
+  console.log(
+    JSON.stringify(
+      {
+        ...summary,
+        queuedCount: results.length,
+        existingCount: results.filter((repo) => repo.existing).length,
+        results,
+      },
+      null,
+      2
+    )
+  );
 }
 
 const { envFile, command, args } = parseCli(process.argv.slice(2));
@@ -218,6 +400,15 @@ if (command === "check-scan-readiness") {
   const result = parseConvexJsonOutput(raw);
   printScanReadiness(result);
   process.exit(result.ready ? 0 : 1);
+}
+
+if (command === "queue-owner-scan") {
+  const options = parseQueueOwnerScanArgs(args);
+  console.error(
+    `${options.dryRun ? "Previewing" : "Queueing"} owner scan on live Vercel production deployment: ${deployment}`
+  );
+  await queueOwnerScan(env, deployment, options);
+  process.exit(0);
 }
 
 if (command === "backfill-auth-profiles") {

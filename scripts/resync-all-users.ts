@@ -12,6 +12,8 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 // ── CLI arg parsing ──────────────────────────────────────────────
 
@@ -31,7 +33,17 @@ const isDryRun = getFlag("dry-run");
 const targetOwner = getOption("owner");
 const delaySeconds = Number(getOption("delay") ?? "30");
 const batchSize = Number(getOption("batch-size") ?? "Infinity");
-const envFlag = isProd ? "--prod" : "";
+const productionEnvFile = resolve(
+  getOption("env-file") ??
+    process.env.STACKMATCH_PROD_ENV_FILE ??
+    "/private/tmp/stackmatch-vercel-prod.env"
+);
+const convexCloudPattern = /^https:\/\/([a-z0-9-]+)\.convex\.cloud\/?$/;
+const convexSitePattern = /^https:\/\/([a-z0-9-]+)\.convex\.site\/?$/;
+const productionEnv = isProd ? parseEnvFile(productionEnvFile) : {};
+const productionDeployment = isProd ? resolveDeployment(productionEnv) : undefined;
+const convexTargetArgs = productionDeployment ? ["--deployment", productionDeployment] : [];
+const convexChildEnv = isProd ? buildChildEnv(productionEnv) : process.env;
 const ISO_TIME_START_INDEX = 11;
 const ISO_TIME_END_INDEX = 19;
 const LOG_RULE_WIDTH = 58;
@@ -45,7 +57,8 @@ Usage: pnpm tsx scripts/resync-all-users.ts [options]
 
 Options:
   --owner <username>    Target a single user (omit for all users)
-  --prod                Run against production (default: local dev)
+  --prod                Run against Vercel's live production Convex deployment
+  --env-file <path>     Production env file pulled from Vercel
   --dry-run             Preview without triggering any sync
   --delay <seconds>     Delay between owners (default: 30)
   --batch-size <n>      Max owners per run (default: unlimited)
@@ -56,6 +69,50 @@ Options:
 
 // ── Helpers ──────────────────────────────────────────────────────
 
+function parseEnvFile(path: string): Record<string, string> {
+  if (!existsSync(path)) {
+    throw new Error(
+      `Production env file not found: ${path}. Pull it with Vercel before using --prod.`
+    );
+  }
+
+  const env: Record<string, string> = {};
+  for (const rawLine of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const match = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    env[key] = rawValue.replace(/^"(.*)"$/, "$1");
+  }
+  return env;
+}
+
+function resolveDeployment(env: Record<string, string>): string {
+  const convexUrl = env.NEXT_PUBLIC_CONVEX_URL;
+  const match = convexUrl ? convexCloudPattern.exec(convexUrl) : null;
+  if (!match) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL must be a https://<deployment>.convex.cloud URL");
+  }
+
+  const deployment = match[1];
+  const siteUrl = env.CONVEX_SITE_URL;
+  const siteMatch = siteUrl ? convexSitePattern.exec(siteUrl) : null;
+  if (siteUrl && siteMatch?.[1] !== deployment) {
+    throw new Error(
+      `CONVEX_SITE_URL (${siteUrl}) does not match NEXT_PUBLIC_CONVEX_URL (${convexUrl})`
+    );
+  }
+
+  return deployment;
+}
+
+function buildChildEnv(env: Record<string, string>): NodeJS.ProcessEnv {
+  const childEnv = { ...process.env, ...env };
+  delete childEnv.CONVEX_DEPLOYMENT;
+  return childEnv;
+}
+
 function convexRun<T>(fnPath: string, fnArgs: Record<string, unknown>): T {
   const commandArgs = [
     "--filter",
@@ -63,12 +120,13 @@ function convexRun<T>(fnPath: string, fnArgs: Record<string, unknown>): T {
     "exec",
     "convex",
     "run",
-    ...(envFlag ? [envFlag] : []),
+    ...convexTargetArgs,
     fnPath,
     JSON.stringify(fnArgs),
   ];
   const raw = execFileSync("pnpm", commandArgs, {
     cwd: process.cwd(),
+    env: convexChildEnv,
     encoding: "utf-8",
     timeout: 120_000,
     stdio: ["pipe", "pipe", "pipe"],
@@ -118,6 +176,50 @@ interface QueueOwnerScanResult {
   dryRun: boolean;
 }
 
+function buildOwnerMap(repos: RepoDoc[]): Map<string, RepoDoc[]> {
+  const ownerMap = new Map<string, RepoDoc[]>();
+  for (const repo of repos) {
+    const list = ownerMap.get(repo.owner) ?? [];
+    list.push(repo);
+    ownerMap.set(repo.owner, list);
+  }
+  return ownerMap;
+}
+
+function bootstrapMissingOwner(owner: string): never {
+  log(`Owner "${owner}" has no cached repos; bootstrapping from GitHub...`);
+  try {
+    const result = convexRun<QueueOwnerScanResult>(
+      "github/admin_queue_owner_scan:adminQueueOwnerScan",
+      {
+        owner,
+        dryRun: isDryRun,
+      }
+    );
+    log(
+      `"${result.owner}" — fetched ${result.totalFetchedRepos} repos, ` +
+        `${isDryRun ? "would queue" : "queued"} ${result.queuedCount}, ` +
+        `${result.existingCount} already existed`
+    );
+  } catch (err) {
+    log(`ERROR: Failed to bootstrap owner "${owner}" — ${(err as Error).message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+function getTargetOwners(ownerMap: Map<string, RepoDoc[]>): string[] {
+  if (!targetOwner) {
+    return [...ownerMap.keys()].sort();
+  }
+
+  if (!ownerMap.has(targetOwner)) {
+    bootstrapMissingOwner(targetOwner);
+  }
+
+  return [targetOwner];
+}
+
 // ── Main ─────────────────────────────────────────────────────────
 
 async function main() {
@@ -126,6 +228,7 @@ async function main() {
 
   console.log();
   log(`🔄 Manual resync on ${env}${mode}`);
+  log(`Target Convex deployment: ${productionDeployment ?? "local dev"}`);
   log("─".repeat(LOG_RULE_WIDTH));
 
   // 1. Fetch all repos to derive owner list
@@ -140,42 +243,10 @@ async function main() {
   }
 
   // 2. Build owner → repos map
-  const ownerMap = new Map<string, RepoDoc[]>();
-  for (const repo of allRepos) {
-    const list = ownerMap.get(repo.owner) ?? [];
-    list.push(repo);
-    ownerMap.set(repo.owner, list);
-  }
+  const ownerMap = buildOwnerMap(allRepos);
 
   // 3. Determine target owners
-  let owners: string[];
-
-  if (targetOwner) {
-    if (!ownerMap.has(targetOwner)) {
-      log(`Owner "${targetOwner}" has no cached repos; bootstrapping from GitHub...`);
-      try {
-        const result = convexRun<QueueOwnerScanResult>(
-          "github/admin_queue_owner_scan:adminQueueOwnerScan",
-          {
-            owner: targetOwner,
-            dryRun: isDryRun,
-          }
-        );
-        log(
-          `"${result.owner}" — fetched ${result.totalFetchedRepos} repos, ` +
-            `${isDryRun ? "would queue" : "queued"} ${result.queuedCount}, ` +
-            `${result.existingCount} already existed`
-        );
-      } catch (err) {
-        log(`ERROR: Failed to bootstrap owner "${targetOwner}" — ${(err as Error).message}`);
-        process.exit(1);
-      }
-      process.exit(0);
-    }
-    owners = [targetOwner];
-  } else {
-    owners = [...ownerMap.keys()].sort();
-  }
+  const owners = getTargetOwners(ownerMap);
 
   const batch = Number.isFinite(batchSize) ? owners.slice(0, batchSize) : owners;
   const skipped = owners.length - batch.length;

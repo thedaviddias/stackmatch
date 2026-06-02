@@ -37,6 +37,13 @@ by fetching public GitHub repos and reusing the standard scan request mutation.
 - Convex CLI available through `pnpm --filter @stackmatch/web exec convex`
 - `adminResyncOwner` deployed to the target environment
 - `adminQueueOwnerScan` deployed to bootstrap owners with no cached rows
+- Production commands target the deployment in Vercel's production env file, not the
+  Convex CLI's `--prod` alias. Pull the env file first:
+
+```bash
+vercel env pull /private/tmp/stackmatch-vercel-prod.env --environment=production --yes
+```
+
 - Production scan readiness passes:
 
 ```bash
@@ -72,14 +79,13 @@ the first scan batch.
 ### Bootstrap a brand-new owner directly
 
 ```bash
-pnpm --filter @stackmatch/web exec convex run --prod \
-  github/admin_queue_owner_scan:adminQueueOwnerScan \
-  '{"owner":"toksdotdev","dryRun":true}'
+pnpm queue-owner-scan:prod -- toksdotdev --dry-run
 
-pnpm --filter @stackmatch/web exec convex run --prod \
-  github/admin_queue_owner_scan:adminQueueOwnerScan \
-  '{"owner":"toksdotdev"}'
+pnpm queue-owner-scan:prod -- toksdotdev --write
 ```
+
+The wrapper reads `NEXT_PUBLIC_CONVEX_URL` from the pulled Vercel production env file
+and queues through that exact Convex deployment.
 
 ### Full production resync
 
@@ -100,6 +106,9 @@ pnpm tsx scripts/resync-all-users.ts --prod --delay 30 --batch-size 5
 # Omit --prod to target local Convex dev server
 pnpm tsx scripts/resync-all-users.ts --owner thedaviddias
 ```
+
+Do not use raw `convex run --prod` for production scans. It can point at a Convex
+deployment that is no longer the one serving `stackmatch.dev`.
 
 ---
 
@@ -175,7 +184,7 @@ Duration:     6m 12s
 ### "0 repos found for owner X"
 
 The owner has no repos in the database yet. Use `--owner <login>` so the script can call
-`adminQueueOwnerScan`, or run `github/admin_queue_owner_scan:adminQueueOwnerScan` directly.
+`adminQueueOwnerScan`, or run `pnpm queue-owner-scan:prod -- <owner> --write` directly.
 
 ### Repos fail with "GITHUB_TOKEN not configured"
 
