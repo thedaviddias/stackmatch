@@ -148,6 +148,15 @@ export interface AppCopy {
       heading: string;
       subheading: string;
       signInNotice: string;
+      inviteCodeToggle: string;
+      inviteCodeOpen: string;
+      inviteCodeClose: string;
+      inviteCodeLabel: string;
+      inviteCodePlaceholder: string;
+      inviteCodeHelper: string;
+      inviteCodeSubmit: string;
+      inviteCodeInvalid: string;
+      inviteCodeInvalidCharacters: string;
       howItWorksHeading: string;
       privacyItems: Array<{
         title: string;

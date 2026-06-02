@@ -120,14 +120,14 @@ export default async function PackagePage({ params }: { params: Promise<{ name: 
         </script>
 
         <BackgroundOrbs />
-        <main className="mx-auto max-w-5xl space-y-6 px-4 pb-16 pt-24 sm:px-6 text-center">
-          <div className="inline-flex size-20 items-center justify-center rounded-3xl bg-neutral-900 border border-neutral-800 text-4xl mb-6 text-neutral-500">
+        <main className="mx-auto max-w-5xl space-y-6 px-4 pb-16 pt-24 text-center sm:px-6">
+          <div className="mb-6 inline-flex size-20 items-center justify-center rounded-3xl border border-border bg-card text-4xl text-muted-foreground dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-500">
             <Search className="size-10" />
           </div>
-          <h1 className="text-3xl font-black text-white">Package not found</h1>
-          <p className="text-neutral-400 max-w-md mx-auto">
+          <h1 className="text-3xl font-black text-foreground dark:text-white">Package not found</h1>
+          <p className="mx-auto max-w-md text-muted-foreground">
             No data available for{" "}
-            <code className="rounded bg-neutral-800 px-2 py-0.5 text-th-accent-1-text font-mono">
+            <code className="rounded bg-muted px-2 py-0.5 font-mono text-th-accent-1-text dark:bg-neutral-800">
               {packageName}
             </code>
             . It may not have been scanned yet.
@@ -136,7 +136,7 @@ export default async function PackagePage({ params }: { params: Promise<{ name: 
           <div className="pt-8">
             <LinkCustom
               href={ROUTES.leaderboard.stacks}
-              className="rounded-full bg-white/5 border border-white/10 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/10"
+              className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
             >
               &larr; Back to Stack Leaderboard
             </LinkCustom>

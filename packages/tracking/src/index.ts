@@ -24,6 +24,18 @@ type TrackingEvents = {
   download_png: { label: string; type: "user" | "repo" };
   download_private_png: { label: string; type: "user" | "repo" };
   system_share: { label: string; type: "user" | "repo" };
+  profile_share_card_copied: {
+    owner: string;
+    action: "copy_card" | "copy_link" | "share_x";
+    surface?: string;
+  };
+  profile_proof_step_clicked: {
+    owner: string;
+    step: string;
+    complete?: boolean;
+    surface?: string;
+  };
+  company_profile_cta_clicked: { owner: string; cta: string; surface: string };
   invite_open: { source: "nudge" | "manage_menu" };
   invite_link_copy: Record<string, never>;
   invite_landing_seen: { authenticated: boolean };

@@ -47,14 +47,14 @@ export default async function TopicPage({ params }: { params: Promise<{ name: st
         </script>
 
         <BackgroundOrbs />
-        <main className="mx-auto max-w-5xl space-y-6 px-4 pb-16 pt-24 sm:px-6 text-center">
-          <div className="inline-flex size-20 items-center justify-center rounded-3xl bg-neutral-900 border border-neutral-800 text-4xl mb-6 text-neutral-500">
+        <main className="mx-auto max-w-5xl space-y-6 px-4 pb-16 pt-24 text-center sm:px-6">
+          <div className="mb-6 inline-flex size-20 items-center justify-center rounded-3xl border border-border bg-card text-4xl text-muted-foreground dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-500">
             <Search className="size-10" />
           </div>
-          <h1 className="text-3xl font-black text-white">Topic not found</h1>
-          <p className="text-neutral-400 max-w-md mx-auto">
+          <h1 className="text-3xl font-black text-foreground dark:text-white">Topic not found</h1>
+          <p className="mx-auto max-w-md text-muted-foreground">
             No data available for{" "}
-            <code className="rounded bg-neutral-800 px-2 py-0.5 text-th-accent-1-text font-mono">
+            <code className="rounded bg-muted px-2 py-0.5 font-mono text-th-accent-1-text dark:bg-neutral-800">
               #{topic}
             </code>
             . It may not have been scanned yet.
@@ -62,7 +62,7 @@ export default async function TopicPage({ params }: { params: Promise<{ name: st
           <div className="pt-8">
             <LinkCustom
               href={ROUTES.developers}
-              className="rounded-full bg-white/5 border border-white/10 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/10"
+              className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
             >
               &larr; Back to Developers
             </LinkCustom>
@@ -78,16 +78,16 @@ export default async function TopicPage({ params }: { params: Promise<{ name: st
 
       <div className="space-y-12 px-4 pb-24 pt-12 sm:px-6 lg:pt-16">
         {/* ── Topic Header ────────────────────────────────────────── */}
-        <section className="rounded-3xl border border-neutral-800 glass-panel p-5 sm:p-8">
+        <section className="rounded-3xl border border-border glass-panel p-5 dark:border-neutral-800 sm:p-8">
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-th-accent-1/30 bg-th-accent-1/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-th-accent-1-text">
               <Hash className="size-3" />
               Topic
             </div>
-            <h1 className="break-words text-4xl font-black leading-tight tracking-tighter text-white sm:text-5xl">
+            <h1 className="break-words text-4xl font-black leading-tight tracking-tighter text-foreground dark:text-white sm:text-5xl">
               #{data.topic}
             </h1>
-            <p className="max-w-2xl text-base leading-normal text-neutral-400 font-medium sm:text-lg sm:leading-relaxed">
+            <p className="max-w-2xl text-base font-medium leading-normal text-muted-foreground sm:text-lg sm:leading-relaxed">
               Developers and organizations tagged with #{data.topic} on GitHub.
             </p>
           </div>
@@ -95,21 +95,23 @@ export default async function TopicPage({ params }: { params: Promise<{ name: st
 
         {/* ── Key Stats ───────────────────────────────────────────── */}
         <section className="grid grid-cols-2 gap-4">
-          <div className="group rounded-3xl border border-neutral-800 glass-panel p-4 transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] sm:p-6">
-            <p className="text-[10px] uppercase tracking-widest font-black text-neutral-500 group-hover:text-th-accent-1-text transition-colors">
+          <div className="group rounded-3xl border border-border glass-panel p-4 transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] dark:border-neutral-800 sm:p-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-th-accent-1-text">
               Stackers
             </p>
-            <p className="mt-1 text-3xl font-black text-white sm:text-4xl">
+            <p className="mt-1 text-3xl font-black text-foreground dark:text-white sm:text-4xl">
               {data.totalOwnerCount}
             </p>
-            <p className="text-[10px] font-bold text-neutral-500 mt-1">in stackmatch</p>
+            <p className="mt-1 text-[10px] font-bold text-muted-foreground">in stackmatch</p>
           </div>
-          <div className="group rounded-3xl border border-neutral-800 glass-panel p-4 transition-all hover:-translate-y-1 hover:border-purple-500/30 sm:p-6">
-            <p className="text-[10px] uppercase tracking-widest font-black text-neutral-500 group-hover:text-purple-400 transition-colors">
+          <div className="group rounded-3xl border border-border glass-panel p-4 transition-all hover:-translate-y-1 hover:border-purple-500/30 dark:border-neutral-800 sm:p-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-purple-700 dark:group-hover:text-purple-400">
               Repos
             </p>
-            <p className="mt-1 text-3xl font-black text-white sm:text-4xl">{data.totalRepoCount}</p>
-            <p className="text-[10px] font-bold text-neutral-500 mt-1">tagged #{data.topic}</p>
+            <p className="mt-1 text-3xl font-black text-foreground dark:text-white sm:text-4xl">
+              {data.totalRepoCount}
+            </p>
+            <p className="mt-1 text-[10px] font-bold text-muted-foreground">tagged #{data.topic}</p>
           </div>
         </section>
 
@@ -124,8 +126,10 @@ export default async function TopicPage({ params }: { params: Promise<{ name: st
           />
 
           {data.topOwners.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-neutral-800 p-20 text-center">
-              <p className="text-neutral-500 font-bold">No stackers found for this topic yet.</p>
+            <div className="rounded-3xl border border-dashed border-border p-20 text-center dark:border-neutral-800">
+              <p className="font-bold text-muted-foreground">
+                No stackers found for this topic yet.
+              </p>
             </div>
           ) : (
             <TopicOwnersSection
@@ -151,11 +155,11 @@ export default async function TopicPage({ params }: { params: Promise<{ name: st
                 <LinkCustom
                   key={l.language}
                   href={ROUTES.language(l.language)}
-                  className="group relative flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-emerald-900/30 bg-emerald-500/5 px-4 py-3 text-sm font-bold text-emerald-300 transition-all hover:-translate-y-1 hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-200 hover:shadow-[0_8px_30px_rgba(16,185,129,0.1)] sm:gap-3 sm:px-5"
+                  className="group relative flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 transition-all hover:-translate-y-1 hover:border-emerald-400 hover:bg-emerald-100 hover:text-emerald-900 hover:shadow-[0_8px_30px_rgba(16,185,129,0.1)] dark:border-emerald-900/30 dark:bg-emerald-500/5 dark:text-emerald-300 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200 sm:gap-3 sm:px-5"
                 >
                   <span className="min-w-0 break-all">{l.language}</span>
-                  <div className="h-4 w-px bg-emerald-800/30" />
-                  <span className="text-[10px] font-black text-emerald-500/60 tabular-nums">
+                  <div className="h-4 w-px bg-emerald-300 dark:bg-emerald-800/30" />
+                  <span className="text-[10px] font-black tabular-nums text-emerald-700 dark:text-emerald-500/60">
                     {l.coOccurrenceCount}
                   </span>
                 </LinkCustom>
@@ -172,21 +176,21 @@ export default async function TopicPage({ params }: { params: Promise<{ name: st
               title="Related Topics"
               description={`Topics commonly found alongside #${data.topic}.`}
               icon={Link2}
-              iconClassName="text-white"
+              iconClassName="text-th-accent-1-text"
             />
             <div className="flex flex-wrap gap-3 px-2">
               {data.relatedTopics.map((t) => (
                 <LinkCustom
                   key={t.topic}
                   href={ROUTES.topic(t.topic)}
-                  className="group relative flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-5 py-3 text-sm font-bold text-neutral-300 transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] hover:bg-neutral-900 hover:text-white hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.1)]"
+                  className="group relative flex items-center gap-3 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-bold text-foreground transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] hover:bg-muted hover:text-foreground hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.1)] dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-white"
                 >
                   <span className="text-th-accent-1 group-hover:scale-125 transition-transform">
                     #
                   </span>
                   {t.topic}
-                  <div className="h-4 w-px bg-neutral-800 group-hover:bg-th-accent-1/20" />
-                  <span className="text-[10px] font-black text-neutral-500 tabular-nums">
+                  <div className="h-4 w-px bg-border group-hover:bg-th-accent-1/20 dark:bg-neutral-800" />
+                  <span className="text-[10px] font-black tabular-nums text-muted-foreground dark:text-neutral-500">
                     {t.coOccurrenceCount}
                   </span>
                 </LinkCustom>

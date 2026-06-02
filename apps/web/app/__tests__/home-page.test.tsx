@@ -158,6 +158,9 @@ describe("HomePage", () => {
     expect(html).toContain("Popular Stacks to Explore");
     expect(html).toContain("Explore the Stack Graph");
     expect(html).toContain("Your Stackmatch page becomes a living stack profile.");
+    expect(html).toContain("Developer avatar marquee");
+    expect(html).not.toContain("Stackmatch activation loop");
+    expect(html).not.toContain("Fingerprint");
     expect(html).not.toContain("A developer-first stack ecosystem.");
     expect(html).not.toContain("Natural support surfaces");
     expect(html).not.toContain("Top Stackers This Week");

@@ -44,6 +44,20 @@ afterEach(() => {
 });
 
 describe("InviteRedirect", () => {
+  it("saves the invite code and redirects signed-out users to login", async () => {
+    mocks.useSession.mockReturnValue({
+      session: null,
+      isPending: false,
+    });
+    mocks.useQuery.mockReturnValue(undefined);
+
+    render(<InviteRedirect code="ALPHA1" />);
+
+    await waitFor(() => expect(mocks.savePendingReferral).toHaveBeenCalledWith("ALPHA1"));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login"));
+    expect(mocks.redeemInviteCode).not.toHaveBeenCalled();
+  });
+
   it("redirects authenticated users to the resolved GitHub login", async () => {
     mocks.useSession.mockReturnValue({
       session: { user: { name: "David Dias", image: "https://example.com/avatar.png" } },

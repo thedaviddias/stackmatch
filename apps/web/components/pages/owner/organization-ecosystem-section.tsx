@@ -13,11 +13,27 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { TrackedProductLink } from "@/components/analytics/tracked-product-link";
+import { MetricHelpTooltip } from "@/components/ui/display/metric-help-tooltip";
 import { TimeAgo } from "@/components/ui/display/time-ago";
 
 const USED_BY_AVATAR_STRIP_LIMIT = 4;
 const USED_BY_ROW_AVATAR_SIZE = 40;
 const USED_BY_STRIP_AVATAR_SIZE = 32;
+const ORGANIZATION_ECOSYSTEM_TOOLTIPS = {
+  maintainedPackages:
+    "Packages inferred from package.json names in this organization's synced public repositories.",
+  indexedSourceCoverage:
+    "How many public repositories for this organization have completed Stackmatch analysis.",
+  maintainerPresence:
+    "Whether this organization profile has verified GitHub maintainer access or is still pending verification.",
+  usedBy:
+    "Indexed developers and organizations whose public manifests depend on this organization's maintained packages.",
+  adjacentStacks:
+    "Packages that appear in manifests beside this organization's maintained packages.",
+  publicStackSurface:
+    "Aggregate public dependency signals connecting the organization to packages, languages, and topics.",
+} as const;
 
 interface OrganizationProfile {
   name?: string;
@@ -172,7 +188,11 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             <PackageCheck className="size-3.5" />
-            Maintained Packages
+            <span>Maintained Packages</span>
+            <MetricHelpTooltip
+              label="Maintained Packages"
+              content={ORGANIZATION_ECOSYSTEM_TOOLTIPS.maintainedPackages}
+            />
           </p>
           <p className="mt-3 text-3xl font-black text-foreground dark:text-white">
             {formatCompact(maintainedPackages.length)}
@@ -185,7 +205,11 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             <BarChart3 className="size-3.5" />
-            Indexed Source Coverage
+            <span>Indexed Source Coverage</span>
+            <MetricHelpTooltip
+              label="Indexed Source Coverage"
+              content={ORGANIZATION_ECOSYSTEM_TOOLTIPS.indexedSourceCoverage}
+            />
           </p>
           <p className="mt-3 text-3xl font-black text-foreground dark:text-white">
             {syncCounts.synced}/{syncCounts.total}
@@ -196,7 +220,11 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             <CheckCircle2 className="size-3.5" />
-            Maintainer Presence
+            <span>Maintainer Presence</span>
+            <MetricHelpTooltip
+              label="Maintainer Presence"
+              content={ORGANIZATION_ECOSYSTEM_TOOLTIPS.maintainerPresence}
+            />
           </p>
           <p className="mt-3 text-lg font-black text-foreground dark:text-white">
             {hasVerifiedClaim ? "Verified maintainer presence" : "Verification pending"}
@@ -209,7 +237,11 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="flex items-center gap-2 text-sm font-black text-foreground dark:text-white">
             <PackageCheck className="size-4 text-th-accent-1" />
-            Maintained Packages
+            <span>Maintained Packages</span>
+            <MetricHelpTooltip
+              label="Maintained Packages"
+              content={ORGANIZATION_ECOSYSTEM_TOOLTIPS.maintainedPackages}
+            />
           </p>
           <p className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
             High-confidence packages published from this organization&apos;s synced public repos.
@@ -240,7 +272,8 @@ export function OrganizationEcosystemSection({
           <div className="flex items-start justify-between gap-4">
             <p className="flex items-center gap-2 text-sm font-black text-foreground dark:text-white">
               <Users className="size-4 text-emerald-400" />
-              Used By
+              <span>Used By</span>
+              <MetricHelpTooltip label="Used By" content={ORGANIZATION_ECOSYSTEM_TOOLTIPS.usedBy} />
             </p>
             {avatarStripAdopters.length > 0 ? (
               <div className="flex shrink-0 -space-x-2">
@@ -303,7 +336,11 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="flex items-center gap-2 text-sm font-black text-foreground dark:text-white">
             <Network className="size-4 text-cyan-400" />
-            Adjacent Stacks
+            <span>Adjacent Stacks</span>
+            <MetricHelpTooltip
+              label="Adjacent Stacks"
+              content={ORGANIZATION_ECOSYSTEM_TOOLTIPS.adjacentStacks}
+            />
           </p>
           <p className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
             Packages that appear beside {displayName}&apos;s maintained packages.
@@ -348,7 +385,11 @@ export function OrganizationEcosystemSection({
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="flex items-center gap-2 text-sm font-black text-foreground dark:text-white">
             <PackageSearch className="size-4 text-emerald-400" />
-            Public Stack Surface
+            <span>Public Stack Surface</span>
+            <MetricHelpTooltip
+              label="Public Stack Surface"
+              content={ORGANIZATION_ECOSYSTEM_TOOLTIPS.publicStackSurface}
+            />
           </p>
           <p className="mt-3 text-sm font-medium leading-relaxed text-muted-foreground">
             {formatCompact(summary.publicPackageCount)} public dependency signals connect this
@@ -366,6 +407,28 @@ export function OrganizationEcosystemSection({
               </p>
             </div>
           ) : null}
+          <div className="mt-4 grid gap-2">
+            <TrackedProductLink
+              href={ROUTES.companies}
+              cta="package_ecosystem_brief"
+              surface="organization_profile"
+              eventName="company_profile_cta_clicked"
+              owner={owner}
+              className="rounded-xl border border-border bg-background/70 px-3 py-2 text-xs font-black uppercase tracking-widest text-foreground transition-colors hover:border-th-accent-1/40 hover:text-th-accent-1-text dark:border-white/10 dark:bg-black/20 dark:text-white"
+            >
+              Package Ecosystem Brief
+            </TrackedProductLink>
+            <TrackedProductLink
+              href={ROUTES.companies}
+              cta="verified_org_profile"
+              surface="organization_profile"
+              eventName="company_profile_cta_clicked"
+              owner={owner}
+              className="rounded-xl border border-border bg-background/70 px-3 py-2 text-xs font-black uppercase tracking-widest text-foreground transition-colors hover:border-th-accent-1/40 hover:text-th-accent-1-text dark:border-white/10 dark:bg-black/20 dark:text-white"
+            >
+              Verified Organization Profile
+            </TrackedProductLink>
+          </div>
         </div>
       </div>
 

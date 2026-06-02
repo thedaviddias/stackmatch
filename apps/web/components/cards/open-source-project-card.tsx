@@ -32,14 +32,14 @@ export function OpenSourceProjectCard({ name, description, url, siteUrl }: OpenS
       </a>
 
       <div className="relative z-10 mb-4">
-        <h3 className="mb-2 text-lg font-extrabold text-white transition-all group-hover:bg-gradient-to-r group-hover:from-purple-400 group-hover:to-pink-400 group-hover:bg-clip-text group-hover:text-transparent">
+        <h3 className="mb-2 text-lg font-extrabold text-foreground transition-all group-hover:bg-gradient-to-r group-hover:from-purple-600 group-hover:to-pink-600 group-hover:bg-clip-text group-hover:text-transparent dark:text-white dark:group-hover:from-purple-400 dark:group-hover:to-pink-400">
           {name}
         </h3>
-        <p className="text-sm text-neutral-400 leading-relaxed line-clamp-2">{description}</p>
+        <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
       </div>
 
       <div className="relative z-10 flex items-center gap-3">
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-purple-400">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-purple-700 dark:text-purple-400">
           <ExternalLink className="h-3 w-3" />
           {siteUrl.replace("https://", "")}
         </span>
@@ -47,7 +47,7 @@ export function OpenSourceProjectCard({ name, description, url, siteUrl }: OpenS
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="relative z-20 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-neutral-300 transition-colors"
+          className="relative z-20 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground dark:hover:text-neutral-300"
         >
           <GitHubMark className="h-3 w-3" />
           Source

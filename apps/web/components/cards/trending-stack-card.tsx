@@ -49,7 +49,7 @@ export function TrendingStackCard({
           {packageName}
         </h3>
         {showMetrics ? (
-          <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+          <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-emerald-500/80" />
               {depCount} <span className="opacity-60">deps</span>
@@ -60,7 +60,7 @@ export function TrendingStackCard({
             </span>
           </div>
         ) : (
-          <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             {metricFallbackLabel}
           </p>
         )}

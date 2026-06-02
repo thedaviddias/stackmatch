@@ -1,9 +1,9 @@
 "use client";
 
 import { SectionTitle } from "@stackmatch/ui/section-title";
-import { BarChart3, Boxes, CircleHelp, Search } from "lucide-react";
+import { BarChart3, Boxes, Search } from "lucide-react";
 import dynamic from "next/dynamic";
-import { Tooltip } from "@/components/ui/display/profile-elements";
+import { MetricHelpTooltip } from "@/components/ui/display/metric-help-tooltip";
 import type { NpmDownloadPoint } from "@/lib/server/package-data/npm-package-data";
 
 const DepTypeDonutChart = dynamic(
@@ -68,25 +68,6 @@ const SCORE_TOOLTIPS = {
     "npms.io maintenance sub-score, shown as a percent. It reflects upkeep signals such as release and project activity.",
 } as const;
 
-function ScoreHelpTooltip({ label, content }: { label: string; content: string }) {
-  return (
-    <Tooltip
-      side="bottom"
-      className="max-w-64 leading-relaxed"
-      trigger={
-        <button
-          type="button"
-          aria-label={`How ${label} is calculated`}
-          className="inline-flex size-4 items-center justify-center rounded-full text-neutral-500/80 transition-colors hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/70"
-        >
-          <CircleHelp className="size-3.5" />
-        </button>
-      }
-      content={content}
-    />
-  );
-}
-
 /** Render a score bar (0-1 range) with a colored fill. */
 function ScoreBar({ label, value, tooltip }: { label: string; value: number; tooltip: string }) {
   const pct = Math.round(value * SCORE_PERCENT_MULTIPLIER);
@@ -99,13 +80,13 @@ function ScoreBar({ label, value, tooltip }: { label: string; value: number; too
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
-        <span className="flex items-center gap-1.5 text-neutral-500">
+        <span className="flex items-center gap-1.5 text-muted-foreground">
           <span>{label}</span>
-          <ScoreHelpTooltip label={label} content={tooltip} />
+          <MetricHelpTooltip label={label} content={tooltip} />
         </span>
-        <span className="text-white">{pct}%</span>
+        <span className="text-foreground dark:text-white">{pct}%</span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-900 shadow-inner">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted shadow-inner dark:bg-neutral-900">
         <div
           className={`h-full rounded-full ${color} shadow-[0_0_8px_rgba(0,0,0,0.5)] transition-all duration-1000`}
           style={{ width: `${pct}%` }}
@@ -145,7 +126,7 @@ export function PackageAnalytics({
         variant="h2"
         title="Package Analytics"
         icon={BarChart3}
-        iconClassName="text-white"
+        iconClassName="text-th-accent-1-text"
         spacing="none"
       />
 
@@ -154,21 +135,23 @@ export function PackageAnalytics({
           {/* Dependency Breakdown */}
           {hasTypeBreakdown && (
             <div className="min-w-0 space-y-4">
-              <h3 className="flex items-center gap-2 px-2 text-[10px] uppercase tracking-widest font-black text-neutral-500">
+              <h3 className="flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 <Boxes className="size-3" /> Type Breakdown
               </h3>
-              <div className="min-w-0 overflow-hidden rounded-3xl border border-neutral-800 glass-panel p-5 sm:p-8">
+              <div className="min-w-0 overflow-hidden rounded-3xl border border-border glass-panel p-5 dark:border-neutral-800 sm:p-8">
                 <div className="flex min-w-0 flex-col items-center gap-6 sm:flex-row sm:justify-between sm:gap-10">
                   <DepTypeDonutChart depCount={totalDepCount} devDepCount={totalDevDepCount} />
                   <div className="grid grid-cols-1 gap-6 flex-1 w-full sm:w-auto">
-                    <div className="rounded-2xl bg-white/5 border border-white/5 p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold">
+                    <div className="rounded-2xl border border-border bg-card p-4 dark:border-white/5 dark:bg-white/5">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         Total Matches
                       </p>
-                      <p className="text-3xl font-black text-white mt-1">{totalMatches}</p>
+                      <p className="mt-1 text-3xl font-black text-foreground dark:text-white">
+                        {totalMatches}
+                      </p>
                     </div>
                     {dependencyCount != null && (
-                      <p className="text-xs text-neutral-400 font-medium leading-relaxed px-1">
+                      <p className="px-1 text-xs font-medium leading-relaxed text-muted-foreground">
                         This package relies on{" "}
                         <span className="text-th-accent-1-text font-black">{dependencyCount}</span>{" "}
                         direct upstream dependencies.
@@ -183,10 +166,10 @@ export function PackageAnalytics({
           {/* Download Trend */}
           {hasDownloadTrend && downloadTrend && (
             <div className="min-w-0 space-y-4">
-              <h3 className="flex items-center gap-2 px-2 text-[10px] uppercase tracking-widest font-black text-neutral-500">
+              <h3 className="flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 <BarChart3 className="size-3" /> Growth Trend
               </h3>
-              <div className="h-full min-h-[200px] min-w-0 overflow-hidden rounded-3xl border border-neutral-800 glass-panel p-5 sm:p-8">
+              <div className="h-full min-h-[200px] min-w-0 overflow-hidden rounded-3xl border border-border glass-panel p-5 dark:border-neutral-800 sm:p-8">
                 <DownloadTrendChart data={downloadTrend} />
               </div>
             </div>
@@ -201,10 +184,10 @@ export function PackageAnalytics({
             <div
               className={`min-w-0 space-y-4 ${bottomPanelCount > 1 ? "lg:col-span-2" : "lg:col-span-3"}`}
             >
-              <h3 className="flex items-center gap-2 px-2 text-[10px] uppercase tracking-widest font-black text-neutral-500">
+              <h3 className="flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 <Boxes className="size-3" /> Version Adoption
               </h3>
-              <div className="min-w-0 overflow-hidden rounded-3xl border border-neutral-800 glass-panel p-5 sm:p-8">
+              <div className="min-w-0 overflow-hidden rounded-3xl border border-border glass-panel p-5 dark:border-neutral-800 sm:p-8">
                 <VersionDistributionChart data={versionDistribution} />
               </div>
             </div>
@@ -213,20 +196,20 @@ export function PackageAnalytics({
           {/* Quality Scores */}
           {score && (
             <div className={`min-w-0 space-y-4 ${bottomPanelCount > 1 ? "" : "lg:col-span-3"}`}>
-              <h3 className="flex items-center gap-2 px-2 text-[10px] uppercase tracking-widest font-black text-neutral-500">
+              <h3 className="flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 <Search className="size-3" /> Health & Maintenance
               </h3>
-              <div className="min-w-0 space-y-8 rounded-3xl border border-neutral-800 glass-panel p-5 sm:p-8">
+              <div className="min-w-0 space-y-8 rounded-3xl border border-border glass-panel p-5 dark:border-neutral-800 sm:p-8">
                 <div>
-                  <div className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                  <div className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     <span>Overall Score</span>
-                    <ScoreHelpTooltip label="Overall Score" content={SCORE_TOOLTIPS.overall} />
+                    <MetricHelpTooltip label="Overall Score" content={SCORE_TOOLTIPS.overall} />
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <p className="text-6xl font-black text-white tabular-nums tracking-tighter">
+                    <p className="text-6xl font-black tabular-nums tracking-tighter text-foreground dark:text-white">
                       {Math.round(score.overall * SCORE_PERCENT_MULTIPLIER)}
                     </p>
-                    <p className="text-xl font-black text-neutral-600">/100</p>
+                    <p className="text-xl font-black text-muted-foreground">/100</p>
                   </div>
                 </div>
                 <div className="space-y-6">

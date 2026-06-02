@@ -23,6 +23,7 @@ import { ContributorBreakdown } from "@/components/charts/breakdown/contributor-
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Breadcrumbs } from "@/components/layout/nav/breadcrumbs";
 import { ShareButtons } from "@/components/sharing/share-buttons";
+import { MetricHelpTooltip } from "@/components/ui/display/metric-help-tooltip";
 import { AppAlert } from "@/components/ui/feedback/app-alert";
 import { api } from "@/data/api";
 import { useQuery } from "@/data/react";
@@ -54,6 +55,16 @@ const ANALYSIS_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
+const REPO_SIGNAL_TOOLTIPS = {
+  popularity: "GitHub repository popularity from cached stars, forks, and open issue metadata.",
+  freshness:
+    "The latest GitHub push date for the repository, plus when Stackmatch last analyzed it.",
+  stackFootprint: "Packages and manifests found during dependency-file scans for this repository.",
+  aiConfigs:
+    "Detected AI rules, agent instructions, and skill/config files in synced repository content.",
+  analysisCoverage:
+    "Current Stackmatch analysis status and the number of cached commits from the latest analysis.",
+} as const;
 
 interface RepoDashboardContentProps {
   owner: string;
@@ -114,18 +125,21 @@ function SignalStat({
   label,
   value,
   detail,
+  tooltip,
 }: {
   icon: LucideIcon;
   label: string;
   value: ReactNode;
   detail: ReactNode;
+  tooltip?: ReactNode;
 }) {
   return (
     <div className="rounded-lg border border-border bg-background/80 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950/40">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
-            {label}
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
+            <span>{label}</span>
+            {tooltip ? <MetricHelpTooltip label={label} content={tooltip} /> : null}
           </p>
           <div className="mt-2 truncate text-2xl font-bold text-foreground dark:text-white">
             {value}
@@ -196,7 +210,13 @@ function LanguageTopicSignals({ repo }: { repo: RepoData }) {
   );
 }
 
-function RepoSignals({ repo, isSyncInProgress }: { repo: RepoData; isSyncInProgress: boolean }) {
+export function RepoSignals({
+  repo,
+  isSyncInProgress,
+}: {
+  repo: RepoData;
+  isSyncInProgress: boolean;
+}) {
   const hasAiConfigs = (repo.aiConfigs?.length ?? 0) > 0;
   const commitsAnalyzed = repo.totalCommitsFetched ?? 0;
   const homepageUrl = repo.homepageUrl;
@@ -212,18 +232,21 @@ function RepoSignals({ repo, isSyncInProgress }: { repo: RepoData; isSyncInProgr
           label="Popularity"
           value={formatCompactNumber(repo.stars)}
           detail={`${formatLabeledCount(repo.forksCount, "fork", "forks")} · ${formatLabeledCount(repo.openIssuesCount, "open issue", "open issues")}`}
+          tooltip={REPO_SIGNAL_TOOLTIPS.popularity}
         />
         <SignalStat
           icon={CalendarCheck}
           label="Freshness"
           value={formatOptionalDate(repo.pushedAt)}
           detail={`Last analyzed ${formatAnalysisDate(repo.lastSyncedAt)}.`}
+          tooltip={REPO_SIGNAL_TOOLTIPS.freshness}
         />
         <SignalStat
           icon={PackageCheck}
           label="Stack footprint"
           value={formatLabeledCount(packageCount, "package", "packages")}
           detail={`${formatLabeledCount(manifestCount, "manifest", "manifests")} scanned from dependency files.`}
+          tooltip={REPO_SIGNAL_TOOLTIPS.stackFootprint}
         />
         <SignalStat
           icon={Scale}
@@ -252,6 +275,7 @@ function RepoSignals({ repo, isSyncInProgress }: { repo: RepoData; isSyncInProgr
           label="AI configs"
           value={formatCompactNumber(repo.aiConfigs?.length)}
           detail="Detected AI rules, agent files, and skill directories."
+          tooltip={REPO_SIGNAL_TOOLTIPS.aiConfigs}
         />
         <SignalStat
           icon={repo.isArchived ? Info : Activity}
@@ -262,6 +286,7 @@ function RepoSignals({ repo, isSyncInProgress }: { repo: RepoData; isSyncInProgr
               ? "Signals are refreshing from cached metadata and scans."
               : `${formatLabeledCount(commitsAnalyzed, "commit", "commits")} cached from the latest analysis.`
           }
+          tooltip={REPO_SIGNAL_TOOLTIPS.analysisCoverage}
         />
       </div>
 

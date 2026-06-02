@@ -27,6 +27,7 @@ import {
 import { StarButton } from "@/components/ui/feedback/star-button";
 import { profileActionButtonClassName } from "@/components/ui/profile-action-button";
 import { getI18n } from "@/lib/re-exports/i18n";
+import { trackEvent } from "@/lib/storage/tracking";
 import { cn, formatCompactNumber, formatJoinDate } from "@/lib/storage/utils";
 
 const i18n = getI18n();
@@ -53,6 +54,46 @@ function ProfileMetaPill({
 
 function formatCountLabel(value: number, singular: string, plural: string): string {
   return `${formatCompactNumber(value)} ${value === 1 ? singular : plural}`;
+}
+
+function buildProfileShareText({
+  owner,
+  isOwnerViewer,
+  isOrganization,
+  publicPackageCount,
+}: {
+  owner: string;
+  isOwnerViewer: boolean;
+  isOrganization: boolean;
+  publicPackageCount: number;
+}) {
+  const formattedCount = publicPackageCount.toLocaleString("en-US");
+  if (isOrganization) {
+    return `Explore @${owner}'s public Stackmatch ecosystem: ${formattedCount} dependency signals across packages, repos, and adopters.`;
+  }
+
+  if (isOwnerViewer) {
+    return `Here's my Stackmatch profile: ${formattedCount} public dependency signals mapped into a stack fingerprint.`;
+  }
+
+  return `Explore @${owner}'s Stackmatch profile: ${formattedCount} public dependency signals, stack identity, and match context.`;
+}
+
+function trackProfileProofStep({
+  owner,
+  step,
+  complete,
+}: {
+  owner: string;
+  step: string;
+  complete?: boolean;
+}) {
+  trackEvent("profile_proof_step_clicked", {
+    owner,
+    step,
+    complete,
+    surface: "profile_header",
+  });
 }
 
 function ScoreGrowthItem({
@@ -186,6 +227,12 @@ export function ProfileHeader({
     COMMUNITY_STARS_MAX_SCORE,
     Math.floor(optimisticStarsReceived / COMMUNITY_STARS_MILESTONE)
   );
+  const profileShareText = buildProfileShareText({
+    owner,
+    isOwnerViewer,
+    isOrganization,
+    publicPackageCount: summary.publicPackageCount,
+  });
 
   return (
     <section
@@ -372,7 +419,13 @@ export function ProfileHeader({
                 {isClaimed && !isOrganization && (
                   <MessageButton targetOwner={owner} viewerStackScore={viewerStackScore} />
                 )}
-                <ShareDropdown shareUrl={shareUrl} iconOnly />
+                <ShareDropdown
+                  shareUrl={shareUrl}
+                  shareText={profileShareText}
+                  cardOwner={owner}
+                  trackingSurface="profile_header_public"
+                  iconOnly
+                />
                 <ProfileSafetyMenu targetOwner={owner} />
               </div>
             </div>
@@ -381,13 +434,22 @@ export function ProfileHeader({
               <ShareDropdown
                 shareUrl={shareUrl}
                 label={i18n.actions.share.shareCard}
-                shareText={i18n.actions.share.tweetTextOwn}
+                shareText={profileShareText}
+                cardOwner={owner}
+                trackingSurface="profile_header_owner"
               />
               {!isOrganization && stackScore < STACK_SCORE_CAP && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
+                      onPointerDown={() =>
+                        trackProfileProofStep({
+                          owner,
+                          step: "open_score_checklist",
+                          complete: false,
+                        })
+                      }
                       className={profileActionButtonClassName({
                         intent: "accent",
                         className: "group relative w-full overflow-hidden",
@@ -403,7 +465,7 @@ export function ProfileHeader({
                   >
                     <div className="px-1 pb-3">
                       <p className="text-[10px] font-black uppercase tracking-widest text-th-accent-1-text">
-                        Improve Stack Score
+                        Profile Proof Checklist
                       </p>
                       <div className="mt-2 flex items-end justify-between gap-3">
                         <p className="text-sm font-bold text-foreground dark:text-white">
@@ -418,7 +480,7 @@ export function ProfileHeader({
                       <ScoreGrowthItem
                         done={!!isClaimed}
                         label="Claim Profile (+15)"
-                        action="Sign in with GitHub so your stack card has a trusted owner."
+                        action="Connect the stack fingerprint to a trusted GitHub identity."
                       />
                       <ScoreGrowthItem
                         done={!!summary.personalizedWithPrivate}
@@ -428,7 +490,7 @@ export function ProfileHeader({
                       <ScoreGrowthItem
                         done={hasBioAndSocials}
                         label="Bio & Socials (+20)"
-                        action="Add profile context so stackmates know why to connect."
+                        action="Add enough context for stackmates to understand your work."
                       />
                       <ScoreGrowthItem
                         done={hasStackDepth}
@@ -449,7 +511,17 @@ export function ProfileHeader({
                       />
                     </ul>
                     <DropdownMenuItem asChild className="mt-2 cursor-pointer rounded-xl py-2.5">
-                      <Link href={ROUTES.docs.ranks} className="flex w-full items-center gap-2">
+                      <Link
+                        href={ROUTES.docs.ranks}
+                        className="flex w-full items-center gap-2"
+                        onClick={() =>
+                          trackProfileProofStep({
+                            owner,
+                            step: "full_score_guide",
+                            complete: true,
+                          })
+                        }
+                      >
                         Full score guide
                         <ExternalLink className="size-3.5" />
                       </Link>

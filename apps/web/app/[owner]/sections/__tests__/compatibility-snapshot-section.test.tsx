@@ -181,7 +181,7 @@ describe("CompatibilitySnapshotSection", () => {
       />
     );
 
-    expect(screen.getByText(/public dependency graph/i)).not.toBeNull();
+    expect(screen.getByText(/your public stack proof/i)).not.toBeNull();
     expect(screen.getAllByText(/24/).length).toBeGreaterThan(0);
     expect(screen.getByText(/public deps across 6 repos/i)).not.toBeNull();
     expect(screen.getByRole("link", { name: /keep syncing public repositories/i })).not.toBeNull();

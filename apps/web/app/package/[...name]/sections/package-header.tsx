@@ -29,7 +29,7 @@ export function PackageHeader({
   return (
     <section
       data-theme-card="package-header"
-      className="rounded-3xl border border-neutral-800 glass-panel p-5 sm:p-8"
+      className="rounded-3xl border border-border glass-panel p-5 dark:border-neutral-800 sm:p-8"
     >
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="min-w-0 space-y-4">
@@ -45,20 +45,20 @@ export function PackageHeader({
               Package Registry
             </div>
             {fetchedAt && (
-              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <RefreshCw className="size-2.5" />
                 Refreshed {formatRelativeTime(fetchedAt)}
               </span>
             )}
           </div>
-          <h1 className="flex min-w-0 flex-wrap items-center gap-3 break-words text-4xl font-black tracking-tighter text-white sm:text-5xl">
+          <h1 className="flex min-w-0 flex-wrap items-center gap-3 break-words text-4xl font-black tracking-tighter text-foreground dark:text-white sm:text-5xl">
             {homepage ? (
               <PackageFavicon homepage={homepage} packageName={packageName} size={32} />
             ) : null}
             <span className="min-w-0 break-words">{packageName}</span>
           </h1>
           {description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-400 font-medium sm:text-lg">
+            <p className="max-w-2xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
               {description}
             </p>
           ) : null}
@@ -67,7 +67,7 @@ export function PackageHeader({
               href={ROUTES.external.npm(packageName)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-th-accent-1-text hover:text-th-accent-1 transition-colors flex items-center gap-1.5"
+              className="flex items-center gap-1.5 text-th-accent-1-text transition-colors hover:text-th-accent-1"
             >
               npm <span className="text-[10px] opacity-50">↗</span>
             </a>
@@ -76,7 +76,7 @@ export function PackageHeader({
                 href={repositoryUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1.5"
+                className="flex items-center gap-1.5 text-indigo-700 transition-colors hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
               >
                 Repository <span className="text-[10px] opacity-50">↗</span>
               </a>
@@ -86,7 +86,7 @@ export function PackageHeader({
                 href={homepage}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1.5"
+                className="flex items-center gap-1.5 text-sky-700 transition-colors hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300"
               >
                 <Globe className="size-3.5" />
                 Website <span className="text-[10px] opacity-50">↗</span>
@@ -101,7 +101,7 @@ export function PackageHeader({
               <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
               <span
                 data-theme-label="status"
-                className="relative flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-black/40 px-4 py-2 text-xs font-black text-emerald-400 backdrop-blur-xl"
+                className="relative flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-700 backdrop-blur-xl dark:bg-black/40 dark:text-emerald-400"
               >
                 <span className="size-1.5 rounded-full bg-emerald-500" />v{latestVersion}
               </span>
@@ -110,7 +110,7 @@ export function PackageHeader({
           {license ? (
             <span
               data-theme-label="count"
-              className="rounded-xl border border-neutral-800 bg-neutral-900/50 px-4 py-2 text-xs font-bold text-neutral-500"
+              className="rounded-xl border border-border bg-muted px-4 py-2 text-xs font-bold text-muted-foreground dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-500"
             >
               {license}
             </span>
@@ -124,7 +124,7 @@ export function PackageHeader({
             <span
               key={kw}
               data-theme-label="topic"
-              className="rounded-xl border border-neutral-800 bg-black/20 px-3 py-1.5 text-[11px] font-bold text-neutral-500"
+              className="rounded-xl border border-border bg-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground dark:border-neutral-800 dark:bg-black/20 dark:text-neutral-500"
             >
               {kw}
             </span>

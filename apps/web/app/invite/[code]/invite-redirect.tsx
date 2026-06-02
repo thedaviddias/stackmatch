@@ -151,12 +151,14 @@ export function InviteRedirect({ code }: { code: string }) {
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 px-4 text-center">
-      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
-        <Sparkles className="h-8 w-8 text-pink-400" />
+      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-card ring-1 ring-border dark:bg-white/5 dark:ring-white/10">
+        <Sparkles className="h-8 w-8 text-th-accent-1-text" />
       </div>
       <div>
-        <h1 className="text-2xl font-black tracking-tight text-white">Activating your invite</h1>
-        <p className="mt-3 text-sm font-medium leading-relaxed text-neutral-400">
+        <h1 className="text-2xl font-black tracking-tight text-foreground dark:text-white">
+          Activating your invite
+        </h1>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-muted-foreground">
           This link connects your GitHub profile to Stackmatch, applies the referral bonus, and
           helps both profiles move closer to stronger stack discovery.
         </p>
@@ -165,13 +167,13 @@ export function InviteRedirect({ code }: { code: string }) {
         {["Claim profile", "+5 Stack Score", "Find stackmates"].map((step) => (
           <div
             key={step}
-            className="rounded-xl border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-neutral-400"
+            className="rounded-xl border border-border bg-card px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400"
           >
             {step}
           </div>
         ))}
       </div>
-      <p className="animate-pulse text-xs font-black uppercase tracking-widest text-neutral-500">
+      <p className="animate-pulse text-xs font-black uppercase tracking-widest text-muted-foreground">
         Redirecting through GitHub
       </p>
     </div>

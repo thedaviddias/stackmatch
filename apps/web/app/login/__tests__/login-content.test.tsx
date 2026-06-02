@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   loggerError: vi.fn(),
   repairGitHubLogin: vi.fn(async () => null as string | null),
   replace: vi.fn(),
+  savePendingReferral: vi.fn(),
   signInSocial: vi.fn(),
   signOut: vi.fn(),
   useAction: vi.fn(),
@@ -49,6 +50,7 @@ vi.mock("@/lib/storage/pending-star", () => ({
 vi.mock("@/lib/storage/pending-referral", () => ({
   getPendingReferral: () => null,
   clearPendingReferral: vi.fn(),
+  savePendingReferral: mocks.savePendingReferral,
 }));
 vi.mock("@/lib/re-exports/logger", () => ({
   logger: { error: mocks.loggerError },
@@ -101,6 +103,17 @@ describe("LoginContent accessibility — signed out state", () => {
     expect(button).toBeInTheDocument();
   });
 
+  it("expands the optional invite-code form", async () => {
+    const user = userEvent.setup();
+    render(<LoginContent />);
+
+    expect(screen.queryByLabelText(/invite code/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /have an invite code/i }));
+
+    expect(screen.getByLabelText(/invite code/i)).toBeInTheDocument();
+  });
+
   it("shows a loader instead of sign-in controls while auth is loading", () => {
     mocks.useSession.mockReturnValue({ session: null, isPending: true, error: null });
 
@@ -149,6 +162,40 @@ describe("LoginContent accessibility — signed out state", () => {
 
     await user.click(screen.getByRole("button", { name: /continue with github/i }));
 
+    expect(mocks.signInSocial).toHaveBeenCalledWith({
+      provider: "github",
+      callbackURL: "/login?returnTo=%2Foctocat%3Ftab%3Drepos",
+    });
+  });
+
+  it("does not start OAuth for an invalid invite code", async () => {
+    const user = userEvent.setup();
+    render(<LoginContent />);
+
+    await user.click(screen.getByRole("button", { name: /have an invite code/i }));
+    await user.type(screen.getByLabelText(/invite code/i), "abc");
+    await user.click(screen.getByRole("button", { name: /^continue$/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Enter the full invite code.");
+    expect(mocks.savePendingReferral).not.toHaveBeenCalled();
+    expect(mocks.signInSocial).not.toHaveBeenCalled();
+  });
+
+  it("saves a valid invite code and preserves the OAuth return path", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      `/login?${new URLSearchParams({ returnTo: "/octocat?tab=repos" }).toString()}`
+    );
+    mocks.signInSocial.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<LoginContent />);
+
+    await user.click(screen.getByRole("button", { name: /have an invite code/i }));
+    await user.type(screen.getByLabelText(/invite code/i), "abcdefgh");
+    await user.click(screen.getByRole("button", { name: /^continue$/i }));
+
+    expect(mocks.savePendingReferral).toHaveBeenCalledWith("ABCDEFGH");
     expect(mocks.signInSocial).toHaveBeenCalledWith({
       provider: "github",
       callbackURL: "/login?returnTo=%2Foctocat%3Ftab%3Drepos",

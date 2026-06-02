@@ -1,7 +1,38 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { PackagePulse } from "../package-pulse";
+
+vi.mock("@/components/ui/display/profile-elements", async () => {
+  const React = await import("react");
+
+  return {
+    Tooltip: ({ trigger, content }: { trigger: ReactNode; content: ReactNode }) => {
+      const [open, setOpen] = React.useState(false);
+      const triggerElement = trigger as ReactElement<{
+        onFocus?: () => void;
+        onMouseEnter?: () => void;
+      }>;
+
+      return (
+        <>
+          {React.cloneElement(triggerElement, {
+            onFocus: () => {
+              triggerElement.props.onFocus?.();
+              setOpen(true);
+            },
+            onMouseEnter: () => {
+              triggerElement.props.onMouseEnter?.();
+              setOpen(true);
+            },
+          })}
+          {open && <div role="tooltip">{content}</div>}
+        </>
+      );
+    },
+  };
+});
 
 const DEFAULT_PULSE_PROPS = {
   totalOwnerCount: 0,
@@ -41,5 +72,35 @@ describe("PackagePulse", () => {
     );
 
     expect(screen.getByText("-4.5% vs 4w")).toBeInTheDocument();
+  });
+
+  it("explains ambiguous package pulse metrics with accessible help triggers", () => {
+    render(
+      <PackagePulse
+        totalOwnerCount={42}
+        activeOwners30d={7}
+        weeklyDownloads={WEEKLY_DOWNLOADS}
+        contributorCount={5}
+      />
+    );
+
+    const stackersHelp = screen.getByRole("button", { name: "What does Stackers mean?" });
+    const pulseHelp = screen.getByRole("button", { name: "What does Pulse (30d) mean?" });
+    const weeklyDownloadsHelp = screen.getByRole("button", { name: "What does Weekly DL mean?" });
+
+    fireEvent.focus(stackersHelp);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "GitHub users or organizations whose indexed public package manifests include this package."
+    );
+
+    fireEvent.mouseEnter(pulseHelp);
+    expect(screen.getAllByRole("tooltip").at(-1)).toHaveTextContent(
+      "Stackmatch presence recorded in the last 30 days"
+    );
+
+    fireEvent.focus(weeklyDownloadsHelp);
+    expect(screen.getAllByRole("tooltip").at(-1)).toHaveTextContent(
+      "npm downloads over the last 7 days"
+    );
   });
 });

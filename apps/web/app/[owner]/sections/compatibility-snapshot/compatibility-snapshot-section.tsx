@@ -206,14 +206,14 @@ function SharedStackCard({
   totalRepoCount: number;
 }) {
   const title = isOwnerViewer
-    ? "Public dependency graph"
+    ? "Your public stack proof"
     : viewerLogin
       ? "Your stack overlap"
       : "Compare your stack";
 
   return (
     <SnapshotCard
-      eyebrow="Fingerprint Depth"
+      eyebrow="Proof Depth"
       title={title}
       icon={<GitCompareArrows className="size-3.5 text-th-accent-1" />}
     >
@@ -427,7 +427,8 @@ export function CompatibilitySnapshotSection({
           Stack Fingerprint
         </h2>
         <p className="mt-1 text-sm font-medium text-muted-foreground dark:text-neutral-400">
-          The technical identity behind this profile: dependencies, overlap, languages, and topics.
+          Proof-of-stack from public repositories: dependencies, overlap, languages, topics, and
+          reasons to connect.
         </p>
       </div>
 

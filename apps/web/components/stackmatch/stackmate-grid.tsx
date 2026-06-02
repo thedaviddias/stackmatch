@@ -3,16 +3,16 @@
 import { ROUTES } from "@stackmatch/config";
 import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
 import { MATCH_PREVIEW_COUNT } from "@stackmatch/constants/social";
-import { ChevronDown, Lock, Sparkles, X } from "lucide-react";
+import { ChevronDown, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { UserCard } from "@/components/cards/user-card";
 import { isOwnerOnline, usePresenceByOwners } from "@/components/presence/use-presence-by-owners";
 import { ConfirmModal } from "@/components/ui/feedback/confirm-modal";
+import { LockedPreview } from "@/components/ui/gates/locked-preview";
 import { SignInGateCta } from "@/components/ui/gates/sign-in-gate-cta";
 import { api } from "@/data/api";
 import { useMutation } from "@/data/react";
 import { logger } from "@/lib/re-exports/logger";
-import { cn } from "@/lib/storage/utils";
 
 export interface Stackmate {
   owner: string;
@@ -134,11 +134,11 @@ export function StackmateGrid({
 
   if (filteredMatches.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-neutral-800 p-20 text-center glass-panel">
+      <div className="rounded-3xl border border-dashed border-border p-20 text-center glass-panel dark:border-neutral-800">
         <div className="flex flex-col items-center gap-3">
           <span className="text-4xl">🔎</span>
-          <p className="font-bold text-neutral-400">{copy.emptyTitle}</p>
-          <p className="text-xs text-neutral-500 max-w-xs mx-auto leading-relaxed">
+          <p className="font-bold text-muted-foreground">{copy.emptyTitle}</p>
+          <p className="mx-auto max-w-xs text-xs leading-relaxed text-muted-foreground">
             {copy.emptyDescription}
           </p>
         </div>
@@ -153,11 +153,7 @@ export function StackmateGrid({
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-5">
         {visibleMatches.map((match) => (
           <div key={match.owner} className="relative group/card">
-            <div
-              className={cn(
-                match.isBlurred && "blur-md opacity-50 pointer-events-none select-none"
-              )}
-            >
+            <LockedPreview isLocked={Boolean(match.isBlurred)}>
               <UserCard
                 owner={match.owner}
                 avatarUrl={
@@ -175,12 +171,7 @@ export function StackmateGrid({
                 profileStatus={getProfileStatus(match)}
                 ownerType={match.profile?.ownerType}
               />
-            </div>
-            {match.isBlurred && (
-              <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] flex items-center justify-center rounded-3xl">
-                <Lock className="h-5 w-5 text-white/20" />
-              </div>
-            )}
+            </LockedPreview>
             {isOwnerViewer && !match.isBlurred && (
               <button
                 type="button"
@@ -190,7 +181,7 @@ export function StackmateGrid({
                   e.stopPropagation();
                   setConfirmTarget(match.owner);
                 }}
-                className="absolute -top-2 -right-2 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-400 opacity-0 shadow-xl transition-all hover:bg-red-500/20 hover:text-red-400 group-hover/card:opacity-100"
+                className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-xl transition-all hover:bg-red-500/10 hover:text-red-700 group-hover/card:opacity-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-red-500/20 dark:hover:text-red-400"
                 title="Hide this match"
               >
                 <X className="h-3.5 w-3.5" />
@@ -222,7 +213,7 @@ export function StackmateGrid({
           <button
             type="button"
             onClick={() => setLimit((prev) => prev + STACKMATE_LOAD_MORE_STEP)}
-            className="group relative flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/50 px-8 py-3 text-sm font-black uppercase tracking-widest text-neutral-400 transition-all hover:border-[var(--theme-hover-border)] hover:bg-neutral-900 hover:text-white hover:shadow-[0_0_20px_rgba(var(--theme-hover-glow),0.1)]"
+            className="group relative flex items-center gap-2 rounded-full border border-border bg-card px-8 py-3 text-sm font-black uppercase tracking-widest text-muted-foreground transition-all hover:border-[var(--theme-hover-border)] hover:bg-muted hover:text-foreground hover:shadow-[0_0_20px_rgba(var(--theme-hover-glow),0.1)] dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-white"
           >
             <Sparkles className="h-4 w-4 text-th-accent-1 transition-transform group-hover:scale-125" />
             {copy.loadMoreLabel}

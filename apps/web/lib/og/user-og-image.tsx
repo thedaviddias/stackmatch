@@ -29,7 +29,7 @@ export function renderUserOgImage({ user, includesPrivateData }: RenderUserOgIma
   const owner = user.owner.toLowerCase();
 
   return renderStackmatchOgImage({
-    headline: `Builds like @${owner}.`,
+    headline: `@${owner}'s stack fingerprint.`,
     variant: "user",
     badge: includesPrivateData ? "Private stack" : undefined,
     avatarUrl: user.avatarUrl,

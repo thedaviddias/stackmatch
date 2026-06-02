@@ -2,9 +2,7 @@ import { ROUTES } from "@stackmatch/config";
 import { SectionTitle } from "@stackmatch/ui/section-title";
 import { formatUtcWeekRangeLabel } from "@stackmatch/utils/dates";
 import {
-  Building2,
   Code2,
-  Fingerprint,
   Flame,
   GitBranch,
   Handshake,
@@ -12,8 +10,6 @@ import {
   type LucideIcon,
   Network,
   Package,
-  Share2,
-  Star,
   Tags,
   UserPlus,
   Users,
@@ -93,40 +89,6 @@ const GRAPH_ENTRY_POINTS: Array<{
     title: copy.pages.home.graphCommunitiesTitle,
     href: ROUTES.language("TypeScript"),
     icon: Tags,
-  },
-];
-
-const GROWTH_LOOP_STEPS: Array<{
-  title: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-  {
-    title: "Scan",
-    description: "Read public package manifests from GitHub and queue a fresh profile sync.",
-    icon: GitBranch,
-  },
-  {
-    title: "Fingerprint",
-    description: "Turn dependencies, languages, topics, and repo signals into a stack identity.",
-    icon: Fingerprint,
-  },
-  {
-    title: "Share",
-    description:
-      "Copy a Stackmatch card that makes the profile easy to post, compare, and revisit.",
-    icon: Share2,
-  },
-  {
-    title: "Match",
-    description:
-      "Star compatible stackers, unlock mutual matches, and grow a focused activity feed.",
-    icon: Star,
-  },
-  {
-    title: "Ecosystem",
-    description: "Package and company pages summarize public adoption without private-data access.",
-    icon: Building2,
   },
 ];
 
@@ -292,37 +254,6 @@ function StackmatchPagePreviewSection({ user }: { user?: DiscoveryIndexedUser })
   );
 }
 
-function ActivationLoopSection() {
-  return (
-    <section className="mx-auto mb-20 max-w-6xl" aria-label="Stackmatch activation loop">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {GROWTH_LOOP_STEPS.map((step, index) => {
-          const Icon = step.icon;
-          return (
-            <article
-              key={step.title}
-              className="rounded-2xl border border-border bg-card/70 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <Icon className="size-4 text-th-accent-1-text" />
-                <span className="font-mono text-[10px] font-black text-muted-foreground">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-              </div>
-              <h2 className="mt-4 text-sm font-black text-foreground dark:text-white">
-                {step.title}
-              </h2>
-              <p className="mt-2 text-xs font-medium leading-relaxed text-muted-foreground">
-                {step.description}
-              </p>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 async function safeFetchQuery<T>(label: string, run: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await run();
@@ -475,8 +406,6 @@ export default async function HomePage() {
             handles={recentUserHandles}
             className="mx-auto mb-20 max-w-5xl space-y-2 sm:space-y-4"
           />
-
-          <ActivationLoopSection />
 
           {/* ── New to Stackmatch Developers ──────────────────────────── */}
           {newToGraph.length > 0 && (

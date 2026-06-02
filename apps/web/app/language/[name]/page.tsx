@@ -47,14 +47,16 @@ export default async function LanguagePage({ params }: { params: Promise<{ name:
         </script>
 
         <BackgroundOrbs />
-        <main className="mx-auto max-w-5xl space-y-6 px-4 pb-16 pt-24 sm:px-6 text-center">
-          <div className="inline-flex size-20 items-center justify-center rounded-3xl bg-neutral-900 border border-neutral-800 text-4xl mb-6 text-neutral-500">
+        <main className="mx-auto max-w-5xl space-y-6 px-4 pb-16 pt-24 text-center sm:px-6">
+          <div className="mb-6 inline-flex size-20 items-center justify-center rounded-3xl border border-border bg-card text-4xl text-muted-foreground dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-500">
             <Search className="size-10" />
           </div>
-          <h1 className="text-3xl font-black text-white">Language not found</h1>
-          <p className="text-neutral-400 max-w-md mx-auto">
+          <h1 className="text-3xl font-black text-foreground dark:text-white">
+            Language not found
+          </h1>
+          <p className="mx-auto max-w-md text-muted-foreground">
             No data available for{" "}
-            <code className="rounded bg-neutral-800 px-2 py-0.5 text-th-accent-1-text font-mono">
+            <code className="rounded bg-muted px-2 py-0.5 font-mono text-th-accent-1-text dark:bg-neutral-800">
               {language}
             </code>
             . It may not have been scanned yet.
@@ -62,7 +64,7 @@ export default async function LanguagePage({ params }: { params: Promise<{ name:
           <div className="pt-8">
             <LinkCustom
               href={ROUTES.developers}
-              className="rounded-full bg-white/5 border border-white/10 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/10"
+              className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
             >
               &larr; Back to Developers
             </LinkCustom>
@@ -78,16 +80,16 @@ export default async function LanguagePage({ params }: { params: Promise<{ name:
 
       <div className="space-y-12 px-4 pb-24 pt-12 sm:px-6 lg:pt-16">
         {/* ── Language Header ─────────────────────────────────────── */}
-        <section className="rounded-3xl border border-neutral-800 glass-panel p-5 sm:p-8">
+        <section className="rounded-3xl border border-border glass-panel p-5 dark:border-neutral-800 sm:p-8">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
               <Code2 className="size-3" />
               Language
             </div>
-            <h1 className="break-words text-4xl font-black leading-tight tracking-tighter text-white capitalize sm:text-5xl">
+            <h1 className="break-words text-4xl font-black capitalize leading-tight tracking-tighter text-foreground dark:text-white sm:text-5xl">
               {data.language}
             </h1>
-            <p className="max-w-2xl text-base leading-normal text-neutral-400 font-medium sm:text-lg sm:leading-relaxed">
+            <p className="max-w-2xl text-base font-medium leading-normal text-muted-foreground sm:text-lg sm:leading-relaxed">
               Developers and organizations using {data.language} as a primary language.
             </p>
           </div>
@@ -95,21 +97,25 @@ export default async function LanguagePage({ params }: { params: Promise<{ name:
 
         {/* ── Key Stats ───────────────────────────────────────────── */}
         <section className="grid grid-cols-2 gap-4">
-          <div className="group rounded-3xl border border-neutral-800 glass-panel p-4 transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] sm:p-6">
-            <p className="text-[10px] uppercase tracking-widest font-black text-neutral-500 group-hover:text-th-accent-1-text transition-colors">
+          <div className="group rounded-3xl border border-border glass-panel p-4 transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] dark:border-neutral-800 sm:p-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-th-accent-1-text">
               Stackers
             </p>
-            <p className="mt-1 text-3xl font-black text-white sm:text-4xl">
+            <p className="mt-1 text-3xl font-black text-foreground dark:text-white sm:text-4xl">
               {data.totalOwnerCount}
             </p>
-            <p className="text-[10px] font-bold text-neutral-500 mt-1">in stackmatch</p>
+            <p className="mt-1 text-[10px] font-bold text-muted-foreground">in stackmatch</p>
           </div>
-          <div className="group rounded-3xl border border-neutral-800 glass-panel p-4 transition-all hover:-translate-y-1 hover:border-purple-500/30 sm:p-6">
-            <p className="text-[10px] uppercase tracking-widest font-black text-neutral-500 group-hover:text-purple-400 transition-colors">
+          <div className="group rounded-3xl border border-border glass-panel p-4 transition-all hover:-translate-y-1 hover:border-purple-500/30 dark:border-neutral-800 sm:p-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-purple-700 dark:group-hover:text-purple-400">
               Repos
             </p>
-            <p className="mt-1 text-3xl font-black text-white sm:text-4xl">{data.totalRepoCount}</p>
-            <p className="text-[10px] font-bold text-neutral-500 mt-1">using {data.language}</p>
+            <p className="mt-1 text-3xl font-black text-foreground dark:text-white sm:text-4xl">
+              {data.totalRepoCount}
+            </p>
+            <p className="mt-1 text-[10px] font-bold text-muted-foreground">
+              using {data.language}
+            </p>
           </div>
         </section>
 
@@ -124,8 +130,10 @@ export default async function LanguagePage({ params }: { params: Promise<{ name:
           />
 
           {data.topOwners.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-neutral-800 p-20 text-center">
-              <p className="text-neutral-500 font-bold">No stackers found for this language yet.</p>
+            <div className="rounded-3xl border border-dashed border-border p-20 text-center dark:border-neutral-800">
+              <p className="font-bold text-muted-foreground">
+                No stackers found for this language yet.
+              </p>
             </div>
           ) : (
             <LanguageOwnersSection
@@ -144,21 +152,21 @@ export default async function LanguagePage({ params }: { params: Promise<{ name:
               title="Common Topics"
               description={`GitHub topics frequently found alongside ${data.language}.`}
               icon={Hash}
-              iconClassName="text-white"
+              iconClassName="text-th-accent-1-text"
             />
             <div className="flex min-w-0 flex-wrap gap-3 px-2">
               {data.relatedTopics.map((t) => (
                 <LinkCustom
                   key={t.topic}
                   href={ROUTES.topic(t.topic)}
-                  className="group relative flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-4 py-3 text-sm font-bold text-neutral-300 transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] hover:bg-neutral-900 hover:text-white hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.1)] sm:gap-3 sm:px-5"
+                  className="group relative flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-bold text-foreground transition-all hover:-translate-y-1 hover:border-[var(--theme-hover-border)] hover:bg-muted hover:text-foreground hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.1)] dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-white sm:gap-3 sm:px-5"
                 >
                   <span className="text-th-accent-1 group-hover:scale-125 transition-transform">
                     #
                   </span>
                   <span className="min-w-0 break-all">{t.topic}</span>
-                  <div className="h-4 w-px bg-neutral-800 group-hover:bg-th-accent-1/20" />
-                  <span className="text-[10px] font-black text-neutral-500 tabular-nums">
+                  <div className="h-4 w-px bg-border group-hover:bg-th-accent-1/20 dark:bg-neutral-800" />
+                  <span className="text-[10px] font-black tabular-nums text-muted-foreground dark:text-neutral-500">
                     {t.coOccurrenceCount}
                   </span>
                 </LinkCustom>

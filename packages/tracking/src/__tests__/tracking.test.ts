@@ -79,6 +79,42 @@ describe("trackEvent", () => {
     });
   });
 
+  it("fires profile-specific proof and share events", () => {
+    trackEvent("profile_share_card_copied", {
+      owner: "octocat",
+      action: "copy_card",
+      surface: "profile_header_owner",
+    });
+    trackEvent("profile_proof_step_clicked", {
+      owner: "octocat",
+      step: "open_score_checklist",
+      complete: false,
+      surface: "profile_header",
+    });
+    trackEvent("company_profile_cta_clicked", {
+      owner: "stackmatch",
+      cta: "package_ecosystem_brief",
+      surface: "organization_profile",
+    });
+
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "profile_share_card_copied", {
+      owner: "octocat",
+      action: "copy_card",
+      surface: "profile_header_owner",
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "profile_proof_step_clicked", {
+      owner: "octocat",
+      step: "open_score_checklist",
+      complete: false,
+      surface: "profile_header",
+    });
+    expect(openPanelSpy).toHaveBeenCalledWith("track", "company_profile_cta_clicked", {
+      owner: "stackmatch",
+      cta: "package_ecosystem_brief",
+      surface: "organization_profile",
+    });
+  });
+
   it("fires sharing events for repo type", () => {
     trackEvent("post_to_x", { label: "my-repo", type: "repo" });
     trackEvent("copy_link", { label: "my-repo", type: "repo" });

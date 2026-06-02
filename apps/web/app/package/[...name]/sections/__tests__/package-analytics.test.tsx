@@ -100,11 +100,11 @@ describe("PackageAnalytics", () => {
     expect(screen.getByText("33%")).toBeInTheDocument();
 
     const overallHelp = screen.getByRole("button", {
-      name: "How Overall Score is calculated",
+      name: "What does Overall Score mean?",
     });
-    const qualityHelp = screen.getByRole("button", { name: "How Quality is calculated" });
-    const popularityHelp = screen.getByRole("button", { name: "How Popularity is calculated" });
-    const maintenanceHelp = screen.getByRole("button", { name: "How Maintenance is calculated" });
+    const qualityHelp = screen.getByRole("button", { name: "What does Quality mean?" });
+    const popularityHelp = screen.getByRole("button", { name: "What does Popularity mean?" });
+    const maintenanceHelp = screen.getByRole("button", { name: "What does Maintenance mean?" });
 
     fireEvent.focus(overallHelp);
     expect(screen.getByRole("tooltip")).toHaveTextContent(

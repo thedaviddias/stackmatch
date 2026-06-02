@@ -1,9 +1,9 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
-import { Bot, CircleHelp, Cpu, Globe, Trophy, Users } from "lucide-react";
+import { Bot, Cpu, Globe, Trophy, Users } from "lucide-react";
 import type { ReactNode } from "react";
-import { Tooltip } from "@/components/ui/display/profile-elements";
+import { MetricHelpTooltip } from "@/components/ui/display/metric-help-tooltip";
 import { LinkCustom } from "@/components/ui/link";
 import { getRank } from "@/lib/re-exports/ranks";
 import { shouldShowZeroAiGuidance } from "@/lib/user/zero-ai-guidance";
@@ -81,19 +81,7 @@ function StatCard({
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-neutral-500">
           <span className="truncate">{label}</span>
-          <Tooltip
-            side="bottom"
-            trigger={
-              <button
-                type="button"
-                aria-label={`How ${label} is calculated`}
-                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-neutral-500/80 transition-colors hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/70"
-              >
-                <CircleHelp className="h-3.5 w-3.5" />
-              </button>
-            }
-            content={tooltip}
-          />
+          <MetricHelpTooltip label={label} content={tooltip} />
         </div>
       </div>
     </div>

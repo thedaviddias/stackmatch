@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MetricHelpTooltip } from "@/components/ui/display/metric-help-tooltip";
 
 export interface RelatedPackage {
   packageName: string;
@@ -15,6 +16,8 @@ interface PackageCompareTrayProps {
 
 const MAX_SELECTED_RELATED = 3;
 const RELATED_OPTIONS_LIMIT = 12;
+const COMPARE_PACKAGE_METRICS_TOOLTIP =
+  "Related options are ranked from sampled package co-use. Counts are overlapping indexed owners; lift is a bounded 0-10 score for stronger-than-baseline co-occurrence.";
 
 function getStorageKey(packageName: string): string {
   return `stackmatch-package-compare:${packageName.toLowerCase()}`;
@@ -105,15 +108,16 @@ export function PackageCompareTray({ packageName, relatedPackages }: PackageComp
   }
 
   return (
-    <div className="mt-6 rounded-3xl border border-neutral-800 bg-neutral-950/40 p-5">
+    <div className="mt-6 rounded-3xl border border-border bg-card p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950/40">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
-            Compare Packages
+          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+            <span>Compare Packages</span>
+            <MetricHelpTooltip label="Compare Packages" content={COMPARE_PACKAGE_METRICS_TOOLTIP} />
           </p>
-          <p className="mt-1 text-sm font-medium text-neutral-400">
-            <span className="font-black text-white">{packageName}</span> is always included. Select
-            up to {MAX_SELECTED_RELATED} related packages.
+          <p className="mt-1 text-sm font-medium text-muted-foreground">
+            <span className="font-black text-foreground dark:text-white">{packageName}</span> is
+            always included. Select up to {MAX_SELECTED_RELATED} related packages.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <span className="rounded-xl border border-th-accent-1/30 bg-th-accent-1/10 px-2.5 py-1 text-[11px] font-black text-th-accent-1-text">
@@ -123,24 +127,24 @@ export function PackageCompareTray({ packageName, relatedPackages }: PackageComp
               selectedRelated.map((pkgName) => (
                 <span
                   key={pkgName}
-                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-black text-emerald-300"
+                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-300"
                 >
                   {pkgName}
                 </span>
               ))
             ) : (
-              <span className="rounded-xl border border-neutral-800 bg-neutral-900/30 px-2.5 py-1 text-[11px] font-bold text-neutral-500">
+              <span className="rounded-xl border border-border bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-500">
                 No related package selected
               </span>
             )}
           </div>
-          {whyHint ? <p className="mt-2 text-xs text-neutral-500">{whyHint}</p> : null}
+          {whyHint ? <p className="mt-2 text-xs text-muted-foreground">{whyHint}</p> : null}
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={clearSelection}
-            className="rounded-xl border border-neutral-800 px-3 py-1.5 text-xs font-bold text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-200"
+            className="rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:border-th-accent-1/40 hover:text-foreground disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:border-neutral-700 dark:hover:text-neutral-200"
             disabled={selectedRelated.length === 0}
           >
             Reset
@@ -152,7 +156,7 @@ export function PackageCompareTray({ packageName, relatedPackages }: PackageComp
             className={`rounded-xl px-3 py-1.5 text-xs font-black transition-colors ${
               comparisonPackages.length > 1
                 ? "border border-th-accent-1/30 bg-th-accent-1/10 text-th-accent-1-text hover:bg-th-accent-1/20"
-                : "pointer-events-none border border-neutral-800 bg-neutral-900/40 text-neutral-500"
+                : "pointer-events-none border border-border bg-muted text-muted-foreground dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-500"
             }`}
           >
             Compare {comparisonPackages.length} on npmcharts ↗
@@ -172,16 +176,18 @@ export function PackageCompareTray({ packageName, relatedPackages }: PackageComp
               disabled={disabled}
               className={`rounded-2xl border px-3 py-2 text-xs font-bold transition-all ${
                 selected
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                   : disabled
-                    ? "cursor-not-allowed border-neutral-900 bg-neutral-900/20 text-neutral-600"
-                    : "border-neutral-800 bg-neutral-900/40 text-neutral-300 hover:border-neutral-700 hover:text-white"
+                    ? "cursor-not-allowed border-border bg-muted text-muted-foreground opacity-60 dark:border-neutral-900 dark:bg-neutral-900/20 dark:text-neutral-600"
+                    : "border-border bg-card text-foreground hover:border-th-accent-1/40 hover:bg-muted dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-300 dark:hover:border-neutral-700 dark:hover:text-white"
               }`}
               aria-pressed={selected}
             >
               <span className="font-mono">{pkg.packageName}</span>
-              <span className="ml-2 text-[10px] text-neutral-500">{pkg.coOccurrenceCount}</span>
-              <span className="ml-2 text-[10px] text-neutral-500">
+              <span className="ml-2 text-[10px] text-muted-foreground">
+                {pkg.coOccurrenceCount}
+              </span>
+              <span className="ml-2 text-[10px] text-muted-foreground">
                 lift {pkg.liftScore != null ? pkg.liftScore.toFixed(2) : "N/A"}
               </span>
             </button>

@@ -1,7 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OrganizationEcosystemSection } from "../organization-ecosystem-section";
+
+const { trackEventMock } = vi.hoisted(() => ({
+  trackEventMock: vi.fn(),
+}));
 
 vi.mock("next/image", () => ({
   default: ({ alt, ...props }: ComponentProps<"img">) => {
@@ -10,8 +14,43 @@ vi.mock("next/image", () => ({
   },
 }));
 
+vi.mock("@/lib/storage/tracking", () => ({
+  trackEvent: trackEventMock,
+}));
+
+vi.mock("@/components/ui/display/profile-elements", async () => {
+  const React = await import("react");
+
+  return {
+    Tooltip: ({ trigger, content }: { trigger: ReactNode; content: ReactNode }) => {
+      const [open, setOpen] = React.useState(false);
+      const triggerElement = trigger as ReactElement<{
+        onFocus?: () => void;
+        onMouseEnter?: () => void;
+      }>;
+
+      return (
+        <>
+          {React.cloneElement(triggerElement, {
+            onFocus: () => {
+              triggerElement.props.onFocus?.();
+              setOpen(true);
+            },
+            onMouseEnter: () => {
+              triggerElement.props.onMouseEnter?.();
+              setOpen(true);
+            },
+          })}
+          {open && <div role="tooltip">{content}</div>}
+        </>
+      );
+    },
+  };
+});
+
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
 });
 
 const baseProps = {
@@ -69,6 +108,49 @@ describe("OrganizationEcosystemSection", () => {
       "https://github.com/octocat.png"
     );
     expect(screen.getByRole("link", { name: "next" })).not.toBeNull();
+    expect(screen.getByRole("link", { name: /package ecosystem brief/i })).toHaveAttribute(
+      "href",
+      "/companies"
+    );
+    expect(screen.getByRole("link", { name: /verified organization profile/i })).toHaveAttribute(
+      "href",
+      "/companies"
+    );
+  });
+
+  it("tracks profile-specific company CTA clicks from organization profiles", () => {
+    render(<OrganizationEcosystemSection {...baseProps} />);
+
+    fireEvent.click(screen.getByRole("link", { name: /package ecosystem brief/i }));
+
+    expect(trackEventMock).toHaveBeenCalledWith("company_profile_cta_clicked", {
+      owner: "stackmatch",
+      cta: "package_ecosystem_brief",
+      surface: "organization_profile",
+    });
+  });
+
+  it("explains organization ecosystem metrics with accessible help triggers", () => {
+    render(<OrganizationEcosystemSection {...baseProps} />);
+
+    const sourceCoverageHelp = screen.getByRole("button", {
+      name: "What does Indexed Source Coverage mean?",
+    });
+    const usedByHelp = screen.getByRole("button", { name: "What does Used By mean?" });
+    const publicSurfaceHelp = screen.getByRole("button", {
+      name: "What does Public Stack Surface mean?",
+    });
+
+    fireEvent.focus(sourceCoverageHelp);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("completed Stackmatch analysis");
+
+    fireEvent.mouseEnter(usedByHelp);
+    expect(screen.getAllByRole("tooltip").at(-1)).toHaveTextContent("public manifests depend");
+
+    fireEvent.focus(publicSurfaceHelp);
+    expect(screen.getAllByRole("tooltip").at(-1)).toHaveTextContent(
+      "Aggregate public dependency signals"
+    );
   });
 
   it("shows verified-admin organization insight copy", () => {

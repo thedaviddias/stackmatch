@@ -36,8 +36,8 @@ export function PackageOwners({
       />
 
       {serverTopOwners.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-neutral-800 p-20 text-center glass-panel">
-          <p className="text-neutral-500 font-bold">No stackers found for this package yet.</p>
+        <div className="rounded-3xl border border-dashed border-border p-20 text-center glass-panel dark:border-neutral-800">
+          <p className="font-bold text-muted-foreground">No stackers found for this package yet.</p>
         </div>
       ) : (
         <PackageOwnersSection

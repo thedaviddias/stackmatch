@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ProfileHeader } from "../profile-header";
 
+const { trackEventMock } = vi.hoisted(() => ({
+  trackEventMock: vi.fn(),
+}));
+
 vi.mock("@/components/social/follow-button", () => ({
   FollowButton: () => <button type="button">Follow</button>,
 }));
@@ -31,6 +35,10 @@ vi.mock("@/components/ui/feedback/star-button", () => ({
       Star {starCount}
     </button>
   ),
+}));
+
+vi.mock("@/lib/storage/tracking", () => ({
+  trackEvent: trackEventMock,
 }));
 
 vi.mock("@/components/ui/display/profile-elements", () => ({
@@ -129,13 +137,19 @@ describe("ProfileHeader", () => {
 
     fireEvent.pointerDown(growScoreButton, { button: 0, ctrlKey: false });
 
-    expect(await screen.findByText("Improve Stack Score")).toBeInTheDocument();
+    expect(await screen.findByText("Profile Proof Checklist")).toBeInTheDocument();
     expect(screen.getByText("Current score")).toBeInTheDocument();
     expect(screen.getByText("Private Sync (+15)")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /full score guide/i })).toHaveAttribute(
       "href",
       "/docs/ranks"
     );
+    expect(trackEventMock).toHaveBeenCalledWith("profile_proof_step_clicked", {
+      owner: "octocat",
+      step: "open_score_checklist",
+      complete: false,
+      surface: "profile_header",
+    });
   });
 
   it("suppresses visitor and owner controls while ownership is pending", () => {

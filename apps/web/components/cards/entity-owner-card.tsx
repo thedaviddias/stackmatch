@@ -20,7 +20,8 @@ export function EntityOwnerCard({ owner, avatarUrl, repoCount, totalStars }: Ent
   return (
     <LinkCustom
       href={ROUTES.owner(owner)}
-      className="group relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950/50 p-6 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--theme-hover-border)] hover:bg-neutral-900/80 hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.15)]"
+      data-theme-card="entity-owner"
+      className="group relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-border bg-card p-6 text-foreground shadow-sm backdrop-blur-xl transition-[background-color,border-color,box-shadow,transform] duration-300 hover:-translate-y-1.5 hover:border-[var(--theme-hover-border)] hover:bg-muted hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.12)] dark:border-neutral-800 dark:bg-neutral-950/50 dark:hover:bg-neutral-900/80 dark:hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.15)]"
     >
       <div className="absolute top-0 right-0 -mr-8 -mt-8 h-24 w-24 rounded-full bg-th-accent-1/10 blur-2xl transition-colors duration-500 group-hover:bg-th-accent-1/20" />
 
@@ -31,15 +32,16 @@ export function EntityOwnerCard({ owner, avatarUrl, repoCount, totalStars }: Ent
           alt={`${owner} avatar`}
           width={48}
           height={48}
-          className="h-12 w-12 rounded-xl border-2 border-neutral-800 object-cover shadow-lg transition-all duration-500 group-hover:scale-105 group-hover:-rotate-3 group-hover:border-th-accent-1/50"
+          className="h-12 w-12 rounded-xl border-2 border-border object-cover shadow-lg transition-all duration-500 group-hover:scale-105 group-hover:-rotate-3 group-hover:border-th-accent-1/50 dark:border-neutral-800"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-black tracking-tight text-white transition-colors group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-th-gradient-from group-hover:to-th-gradient-via">
+          <p className="truncate text-base font-black tracking-tight text-foreground transition-colors group-hover:bg-gradient-to-r group-hover:from-th-gradient-from group-hover:to-th-gradient-via group-hover:bg-clip-text group-hover:text-transparent dark:text-white">
             @{owner}
           </p>
           {totalStars > 0 ? (
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-neutral-500">
-              <span className="text-amber-400">★</span> {formatCompact(totalStars)}
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
+              <span className="text-amber-600 dark:text-amber-400">★</span>{" "}
+              {formatCompact(totalStars)}
             </p>
           ) : null}
         </div>
@@ -47,8 +49,9 @@ export function EntityOwnerCard({ owner, avatarUrl, repoCount, totalStars }: Ent
 
       {/* Stats row: repo count */}
       <div className="relative z-10 flex flex-wrap items-center gap-2 pt-2">
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-800 bg-black/40 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-neutral-400">
-          <span className="text-white">{repoCount}</span> {repoCount === 1 ? "Repo" : "Repos"}
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:border-neutral-800 dark:bg-black/40 dark:text-neutral-400">
+          <span className="text-foreground dark:text-white">{repoCount}</span>{" "}
+          {repoCount === 1 ? "Repo" : "Repos"}
         </span>
       </div>
     </LinkCustom>

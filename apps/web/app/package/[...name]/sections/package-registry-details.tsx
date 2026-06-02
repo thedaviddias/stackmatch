@@ -29,7 +29,7 @@ interface StatRowData {
 }
 
 const ecosystemSignalCardClassName =
-  "group rounded-3xl border border-neutral-800 glass-panel p-6 transition-colors hover:border-neutral-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-th-accent-1/70";
+  "group rounded-3xl border border-border glass-panel p-6 transition-colors hover:border-th-accent-1/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-th-accent-1/70 dark:border-neutral-800 dark:hover:border-neutral-600";
 const MIN_CARDS_FOR_THREE_COLUMN_GRID = 3;
 const CARD_COUNT_FOR_TWO_COLUMN_GRID = 2;
 
@@ -201,11 +201,11 @@ function StatRows({ rows }: { rows: StatRowData[] }) {
     <div className="mt-5 space-y-3 text-sm">
       {rows.map((row) => (
         <div className="flex items-center justify-between" key={row.key}>
-          <span className="flex items-center gap-1 text-neutral-500">
+          <span className="flex items-center gap-1 text-muted-foreground">
             {row.icon}
             {row.label}
           </span>
-          <span className="font-black text-white">{row.value}</span>
+          <span className="font-black text-foreground dark:text-white">{row.value}</span>
         </div>
       ))}
     </div>
@@ -222,8 +222,8 @@ function RegistryStatCard({
   rows: StatRowData[];
 }) {
   return (
-    <article className="rounded-3xl border border-neutral-800 glass-panel p-6">
-      <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-neutral-400">
+    <article className="rounded-3xl border border-border glass-panel p-6 dark:border-neutral-800">
+      <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
         {icon}
         {title}
       </h3>
@@ -251,7 +251,7 @@ function EcosystemSignalCard({
       aria-label={ariaLabel}
       className={ecosystemSignalCardClassName}
     >
-      <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-neutral-400 transition-colors group-hover:text-neutral-300">
+      <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-foreground dark:group-hover:text-neutral-300">
         {title}
         <ExternalLink className="size-3 opacity-50" aria-hidden="true" />
       </h3>
@@ -301,14 +301,16 @@ export function PackageRegistryDetails({ packageName, npmData }: PackageRegistry
           {githubRows.length > 0 && (
             <RegistryStatCard
               title="GitHub Stats"
-              icon={<Star className="size-3.5 text-amber-400" />}
+              icon={<Star className="size-3.5 text-amber-600 dark:text-amber-400" />}
               rows={githubRows}
             />
           )}
           {openCollectiveRows.length > 0 && (
             <RegistryStatCard
               title="Open Collective"
-              icon={<CircleDollarSign className="size-3.5 text-emerald-400" />}
+              icon={
+                <CircleDollarSign className="size-3.5 text-emerald-700 dark:text-emerald-400" />
+              }
               rows={openCollectiveRows}
             />
           )}

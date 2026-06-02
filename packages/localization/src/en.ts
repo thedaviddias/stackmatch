@@ -233,6 +233,16 @@ export const en: AppCopy = {
       subheading: "Claim your profile and manage your public Stackmatch fingerprint.",
       signInNotice:
         "Public repositories are scanned by default. Private repository analysis is optional and requires installing the Stackmatch GitHub App, where you choose which repositories to grant access to.",
+      inviteCodeToggle: "Have an invite code?",
+      inviteCodeOpen: "Open",
+      inviteCodeClose: "Close",
+      inviteCodeLabel: "Invite code",
+      inviteCodePlaceholder: "ABCDEFGH",
+      inviteCodeHelper:
+        "Enter the code from your Stackmatch invite. You will continue with GitHub to claim it.",
+      inviteCodeSubmit: "Continue",
+      inviteCodeInvalid: "Enter the full invite code.",
+      inviteCodeInvalidCharacters: "Invite codes only use supported letters and numbers.",
       howItWorksHeading: "How it works",
       privacyItems: [
         {
