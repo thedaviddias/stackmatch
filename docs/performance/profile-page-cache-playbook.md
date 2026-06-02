@@ -120,11 +120,13 @@ Reusable pattern:
 - Keep warming bounded with batch limits.
 - Log warm summaries: candidates, refreshed, skipped, errors, elapsed time.
 
-### 5. Wrapped Server Data Fetches In Next Cache
+### 5. Keep Owner Server Data Out Of Next Data Cache
 
 Commit: `85ebcf9 perf(web): cache owner page server data`
 
-The owner page server component uses `unstable_cache` around the public owner page query:
+Status: removed after production stale-data incident.
+
+The owner page server component previously used `unstable_cache` around the public owner page query:
 
 ```ts
 const getCachedOwnerPageData = unstable_cache(
@@ -134,17 +136,17 @@ const getCachedOwnerPageData = unstable_cache(
 );
 ```
 
-Why it matters:
+Why it was removed:
 
-- Convex/DB cache protects backend computation
-- Next cache protects the server render data fetch
-- Vercel can reuse cached data across requests while still revalidating periodically
+- Anonymous owner pages do not refetch full owner data on the client.
+- Vercel Data Cache can keep an empty server payload visible after a scan completes.
+- Convex already maintains an owner-page data cache, so an extra Next cache layer is redundant.
 
 Reusable pattern:
 
-- Use framework-level data caching for public server component fetches.
-- Keep the cache key versioned so behavior changes can be rolled forward cleanly.
-- Match `revalidate` to the product's freshness tolerance.
+- Fetch owner page server data directly from Convex.
+- Let Convex own the freshness policy for public owner payloads.
+- Do not wrap `/[owner]` server data in `unstable_cache` unless scan-completion invalidation is implemented end to end.
 
 ### 6. Removed Server `searchParams` From The Public Page
 
@@ -307,4 +309,3 @@ Questions to ask per route:
 - Version cache keys when behavior changes.
 - Confirm with `x-vercel-cache`, `x-nextjs-prerender`, and route output.
 - Treat `MISS` on first request as acceptable; repeated `MISS` means the page is still dynamic or uncacheable.
-

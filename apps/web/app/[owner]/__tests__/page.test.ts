@@ -39,7 +39,9 @@ vi.mock("@/data/server", () => ({
 }));
 
 vi.mock("next/cache", () => ({
-  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+  unstable_cache: vi.fn(() => {
+    throw new Error("Owner page server data must not use Next Data Cache");
+  }),
 }));
 
 vi.mock("next/navigation", () => ({

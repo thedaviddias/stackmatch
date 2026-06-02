@@ -6,10 +6,10 @@ import {
 } from "@stackmatch/constants/owner";
 import { OWNER_PAGE_SERVER_DATA_CACHE_REVALIDATE_SECONDS } from "@stackmatch/constants/social";
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { api } from "@/data/api";
 import { fetchQuery } from "@/data/server";
+import type { FunctionReturnType } from "@/data/server-types";
 import { getI18n } from "@/lib/re-exports/i18n";
 import {
   createMetadata,
@@ -20,21 +20,14 @@ import { OwnerPageContent } from "./owner-page-content";
 
 export const dynamic = "force-dynamic";
 const i18n = getI18n();
-const OWNER_PAGE_SERVER_DATA_CACHE_KEY = "owner-page-server-data-v1";
+type ServerOwnerPageData = FunctionReturnType<typeof api.queries.stack.getPublicOwnerPageData>;
 
 async function assertOwnerRouteExists(owner: string) {
   const routeState = await fetchQuery(api.queries.stack.getOwnerPageRouteState, { owner });
   if (!routeState.exists) notFound();
 }
 
-const getCachedOwnerPageData = unstable_cache(
-  async (owner: string) => fetchQuery(api.queries.stack.getPublicOwnerPageData, { owner }),
-  [OWNER_PAGE_SERVER_DATA_CACHE_KEY],
-  { revalidate: OWNER_PAGE_SERVER_DATA_CACHE_REVALIDATE_SECONDS }
-);
-type CachedOwnerPageData = Awaited<ReturnType<typeof getCachedOwnerPageData>>;
-
-async function getFreshOwnerPageData(owner: string): Promise<CachedOwnerPageData> {
+async function getServerOwnerPageData(owner: string): Promise<ServerOwnerPageData> {
   return fetchQuery(api.queries.stack.getPublicOwnerPageData, { owner });
 }
 
@@ -68,8 +61,8 @@ async function fetchCurrentGitHubOwnerType(owner: string): Promise<OwnerType | u
 
 async function overlayCurrentOwnerType(
   owner: string,
-  data: CachedOwnerPageData
-): Promise<CachedOwnerPageData> {
+  data: ServerOwnerPageData
+): Promise<ServerOwnerPageData> {
   if (data?.profile?.ownerType !== OWNER_TYPE_DEVELOPER) {
     return data;
   }
@@ -113,12 +106,12 @@ export async function generateMetadata({
 export default async function OwnerPage({ params }: { params: Promise<{ owner: string }> }) {
   const { owner } = await params;
 
-  let cachedData = await getCachedOwnerPageData(owner);
-  if (cachedData === null) {
+  let serverData = await getServerOwnerPageData(owner);
+  if (serverData === null) {
     await assertOwnerRouteExists(owner);
-    cachedData = await getFreshOwnerPageData(owner);
+    serverData = await getServerOwnerPageData(owner);
   }
-  const data = await overlayCurrentOwnerType(owner, cachedData);
+  const data = await overlayCurrentOwnerType(owner, serverData);
 
   const jsonLd = data?.profile
     ? createOwnerProfileJsonLd({
