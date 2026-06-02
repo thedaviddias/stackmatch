@@ -13,8 +13,8 @@
   "description": "Structured logging with Sentry breadcrumb integration",
   "devDependencies": {
     "@sentry/nextjs": "10.55.0",
-    "next": "16.2.6",
-    "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "next": "16.2.7",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   }
 }

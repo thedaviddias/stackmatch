@@ -17,7 +17,7 @@
     "next": ">=16"
   },
   "devDependencies": {
-    "next": "16.2.6"
+    "next": "16.2.7"
   },
   "description": "SEO metadata generation: Open Graph, JSON-LD, and canonical URL helpers"
 }
