@@ -1,5 +1,9 @@
-import { MAX_MESSAGE_LENGTH, MESSAGE_PREVIEW_LENGTH } from "@stackmatch/constants/messages";
-import { MINUTE_MS } from "@stackmatch/constants/time";
+import {
+  MAX_MESSAGE_LENGTH,
+  MESSAGE_NOTIFICATION_DEDUPE_WINDOW_MS,
+  MESSAGE_PREVIEW_LENGTH,
+} from "@stackmatch/constants/messages";
+import { NOTIFICATION_CATEGORY_MESSAGES } from "@stackmatch/constants/notifications";
 import { getFeatureGates } from "@stackmatch/utils";
 import { anyApi } from "convex/server";
 import { ConvexError, v } from "convex/values";
@@ -34,8 +38,6 @@ const enqueueForOwnerFn = requireModule(
   notificationMutations.enqueueForOwner,
   "mutations.notifications.enqueueForOwner"
 );
-const MESSAGE_DEDUPE_WINDOW_MINUTES = 5;
-const MESSAGE_DEDUPE_WINDOW_MS = MESSAGE_DEDUPE_WINDOW_MINUTES * MINUTE_MS;
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -238,6 +240,16 @@ export const sendMessage = mutation({
     const gates = getFeatureGates(score);
     await assertDailyLimit(ctx, githubLogin, "message", gates.messageDailyLimit);
 
+    const unreadFromSender = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation_unread", (q) =>
+        q.eq("conversationId", conversationId).eq("isRead", false)
+      )
+      .collect();
+    const recipientAlreadyHasUnreadFromSender = unreadFromSender.some(
+      (message) => message.senderOwner === githubLogin
+    );
+
     // ── 6. Insert message ──────────────────────────────────────
     const now = Date.now();
     const messageId = await ctx.db.insert("messages", {
@@ -263,29 +275,33 @@ export const sendMessage = mutation({
     await incrementDailyAction(ctx, githubLogin, "message");
 
     // ── 9. Notification to recipient (best-effort) ─────────────
-    try {
-      await ctx.runMutation(enqueueForOwnerFn, {
-        recipientOwner,
-        actorOwner: githubLogin,
-        category: "messages",
-        type: "new_message",
-        title: "New message",
-        message: buildMessageNotificationText(githubLogin),
-        actionUrl: buildMessageConversationNotificationUrl(
-          conversationId,
-          process.env.NEXT_PUBLIC_BASE_URL
-        ),
-        dedupeKey: `msg:${conversationId}:${githubLogin}:${Math.floor(now / MESSAGE_DEDUPE_WINDOW_MS)}`,
-        allowEmail: true,
-      });
-    } catch (notificationError) {
-      console.error("[sendMessage] Failed to enqueue notification", notificationError);
-      await reportBackgroundFailure(ctx, {
-        action: "enqueue_notification",
-        owner: githubLogin,
-        targetOwner: recipientOwner,
-        error: notificationError,
-      });
+    if (!recipientAlreadyHasUnreadFromSender) {
+      try {
+        await ctx.runMutation(enqueueForOwnerFn, {
+          recipientOwner,
+          actorOwner: githubLogin,
+          category: NOTIFICATION_CATEGORY_MESSAGES,
+          type: "new_message",
+          title: "New message",
+          message: buildMessageNotificationText(githubLogin),
+          actionUrl: buildMessageConversationNotificationUrl(
+            conversationId,
+            process.env.NEXT_PUBLIC_BASE_URL
+          ),
+          dedupeKey: `msg:${conversationId}:${githubLogin}:${Math.floor(
+            now / MESSAGE_NOTIFICATION_DEDUPE_WINDOW_MS
+          )}`,
+          allowEmail: true,
+        });
+      } catch (notificationError) {
+        console.error("[sendMessage] Failed to enqueue notification", notificationError);
+        await reportBackgroundFailure(ctx, {
+          action: "enqueue_notification",
+          owner: githubLogin,
+          targetOwner: recipientOwner,
+          error: notificationError,
+        });
+      }
     }
 
     return { messageId };

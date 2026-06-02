@@ -17,6 +17,10 @@ export function buildNotificationsInboxUrl(baseUrl?: string): string {
   return buildAbsoluteUrl(ROUTES.notifications, baseUrl);
 }
 
+export function buildMessagesInboxUrl(baseUrl?: string): string {
+  return buildAbsoluteUrl(ROUTES.messages, baseUrl);
+}
+
 export function buildMessageConversationNotificationUrl(
   conversationId: string,
   baseUrl?: string

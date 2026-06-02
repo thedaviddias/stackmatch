@@ -85,14 +85,15 @@ describe("Email Templates", () => {
       const html = await render(
         <NotificationDigestEmail
           name="David"
-          title="You have 1 new notification on StackMatch"
+          title="You have 1 new star on Stackmatch"
+          summary="You have 1 new star"
           count={1}
           items={[
             "You received a new star: You and @octocat starred each other this week. You can message them now.",
           ]}
           action={{
-            label: "Open notifications",
-            url: "https://stackmatch.com/notifications",
+            label: "View profile",
+            url: "https://stackmatch.com/octocat",
           }}
         />
       );
@@ -100,31 +101,35 @@ describe("Email Templates", () => {
       expect(html).toContain(
         "You and @octocat starred each other this week. You can message them now."
       );
-      expect(html).toContain("Open notifications");
+      expect(html).toContain("View profile");
+      expect(html).not.toContain("new notification");
     });
 
     it("links actor handles in digest items", async () => {
       const html = await render(
         <NotificationDigestEmail
           name="David"
-          title="You have 1 new notification on StackMatch"
+          title="You have 1 new message on Stackmatch"
+          summary="You have 1 new message"
           count={1}
           items={[
             {
-              text: "You received a new star: @octocat starred your profile this week.",
+              text: "New message: @octocat sent you a message.",
               actorOwner: "octocat",
-              actionUrl: "https://stackmatch.com/octocat",
+              actionUrl: "https://stackmatch.com/messages/conv_123",
             },
           ]}
           action={{
-            label: "Open notifications",
-            url: "https://stackmatch.com/notifications",
+            label: "Open message",
+            url: "https://stackmatch.com/messages/conv_123",
           }}
         />
       );
 
-      expect(html).toContain('href="https://stackmatch.com/octocat"');
+      expect(html).toContain('href="https://stackmatch.com/messages/conv_123"');
       expect(html).toContain("@octocat");
+      expect(html).toContain("Open message");
+      expect(html).not.toContain("Open notifications");
     });
   });
 

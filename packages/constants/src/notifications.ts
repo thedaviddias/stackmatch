@@ -2,6 +2,7 @@ import { HOUR_MS, MINUTE_MS } from "@stackmatch/constants/time";
 
 export const NOTIFICATION_CATEGORY_FOLLOWS = "follows";
 export const NOTIFICATION_CATEGORY_GENERAL = "general";
+export const NOTIFICATION_CATEGORY_MESSAGES = "messages";
 export const NOTIFICATION_CATEGORY_PROFILES = "profiles";
 export const NOTIFICATION_CATEGORY_STARS = "stars";
 

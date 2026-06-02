@@ -216,7 +216,7 @@ export const toggleFollow = mutation({
         category: NOTIFICATION_CATEGORY_FOLLOWS,
         type: NOTIFICATION_TYPE_NEW_FOLLOWER,
         title: "You have a new follower",
-        message: `${githubLogin} started following you.`,
+        message: `@${githubLogin} started following you.`,
         actionUrl: buildOwnerProfileNotificationUrl(githubLogin, process.env.NEXT_PUBLIC_BASE_URL),
         dedupeKey: `follow:${githubLogin}:${targetOwner}`,
         allowEmail: true,

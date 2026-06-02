@@ -3,6 +3,10 @@
 import {
   DIGEST_DELIVERY_LOCK_MS,
   MAX_DIGEST_RETRY_ATTEMPTS,
+  NOTIFICATION_CATEGORY_FOLLOWS,
+  NOTIFICATION_CATEGORY_MESSAGES,
+  NOTIFICATION_CATEGORY_PROFILES,
+  NOTIFICATION_CATEGORY_STARS,
 } from "@stackmatch/constants/notifications";
 import { sendEmail } from "@stackmatch/email/client";
 import { NotificationDigestEmail } from "@stackmatch/email/templates/transactional/notification-digest";
@@ -13,12 +17,14 @@ import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import {
   buildDigestEmailItems,
+  buildDigestPrimaryActionLabel,
   buildDigestSubject,
+  buildDigestSummary,
   getDigestRetryDelayMs,
   MAX_DIGEST_ITEMS_IN_EMAIL,
   normalizeMaxDigestItems,
 } from "../lib/notification_digests";
-import { buildNotificationsInboxUrl } from "../lib/notification_urls";
+import { buildMessagesInboxUrl } from "../lib/notification_urls";
 
 function requireModule<T>(value: T | undefined, name: string): T {
   if (!value) {
@@ -108,6 +114,7 @@ interface DigestPayload {
   digest: {
     owner: string;
     email: string;
+    category: string;
     maxItemsPerEmail?: number;
     maxEmailsPerDay?: number;
   };
@@ -125,6 +132,55 @@ interface DigestEmailBudgetReserved {
 }
 
 type DigestEmailBudgetResult = DigestEmailBudgetUnavailable | DigestEmailBudgetReserved;
+
+function getUniqueActionUrls(notifications: DigestNotificationRecord[]): string[] {
+  return Array.from(
+    new Set(
+      notifications
+        .map((notification) => notification.actionUrl)
+        .filter((actionUrl): actionUrl is string => Boolean(actionUrl))
+    )
+  );
+}
+
+function shouldUsePrimaryActionForCategory(category: string): boolean {
+  return (
+    category === NOTIFICATION_CATEGORY_MESSAGES ||
+    category === NOTIFICATION_CATEGORY_STARS ||
+    category === NOTIFICATION_CATEGORY_FOLLOWS ||
+    category === NOTIFICATION_CATEGORY_PROFILES
+  );
+}
+
+function buildDigestPrimaryAction(args: {
+  category: string;
+  notifications: DigestNotificationRecord[];
+  baseUrl?: string;
+}): { label: string; url: string } | undefined {
+  const actionUrls = getUniqueActionUrls(args.notifications);
+  const notificationCount = args.notifications.length;
+  const singleActionUrl = actionUrls[0];
+
+  if (
+    singleActionUrl &&
+    actionUrls.length === 1 &&
+    shouldUsePrimaryActionForCategory(args.category)
+  ) {
+    return {
+      label: buildDigestPrimaryActionLabel(notificationCount, args.category),
+      url: singleActionUrl,
+    };
+  }
+
+  if (args.category === NOTIFICATION_CATEGORY_MESSAGES) {
+    return {
+      label: buildDigestPrimaryActionLabel(notificationCount, args.category),
+      url: buildMessagesInboxUrl(args.baseUrl),
+    };
+  }
+
+  return undefined;
+}
 
 export const deliverDigest = internalAction({
   args: {
@@ -212,7 +268,12 @@ export const deliverDigest = internalAction({
     if (notificationCount > digestItems.length) {
       digestItems.push({ text: `...and ${notificationCount - digestItems.length} more` });
     }
-    const subject = buildDigestSubject(notificationCount);
+    const subject = buildDigestSubject(notificationCount, payload.digest.category);
+    const action = buildDigestPrimaryAction({
+      category: payload.digest.category,
+      notifications: payload.notifications,
+      baseUrl: process.env.NEXT_PUBLIC_BASE_URL,
+    });
     const result = await sendEmail({
       to: claim.email,
       subject,
@@ -224,12 +285,10 @@ export const deliverDigest = internalAction({
       react: React.createElement(NotificationDigestEmail, {
         name: claim.owner,
         title: subject,
+        summary: buildDigestSummary(notificationCount, payload.digest.category),
         count: notificationCount,
         items: digestItems,
-        action: {
-          label: "Open notifications",
-          url: buildNotificationsInboxUrl(process.env.NEXT_PUBLIC_BASE_URL),
-        },
+        action,
       }),
     });
 

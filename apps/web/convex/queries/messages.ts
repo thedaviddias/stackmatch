@@ -7,12 +7,14 @@ import {
 } from "@stackmatch/constants/messages";
 import { getFeatureGates } from "@stackmatch/utils";
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { type QueryCtx, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { getWeekStart } from "../lib/date_helpers";
 import { computeStackScore, getDailyActionCount } from "../lib/feature_gates";
 import { hasProfileBlock } from "../lib/moderation";
+import { resolveStackMatchFollowerCount } from "../lib/stackmatch_follow_counts";
 
 export function clampMessageQueryLimit(
   limit: number | undefined,
@@ -47,6 +49,33 @@ async function getVisibleConversationsForOwner(ctx: QueryCtx, githubLogin: strin
   ).filter((convo) => convo !== null);
 }
 
+function getOtherParticipant(conversation: Doc<"conversations">, githubLogin: string): string {
+  return conversation.participantA === githubLogin
+    ? conversation.participantB
+    : conversation.participantA;
+}
+
+function isClaimedProfile(profile: Doc<"profiles"> | null | undefined): boolean {
+  return Boolean(profile?.isClaimed || profile?.memberNumber != null || profile?.claimedAt != null);
+}
+
+async function resolveStackMatchFollowingCount(
+  ctx: QueryCtx,
+  owner: string,
+  profile?: Doc<"profiles"> | null
+): Promise<number> {
+  if (profile?.followingCount != null) {
+    return profile.followingCount;
+  }
+
+  const following = await ctx.db
+    .query("follows")
+    .withIndex("by_follower", (q) => q.eq("followerOwner", owner))
+    .collect();
+
+  return following.length;
+}
+
 /**
  * Auth-gated: get all conversations for the current user, sorted by most recent message.
  */
@@ -78,8 +107,7 @@ export const getMyConversations = query({
     // Enrich with the other participant's profile and unread count
     const enriched = await Promise.all(
       pageConvos.map(async (convo) => {
-        const otherOwner =
-          convo.participantA === githubLogin ? convo.participantB : convo.participantA;
+        const otherOwner = getOtherParticipant(convo, githubLogin);
 
         const profile = await ctx.db
           .query("profiles")
@@ -108,6 +136,63 @@ export const getMyConversations = query({
     );
 
     return enriched;
+  },
+});
+
+/**
+ * Auth-gated: compact public profile context for the active conversation peer.
+ */
+export const getConversationPeerProfile = query({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, { conversationId }) => {
+    let user: Awaited<ReturnType<typeof authComponent.getAuthUser>>;
+    try {
+      user = await authComponent.getAuthUser(ctx);
+    } catch {
+      return null;
+    }
+
+    const githubLogin = await resolveGitHubLogin(ctx, user);
+    if (!githubLogin) return null;
+
+    const conversation = await ctx.db.get(conversationId);
+    if (!conversation) return null;
+
+    if (conversation.participantA !== githubLogin && conversation.participantB !== githubLogin) {
+      return null;
+    }
+
+    if (await hasProfileBlock(ctx, conversation.participantA, conversation.participantB)) {
+      return null;
+    }
+
+    const owner = getOtherParticipant(conversation, githubLogin);
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_owner", (q) => q.eq("owner", owner))
+      .first();
+
+    const [followersCount, followingCount] = await Promise.all([
+      resolveStackMatchFollowerCount(ctx, owner, profile),
+      resolveStackMatchFollowingCount(ctx, owner, profile),
+    ]);
+
+    return {
+      owner,
+      name: profile?.name ?? owner,
+      avatarUrl: profile?.avatarUrl,
+      bio: profile?.bio,
+      company: profile?.company,
+      location: profile?.location,
+      website: profile?.website,
+      x: profile?.x ?? profile?.twitter,
+      isClaimed: isClaimedProfile(profile),
+      ownerType: profile?.ownerType,
+      followersCount,
+      followingCount,
+    };
   },
 });
 

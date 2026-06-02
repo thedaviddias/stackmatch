@@ -5,6 +5,10 @@ import {
   DIGEST_RETRY_MAX_DELAY_MS,
   GLOBAL_NOTIFICATION_BUDGET_OWNER_KEY,
   MAX_DIGEST_RETRY_ATTEMPTS,
+  NOTIFICATION_CATEGORY_FOLLOWS,
+  NOTIFICATION_CATEGORY_MESSAGES,
+  NOTIFICATION_CATEGORY_PROFILES,
+  NOTIFICATION_CATEGORY_STARS,
   NOTIFICATION_DEDUPE_DEFAULT_WINDOW_MINUTES,
   NOTIFICATION_DEFAULT_DIGEST_WINDOW_MINUTES,
   NOTIFICATION_DEFAULT_MAX_DIGEST_ITEMS,
@@ -132,11 +136,74 @@ export function getDigestRetryDelayMs(attemptCount: number): number {
   return Math.min(DIGEST_RETRY_BASE_DELAY_MS * 2 ** exponent, DIGEST_RETRY_MAX_DELAY_MS);
 }
 
-export function buildDigestSubject(count: number): string {
-  if (count <= 1) {
-    return "You have 1 new notification on StackMatch";
+function normalizeDigestCount(count: number): number {
+  if (!Number.isFinite(count)) {
+    return 1;
   }
-  return `You have ${count} new notifications on StackMatch`;
+
+  return Math.max(1, Math.round(count));
+}
+
+export function buildDigestSubject(
+  count: number,
+  category = DEFAULT_NOTIFICATION_CATEGORY
+): string {
+  const normalizedCount = normalizeDigestCount(count);
+
+  switch (category) {
+    case NOTIFICATION_CATEGORY_MESSAGES:
+      return `You have ${normalizedCount} new message${normalizedCount === 1 ? "" : "s"} on Stackmatch`;
+    case NOTIFICATION_CATEGORY_STARS:
+      return `You have ${normalizedCount} new star${normalizedCount === 1 ? "" : "s"} on Stackmatch`;
+    case NOTIFICATION_CATEGORY_FOLLOWS:
+      return `You have ${normalizedCount} new follower${normalizedCount === 1 ? "" : "s"} on Stackmatch`;
+    case NOTIFICATION_CATEGORY_PROFILES:
+      return normalizedCount === 1
+        ? "A profile you watched was claimed on Stackmatch"
+        : `${normalizedCount} profiles you watched were claimed on Stackmatch`;
+    default:
+      return `You have ${normalizedCount} new Stackmatch update${normalizedCount === 1 ? "" : "s"}`;
+  }
+}
+
+export function buildDigestSummary(
+  count: number,
+  category = DEFAULT_NOTIFICATION_CATEGORY
+): string {
+  const normalizedCount = normalizeDigestCount(count);
+
+  switch (category) {
+    case NOTIFICATION_CATEGORY_MESSAGES:
+      return `You have ${normalizedCount} new message${normalizedCount === 1 ? "" : "s"}`;
+    case NOTIFICATION_CATEGORY_STARS:
+      return `You have ${normalizedCount} new star${normalizedCount === 1 ? "" : "s"}`;
+    case NOTIFICATION_CATEGORY_FOLLOWS:
+      return `You have ${normalizedCount} new follower${normalizedCount === 1 ? "" : "s"}`;
+    case NOTIFICATION_CATEGORY_PROFILES:
+      return normalizedCount === 1
+        ? "A profile you watched was claimed"
+        : `${normalizedCount} profiles you watched were claimed`;
+    default:
+      return `You have ${normalizedCount} new Stackmatch update${normalizedCount === 1 ? "" : "s"}`;
+  }
+}
+
+export function buildDigestPrimaryActionLabel(
+  count: number,
+  category = DEFAULT_NOTIFICATION_CATEGORY
+): string {
+  const normalizedCount = normalizeDigestCount(count);
+
+  switch (category) {
+    case NOTIFICATION_CATEGORY_MESSAGES:
+      return normalizedCount === 1 ? "Open message" : "Open messages";
+    case NOTIFICATION_CATEGORY_STARS:
+    case NOTIFICATION_CATEGORY_FOLLOWS:
+    case NOTIFICATION_CATEGORY_PROFILES:
+      return "View profile";
+    default:
+      return "Open Stackmatch";
+  }
 }
 
 export interface DigestLineInput {

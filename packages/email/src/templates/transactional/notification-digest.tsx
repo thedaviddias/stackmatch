@@ -34,18 +34,20 @@ function renderDigestItem(item: NotificationDigestEmailItem) {
 export function NotificationDigestEmail({
   name,
   title,
+  summary,
   count,
   items,
   action,
 }: NotificationDigestEmailProps) {
+  const summaryText =
+    summary ?? `You have ${count} new Stackmatch update${count === 1 ? "" : "s"}`;
+
   return (
     <BaseLayout previewText={title}>
       <Section>
         <Text style={headingStyle}>{title}</Text>
         <Text style={paragraphStyle}>Hi {name},</Text>
-        <Text style={paragraphStyle}>
-          You have {count} new notification{count === 1 ? "" : "s"}:
-        </Text>
+        <Text style={paragraphStyle}>{summaryText}:</Text>
         {items.map((rawItem) => {
           const item = normalizeDigestItem(rawItem);
           return (

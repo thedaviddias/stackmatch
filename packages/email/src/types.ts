@@ -48,6 +48,7 @@ export interface NotificationDigestEmailItem {
 export interface NotificationDigestEmailProps {
   name: string;
   title: string;
+  summary?: string;
   count: number;
   items: Array<string | NotificationDigestEmailItem>;
   action?: {

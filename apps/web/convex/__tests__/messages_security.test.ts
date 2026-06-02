@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markConversationRead, sendMessage, startConversation } from "../mutations/messages";
 import {
   canMessageUser,
+  getConversationPeerProfile,
   getMessages,
   getMessagingUsage,
   getMyConversations,
@@ -164,6 +165,7 @@ function makeCtx(tablesInput: Partial<Tables> = {}): FakeCtx & { tables: Tables 
       stars: [],
       dailyActionCounts: [],
       notifications: [],
+      follows: [],
     },
     tablesInput
   );
@@ -263,6 +265,14 @@ function dailyMessageCount(owner: string, count: number) {
   });
 }
 
+function follow(followerOwner: string, followingOwner: string) {
+  return makeRow("follows", `${followerOwner}-${followingOwner}`, {
+    followerOwner,
+    followingOwner,
+    createdAt: NOW,
+  });
+}
+
 describe("message security", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -302,6 +312,9 @@ describe("message security", () => {
     await expect(
       getHandler(sendMessage)(ctx, { conversationId: convo._id, body: "hello" })
     ).rejects.toThrow("You are not a participant");
+    await expect(
+      getHandler(getConversationPeerProfile)(ctx, { conversationId: convo._id })
+    ).resolves.toBeNull();
     expect(ctx.tables.dailyActionCounts).toHaveLength(0);
   });
 
@@ -389,6 +402,9 @@ describe("message security", () => {
       getHandler(getMessages)(ctx, { conversationId: convo._id, limit: 50 })
     ).resolves.toEqual([]);
     await expect(
+      getHandler(getConversationPeerProfile)(ctx, { conversationId: convo._id })
+    ).resolves.toBeNull();
+    await expect(
       getHandler(markConversationRead)(ctx, { conversationId: convo._id })
     ).resolves.toEqual({ updated: 0 });
     await expect(getHandler(canMessageUser)(ctx, { targetOwner: "bob" })).resolves.toEqual({
@@ -401,6 +417,52 @@ describe("message security", () => {
     await expect(
       getHandler(sendMessage)(ctx, { conversationId: convo._id, body: "hello" })
     ).rejects.toThrow("not available");
+  });
+
+  it("returns compact peer profile context without private fields or message content", async () => {
+    await signInAs("alice");
+    const convo = conversation("1", "alice", "bob");
+    const aliceRows = makeHighScoreRows("alice");
+    const bobProfile = makeRow("profiles", "bob", {
+      owner: "bob",
+      name: "Bobby Tables",
+      avatarUrl: "https://github.com/bob.png",
+      bio: "Builds secure tables.",
+      company: "Stackmatch Labs",
+      location: "Toronto, Canada",
+      website: "https://bob.example",
+      x: "bobby",
+      followers: 9_999,
+      isClaimed: true,
+      memberNumber: 22,
+      ownerType: "developer",
+      hasPrivateData: true,
+      showPrivateDataPublicly: false,
+    });
+    const ctx = makeCtx({
+      ...aliceRows,
+      conversations: [convo],
+      profiles: [...(aliceRows.profiles ?? []), bobProfile],
+      messages: [message("1", convo._id, "bob", SECRET_MESSAGE)],
+      follows: [follow("carol", "bob"), follow("dave", "bob"), follow("bob", "erin")],
+    });
+
+    await expect(
+      getHandler(getConversationPeerProfile)(ctx, { conversationId: convo._id })
+    ).resolves.toEqual({
+      owner: "bob",
+      name: "Bobby Tables",
+      avatarUrl: "https://github.com/bob.png",
+      bio: "Builds secure tables.",
+      company: "Stackmatch Labs",
+      location: "Toronto, Canada",
+      website: "https://bob.example",
+      x: "bobby",
+      isClaimed: true,
+      ownerType: "developer",
+      followersCount: 2,
+      followingCount: 1,
+    });
   });
 
   it("returns aggregate messaging usage without exposing message content", async () => {
@@ -461,9 +523,57 @@ describe("message security", () => {
     });
 
     const notificationArgs = ctx.runMutation.mock.calls[0]?.[1];
+    expect(ctx.runMutation).toHaveBeenCalledTimes(1);
     expect(notificationArgs.message).toBe("@alice sent you a message.");
     expect(notificationArgs.message).not.toContain(SECRET_MESSAGE);
     expect(notificationArgs.actionUrl).toContain(`/messages/${convo._id}`);
+  });
+
+  it("skips message notifications while the recipient has unread messages from the sender", async () => {
+    await signInAs("alice");
+    const convo = conversation("1", "alice", "bob");
+    const ctx = makeCtx({
+      ...makeHighScoreRows("alice"),
+      conversations: [convo],
+      messages: [message("1", convo._id, "alice", "already unread")],
+    });
+
+    await getHandler(sendMessage)(ctx, {
+      conversationId: convo._id,
+      body: "follow-up",
+    });
+
+    expect(ctx.runMutation).not.toHaveBeenCalled();
+    expect(ctx.tables.messages).toHaveLength(2);
+    expect(ctx.tables.conversations?.[0]?.lastMessagePreview).toBe("follow-up");
+  });
+
+  it("resumes message notifications after the recipient reads sender messages", async () => {
+    await signInAs("alice");
+    const convo = conversation("1", "alice", "bob");
+    const ctx = makeCtx({
+      ...makeHighScoreRows("alice"),
+      conversations: [convo],
+    });
+
+    await getHandler(sendMessage)(ctx, {
+      conversationId: convo._id,
+      body: "first",
+    });
+    expect(ctx.runMutation).toHaveBeenCalledTimes(1);
+
+    await signInAs("bob");
+    await expect(
+      getHandler(markConversationRead)(ctx, { conversationId: convo._id })
+    ).resolves.toEqual({ updated: 1 });
+
+    await signInAs("alice");
+    await getHandler(sendMessage)(ctx, {
+      conversationId: convo._id,
+      body: "second",
+    });
+
+    expect(ctx.runMutation).toHaveBeenCalledTimes(2);
   });
 
   it("marks only other participants' unread messages as read", async () => {

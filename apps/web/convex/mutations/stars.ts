@@ -1,4 +1,5 @@
 import { FEED_EVENT_TYPE_MATCHED, FEED_EVENT_TYPE_STARRED } from "@stackmatch/constants/feed";
+import { NOTIFICATION_CATEGORY_STARS } from "@stackmatch/constants/notifications";
 import { anyApi } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
@@ -147,7 +148,7 @@ export const toggleStar = mutation({
       await ctx.runMutation(enqueueForOwnerFn, {
         recipientOwner: targetOwner,
         actorOwner: githubLogin,
-        category: "stars",
+        category: NOTIFICATION_CATEGORY_STARS,
         type: "star_received",
         title: "You received a new star",
         message: isMatch

@@ -1,9 +1,16 @@
+import {
+  NOTIFICATION_CATEGORY_FOLLOWS,
+  NOTIFICATION_CATEGORY_MESSAGES,
+  NOTIFICATION_CATEGORY_STARS,
+} from "@stackmatch/constants/notifications";
 import { describe, expect, it } from "vitest";
 import {
   buildDigestEmailItems,
   buildDigestKey,
   buildDigestLines,
+  buildDigestPrimaryActionLabel,
   buildDigestSubject,
+  buildDigestSummary,
   buildUtcDayKey,
   DIGEST_RETRY_BASE_DELAY_MS,
   DIGEST_RETRY_MAX_DELAY_MS,
@@ -39,8 +46,21 @@ describe("notification digest helpers", () => {
   });
 
   it("builds readable digest subject lines", () => {
-    expect(buildDigestSubject(1)).toBe("You have 1 new notification on StackMatch");
-    expect(buildDigestSubject(4)).toBe("You have 4 new notifications on StackMatch");
+    expect(buildDigestSubject(1, NOTIFICATION_CATEGORY_MESSAGES)).toBe(
+      "You have 1 new message on Stackmatch"
+    );
+    expect(buildDigestSubject(4, NOTIFICATION_CATEGORY_MESSAGES)).toBe(
+      "You have 4 new messages on Stackmatch"
+    );
+    expect(buildDigestSubject(1, NOTIFICATION_CATEGORY_STARS)).toBe(
+      "You have 1 new star on Stackmatch"
+    );
+    expect(buildDigestSubject(3, NOTIFICATION_CATEGORY_FOLLOWS)).toBe(
+      "You have 3 new followers on Stackmatch"
+    );
+    expect(buildDigestSummary(2, NOTIFICATION_CATEGORY_MESSAGES)).toBe("You have 2 new messages");
+    expect(buildDigestPrimaryActionLabel(1, NOTIFICATION_CATEGORY_MESSAGES)).toBe("Open message");
+    expect(buildDigestPrimaryActionLabel(2, NOTIFICATION_CATEGORY_MESSAGES)).toBe("Open messages");
   });
 
   it("limits and truncates digest lines", () => {

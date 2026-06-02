@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   markRead: vi.fn(),
   messages: [] as unknown,
   messagingUsage: null as unknown,
+  peerProfile: null as unknown,
   sendMessage: vi.fn(),
   useSession: vi.fn(),
 }));
@@ -29,6 +30,7 @@ vi.mock("@/data/api", () => ({
     },
     queries: {
       messages: {
+        getConversationPeerProfile: "getConversationPeerProfile",
         getMessages: "getMessages",
         getMessagingUsage: "getMessagingUsage",
         getMyConversations: "getMyConversations",
@@ -41,6 +43,7 @@ vi.mock("@/data/react", () => ({
   useMutation: (mutation: unknown) =>
     mutation === "sendMessage" ? mocks.sendMessage : mocks.markRead,
   useQuery: (query: unknown) => {
+    if (query === "getConversationPeerProfile") return mocks.peerProfile;
     if (query === "getMessages") return mocks.messages;
     if (query === "getMyConversations") return mocks.conversations;
     if (query === "getMessagingUsage") return mocks.messagingUsage;
@@ -74,6 +77,20 @@ beforeEach(() => {
       otherOwner: "akshara",
     },
   ];
+  mocks.peerProfile = {
+    avatarUrl: "https://github.com/akshara.png",
+    bio: "Builds thoughtful developer tools for secure teams.",
+    company: "Stackmatch Labs",
+    followersCount: 1280,
+    followingCount: 5,
+    isClaimed: true,
+    location: "Toronto, Canada",
+    name: "Akshara Hegde",
+    owner: "akshara",
+    ownerType: "organization",
+    website: "https://akshara.dev",
+    x: "akshara",
+  };
   mocks.messagingUsage = {
     canMessage: true,
     conversationCount: 1,
@@ -98,6 +115,34 @@ afterEach(() => {
 });
 
 describe("ConversationContent", () => {
+  it("renders a compact social profile strip for the conversation peer", () => {
+    render(<ConversationContent />);
+
+    const profileLink = screen.getByRole("link", { name: /view profile/i });
+    const bio = screen.getByText("Builds thoughtful developer tools for secure teams.");
+
+    expect(profileLink).toHaveAttribute("href", "/akshara");
+    expect(screen.getByText("Akshara Hegde")).toBeInTheDocument();
+    expect(screen.getByText("@akshara")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
+    expect(screen.getByText("Org")).toBeInTheDocument();
+    expect(bio).toHaveClass("line-clamp-1");
+    expect(screen.getByText("Stackmatch Labs")).toBeInTheDocument();
+    expect(screen.getByText("1.3K followers")).toBeInTheDocument();
+  });
+
+  it("falls back to the lean conversation preview while peer profile context loads", () => {
+    mocks.peerProfile = undefined;
+
+    render(<ConversationContent />);
+
+    expect(screen.getByRole("link", { name: /view profile/i })).toHaveAttribute("href", "/akshara");
+    expect(screen.getByText("Akshara Hegde")).toBeInTheDocument();
+    expect(screen.getByText("@akshara")).toBeInTheDocument();
+    expect(screen.queryByText("Verified")).not.toBeInTheDocument();
+    expect(screen.queryByText("Stackmatch Labs")).not.toBeInTheDocument();
+  });
+
   it("keeps the empty conversation composer in the starter section", () => {
     render(<ConversationContent />);
 
@@ -122,6 +167,54 @@ describe("ConversationContent", () => {
     const results = await axe(container);
 
     expect(results).toHaveNoViolations();
+  });
+
+  it("uses a neutral readable treatment for sent message bubbles", () => {
+    mocks.messages = [
+      {
+        _id: "msg_1",
+        body: "Hey Akshara! Just testing that the message feature is working :D",
+        createdAt: Date.now(),
+        isMine: true,
+        senderOwner: "test-user",
+      },
+    ];
+
+    render(<ConversationContent />);
+
+    const message = screen.getByText(
+      "Hey Akshara! Just testing that the message feature is working :D"
+    );
+    const bubble = message.parentElement;
+
+    expect(bubble).toHaveClass("bg-neutral-800", "text-neutral-100");
+    expect(bubble?.querySelector("p:nth-child(2)")).toHaveClass("text-neutral-400");
+  });
+
+  it("keeps populated desktop conversations in natural document flow", () => {
+    mocks.messages = [
+      {
+        _id: "msg_1",
+        body: "Hey Akshara! Just testing that the message feature is working :D",
+        createdAt: Date.now(),
+        isMine: true,
+        senderOwner: "test-user",
+      },
+    ];
+
+    render(<ConversationContent />);
+
+    const shell = screen.getByTestId("conversation-shell");
+    const messageList = screen.getByTestId("conversation-message-list");
+
+    expect(shell).not.toHaveClass("h-[calc(100vh-4rem)]");
+    expect(shell).toHaveClass(
+      "pb-8",
+      "max-md:h-[calc(100svh-var(--header-height))]",
+      "max-md:pb-0"
+    );
+    expect(messageList).not.toHaveClass("flex-1");
+    expect(messageList).toHaveClass("min-h-0", "max-md:flex-1", "max-md:overflow-y-auto");
   });
 
   it("sends a typed empty-state message through the conversation mutation", async () => {
