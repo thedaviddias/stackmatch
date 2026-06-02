@@ -3,7 +3,11 @@
 import { ROUTES } from "@stackmatch/config";
 import { DISCOVERY_THIN_FEED_THRESHOLD } from "@stackmatch/constants/feed";
 import { OWNER_TYPE_ORGANIZATION, type OwnerType } from "@stackmatch/constants/owner";
-import { FEED_RECENT_WINDOW_MS } from "@stackmatch/constants/social";
+import {
+  BLURRED_TEASER_COUNT,
+  FEED_RECENT_WINDOW_MS,
+  MATCH_PREVIEW_COUNT,
+} from "@stackmatch/constants/social";
 import { DAY_MS } from "@stackmatch/constants/time";
 import { isLowSignalPackage } from "@stackmatch/utils/ranking";
 import { Clock, Compass, Handshake, Search, Sparkles, Trophy, UserPlus } from "lucide-react";
@@ -46,6 +50,7 @@ interface DiscoveryFeedProps {
   viewerLocationCountryCode?: string;
   ownerStackScore?: number;
   ownerType?: OwnerType;
+  shouldGateMatches?: boolean;
 }
 
 interface DiscoveryCopy {
@@ -120,6 +125,40 @@ function getProfileStatus(match: Stackmate) {
   if (match.profile?.isClaimed === true) return "claimed";
   if (match.profile?.indexedAt != null) return "indexed";
   return undefined;
+}
+
+function toLockedMatch(match: Stackmate, index: number): Stackmate {
+  return {
+    ...match,
+    owner: `locked-stackmate-${index + 1}`,
+    jaccard: 0,
+    hybridScore: 0,
+    sharedPackageCount: 0,
+    publicRepoCount: 0,
+    totalStars: 0,
+    starsCount: undefined,
+    isBlurred: true,
+    profile: match.profile
+      ? {
+          avatarUrl: match.profile.avatarUrl,
+          followers: 0,
+          ownerType: match.profile.ownerType,
+        }
+      : null,
+  };
+}
+
+function gatePublicMatches(matches: Stackmate[]): Stackmate[] {
+  if (matches.length <= MATCH_PREVIEW_COUNT || matches.some((match) => match.isBlurred)) {
+    return matches;
+  }
+
+  const previewMatches = matches.slice(0, MATCH_PREVIEW_COUNT);
+  const lockedTeasers = matches
+    .slice(MATCH_PREVIEW_COUNT, MATCH_PREVIEW_COUNT + BLURRED_TEASER_COUNT)
+    .map(toLockedMatch);
+
+  return [...previewMatches, ...lockedTeasers];
 }
 
 function getRecentActivityTimestamp(match: Stackmate, now: number): number | null {
@@ -423,9 +462,14 @@ export function DiscoveryFeed({
   viewerOwner,
   weekStart,
   ownerType,
+  shouldGateMatches = false,
 }: DiscoveryFeedProps) {
   const now = useMemo(() => Date.now(), []);
-  const presenceByOwner = usePresenceByOwners(matches.map((match) => match.owner));
+  const feedMatches = useMemo(
+    () => (shouldGateMatches ? gatePublicMatches(matches) : matches),
+    [matches, shouldGateMatches]
+  );
+  const presenceByOwner = usePresenceByOwners(feedMatches.map((match) => match.owner));
   const isOrganization = ownerType === OWNER_TYPE_ORGANIZATION;
   const copy = getDiscoveryCopy(isOwnerViewer, isOrganization);
 
@@ -434,10 +478,10 @@ export function DiscoveryFeed({
 
     // Weekly Picks use the ranked matches from the backend. Raw Jaccard can drop
     // after private packages hydrate even when overlap is meaningful.
-    const picks = pickWeeklyPicks(matches, viewerOwner, weekStart);
+    const picks = pickWeeklyPicks(feedMatches, viewerOwner, weekStart);
     for (const pick of picks) featuredOwners.add(pick.owner);
 
-    const recent = matches
+    const recent = feedMatches
       .map((match) => ({ match, recentAt: getRecentActivityTimestamp(match, now) }))
       .filter(
         (entry): entry is { match: Stackmate; recentAt: number } =>
@@ -451,7 +495,7 @@ export function DiscoveryFeed({
 
     for (const match of recent) featuredOwners.add(match.owner);
 
-    const rankedMatches = matches.filter((match) => !featuredOwners.has(match.owner));
+    const rankedMatches = feedMatches.filter((match) => !featuredOwners.has(match.owner));
     const visibleFeaturedOwnerCount = featuredOwners.size;
     const adjustedTotal =
       totalMatchCount === undefined
@@ -464,13 +508,13 @@ export function DiscoveryFeed({
       recentActivity: recent,
       adjustedTotalMatchCount: adjustedTotal,
     };
-  }, [matches, viewerOwner, weekStart, now, totalMatchCount]);
+  }, [feedMatches, viewerOwner, weekStart, now, totalMatchCount]);
 
-  if (matches.length === 0) {
+  if (feedMatches.length === 0) {
     return <DiscoveryEmptyState isOwnerViewer={isOwnerViewer} copy={copy} />;
   }
 
-  const isThinFeed = matches.length < DISCOVERY_THIN_FEED_THRESHOLD;
+  const isThinFeed = feedMatches.length < DISCOVERY_THIN_FEED_THRESHOLD;
 
   return (
     <div className="space-y-10">

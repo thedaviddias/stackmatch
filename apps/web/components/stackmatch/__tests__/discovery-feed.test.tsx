@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiscoveryFeed } from "../discovery-feed";
 import type { Stackmate } from "../stackmate-grid";
 
+const { useMutationMock } = vi.hoisted(() => ({
+  useMutationMock: vi.fn(() => vi.fn()),
+}));
+
 vi.mock("@/components/cards/user-card", () => ({
   UserCard: ({
     owner,
@@ -20,6 +24,20 @@ vi.mock("@/components/cards/user-card", () => ({
       {profileStatus ? <span>{profileStatus}</span> : null}
     </div>
   ),
+}));
+
+vi.mock("@/data/api", () => ({
+  api: {
+    mutations: {
+      privacy: {
+        hideMatch: "hideMatch",
+      },
+    },
+  },
+}));
+
+vi.mock("@/data/react", () => ({
+  useMutation: useMutationMock,
 }));
 
 vi.mock("next/image", () => ({
@@ -61,14 +79,16 @@ function getDiscoverySection(title: string): HTMLElement {
   return section as HTMLElement;
 }
 
-function renderFeed(matches: Stackmate[], ownerType?: OwnerType) {
+function renderFeed(matches: Stackmate[], ownerType?: OwnerType, shouldGateMatches = false) {
   return render(
     <DiscoveryFeed
       matches={matches}
+      totalMatchCount={matches.length}
       isOwnerViewer
       viewerOwner="viewer"
       weekStart={NOW}
       ownerType={ownerType}
+      shouldGateMatches={shouldGateMatches}
     />
   );
 }
@@ -254,6 +274,44 @@ describe("DiscoveryFeed sections", () => {
     const bestMatches = getDiscoverySection("Best Matches");
     expect(within(bestMatches).getAllByTestId(/^card-/)).toHaveLength(6);
     expect(within(bestMatches).getByText("Show More Stackmates")).toBeInTheDocument();
+  });
+
+  it("shows locked teaser cards instead of the full grid for gated visitors", () => {
+    const matches = Array.from({ length: 10 }, (_, index) =>
+      makeMatch(`gated-${index + 1}`, {
+        name: `Gated Match ${index + 1}`,
+        avatarUrl: `https://github.com/gated-${index + 1}.png`,
+        followers: 1,
+        isClaimed: false,
+        indexedAt: NOW - 20 * DAY_MS,
+      })
+    );
+
+    renderFeed(matches, undefined, true);
+
+    const bestMatches = getDiscoverySection("Best Matches");
+
+    expect(within(bestMatches).getAllByTestId(/^card-/)).toHaveLength(4);
+    expect(within(bestMatches).getAllByRole("img", { name: "Locked preview" })).toHaveLength(3);
+    expect(within(bestMatches).queryByTestId("card-gated-4")).not.toBeInTheDocument();
+    expect(screen.getByText("Sign in to see 5 more stackmates")).toBeInTheDocument();
+    expect(screen.queryByText("Show More Stackmates")).not.toBeInTheDocument();
+  });
+
+  it("keeps the sign-in CTA visible when featured picks consume public previews", () => {
+    const matches = Array.from({ length: 4 }, (_, index) =>
+      makeMatch(`compact-gated-${index + 1}`, {
+        name: `Compact Gated Match ${index + 1}`,
+        avatarUrl: `https://github.com/compact-gated-${index + 1}.png`,
+        followers: 1,
+        isClaimed: false,
+        indexedAt: NOW - 20 * DAY_MS,
+      })
+    );
+
+    renderFeed(matches, undefined, true);
+
+    expect(screen.getByText("Sign in to see 1 more stackmate")).toBeInTheDocument();
   });
 
   it("does not duplicate Weekly Picks into Best Matches or Recent Activity", () => {

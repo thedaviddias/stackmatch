@@ -2,6 +2,7 @@
 
 import { SegmentedControl, type SegmentedControlOption } from "@stackmatch/ui/segmented-control";
 import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ButtonCustom } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { TimeAgo } from "@/components/ui/display/time-ago";
 import { api } from "@/data/api";
 import { useMutation, usePaginatedQuery, useQuery } from "@/data/react";
 import type { Id } from "@/data/server-types";
+import { resolveNotificationActionTarget } from "@/lib/notifications/navigation";
 import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { cn } from "@/lib/storage/utils";
 
@@ -27,8 +29,12 @@ const NOTIFICATION_FILTER_OPTIONS = [
   { value: "unread", label: "Unread" },
 ] as const satisfies ReadonlyArray<SegmentedControlOption<NotificationFilter>>;
 
-function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//.test(url);
+function getCurrentOrigin(): string | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  return window.location.origin;
 }
 
 interface NotificationsInboxPanelProps {
@@ -36,6 +42,7 @@ interface NotificationsInboxPanelProps {
 }
 
 export function NotificationsInboxPanel({ showTitle = true }: NotificationsInboxPanelProps) {
+  const router = useRouter();
   const {
     results: notifications,
     status,
@@ -72,6 +79,31 @@ export function NotificationsInboxPanel({ showTitle = true }: NotificationsInbox
       toast.error(error instanceof Error ? error.message : "Failed to update notification.");
     } finally {
       setMarkingId(null);
+    }
+  };
+
+  const navigateToNotificationTarget = (actionUrl: string | undefined) => {
+    const target = resolveNotificationActionTarget(actionUrl, getCurrentOrigin());
+
+    if (target.startsWith("/")) {
+      router.push(target);
+      return;
+    }
+
+    window.location.assign(target);
+  };
+
+  const handleNotificationOpen = async (
+    notificationId: Id<"notifications">,
+    isRead: boolean,
+    actionUrl: string | undefined
+  ) => {
+    if (!isRead) {
+      await handleMarkRead(notificationId);
+    }
+
+    if (actionUrl) {
+      navigateToNotificationTarget(actionUrl);
     }
   };
 
@@ -130,54 +162,71 @@ export function NotificationsInboxPanel({ showTitle = true }: NotificationsInbox
             </div>
           )}
 
-          {visibleNotifications.map((item) => (
-            <div
-              key={item._id}
-              className={cn(
-                "rounded-2xl border px-4 py-3 transition-all",
-                item.isRead
-                  ? "border-white/5 bg-neutral-950/40"
-                  : "border-th-accent-1/30 bg-th-accent-1/5"
-              )}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-bold text-white">{item.title}</p>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-neutral-400">
-                      {item.category}
+          {visibleNotifications.map((item) => {
+            const canInteract = Boolean(item.actionUrl) || !item.isRead;
+            const notificationContent = (
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-bold text-white">{item.title}</p>
+                  {!item.isRead && (
+                    <span className="rounded-full border border-th-accent-1/30 bg-th-accent-1/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-th-accent-1-text">
+                      Unread
                     </span>
-                  </div>
-                  <p className="text-xs text-neutral-300">{item.message}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
-                    <TimeAgo timestamp={item.createdAt} />
-                  </p>
-                  {item.actionUrl && (
-                    <a
-                      href={item.actionUrl}
-                      target={isExternalUrl(item.actionUrl) ? "_blank" : undefined}
-                      rel={isExternalUrl(item.actionUrl) ? "noopener noreferrer" : undefined}
-                      className="inline-flex text-[10px] font-black uppercase tracking-widest text-th-accent-1 hover:opacity-80"
+                  )}
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-neutral-400">
+                    {item.category}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-300">{item.message}</p>
+                <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                  <TimeAgo timestamp={item.createdAt} />
+                  {item.actionUrl && <span className="text-th-accent-1">Open</span>}
+                </div>
+              </div>
+            );
+
+            return (
+              <div
+                key={item._id}
+                className={cn(
+                  "rounded-2xl border px-4 py-3 transition-all",
+                  item.isRead
+                    ? "border-white/5 bg-neutral-950/40"
+                    : "border-th-accent-1/30 bg-th-accent-1/5"
+                )}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  {canInteract ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleNotificationOpen(item._id, item.isRead, item.actionUrl);
+                      }}
+                      disabled={markingId === item._id}
+                      className="min-w-0 flex-1 rounded-xl text-left transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-th-accent-1 disabled:cursor-wait disabled:opacity-70"
                     >
-                      Open
-                    </a>
+                      {notificationContent}
+                    </button>
+                  ) : (
+                    <div className="min-w-0 flex-1">{notificationContent}</div>
+                  )}
+
+                  {!item.isRead && (
+                    <ButtonCustom
+                      type="button"
+                      onClick={() => handleMarkRead(item._id)}
+                      disabled={markingId === item._id}
+                      variant="outline"
+                      size="xs"
+                      className="shrink-0 border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white aria-disabled:opacity-50"
+                    >
+                      {markingId === item._id ? "Saving..." : "Read"}
+                    </ButtonCustom>
                   )}
                 </div>
-                {!item.isRead && (
-                  <ButtonCustom
-                    type="button"
-                    onClick={() => handleMarkRead(item._id)}
-                    disabled={markingId === item._id}
-                    variant="outline"
-                    size="xs"
-                    className="shrink-0 border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white aria-disabled:opacity-50"
-                  >
-                    {markingId === item._id ? "Saving..." : "Read"}
-                  </ButtonCustom>
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {(status === "CanLoadMore" || status === "LoadingMore") && (
             <div className="pt-2">

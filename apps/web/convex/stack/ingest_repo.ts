@@ -245,7 +245,16 @@ export const markSynced = internalMutation({
 
     if (repo) {
       await refreshOwnerDirectoryCacheForOwner(ctx, repo.owner);
-      await triggerNextPending(ctx, repo.owner);
+      const hasMorePending = await triggerNextPending(ctx, repo.owner);
+      if (!hasMorePending) {
+        try {
+          await ctx.runMutation(internal.mutations.feed_events.createStackScannedFeedEvent, {
+            owner: repo.owner,
+          });
+        } catch (error) {
+          console.error("[stack.markSynced] Failed to create stack scan feed event", error);
+        }
+      }
     }
   },
 });
@@ -457,21 +466,22 @@ async function rebuildOwnerLanguagesTopics(
   return { languageCounts, topicCounts };
 }
 
-async function triggerNextPending(ctx: MutationCtx, owner: string) {
+async function triggerNextPending(ctx: MutationCtx, owner: string): Promise<boolean> {
   const pendingRepos = await ctx.db
     .query("repos")
     .withIndex("by_owner_syncStatus", (q) => q.eq("owner", owner).eq("syncStatus", "pending"))
     .collect();
 
-  if (pendingRepos.length === 0) return;
+  if (pendingRepos.length === 0) return false;
 
   pendingRepos.sort((a, b) => (b.pushedAt ?? b.requestedAt) - (a.pushedAt ?? a.requestedAt));
   const nextRepo = pendingRepos[0];
-  if (!nextRepo) return;
+  if (!nextRepo) return false;
 
   await ctx.scheduler.runAfter(0, internal.stack.fetch_repo.fetchRepo, {
     repoId: nextRepo._id,
     owner: nextRepo.owner,
     name: nextRepo.name,
   });
+  return true;
 }

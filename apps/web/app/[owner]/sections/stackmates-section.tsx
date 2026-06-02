@@ -52,6 +52,7 @@ interface StackmatesSectionProps {
   data: NonNullable<OwnerPageData>;
   viewAs?: "public";
   isOwnerViewer: boolean;
+  isAuthenticated?: boolean;
 }
 
 function StackmatesLoadingPanel({ isOrganization }: { isOrganization: boolean }) {
@@ -71,11 +72,13 @@ function StackmatesDiscoveryPanel({
   owner,
   viewAs,
   isOwnerViewer,
+  isAuthenticated,
   data,
 }: {
   owner: string;
   viewAs?: "public";
   isOwnerViewer: boolean;
+  isAuthenticated: boolean;
   data: NonNullable<OwnerPageData>;
 }) {
   const matchQueryArgs =
@@ -87,6 +90,7 @@ function StackmatesDiscoveryPanel({
   const totalMatchCount = matchData?.totalMatchCount ?? data.totalMatchCount;
   const hasServerMatches = data.matches.length > 0 || data.totalMatchCount > 0;
   const isOrganization = data.profile?.ownerType === OWNER_TYPE_ORGANIZATION;
+  const shouldGateMatches = viewAs === "public" || (!isOwnerViewer && !isAuthenticated);
 
   if (matchData === undefined && !hasServerMatches) {
     return <StackmatesLoadingPanel isOrganization={isOrganization} />;
@@ -103,6 +107,7 @@ function StackmatesDiscoveryPanel({
       viewerLocationCountryCode={data.profile?.locationCountryCode}
       ownerStackScore={data.profile?.stackScore}
       ownerType={data.profile?.ownerType}
+      shouldGateMatches={shouldGateMatches}
     />
   );
 }
@@ -120,7 +125,12 @@ function StackmatesTabFallback() {
   );
 }
 
-export function StackmatesSection({ data, viewAs, isOwnerViewer }: StackmatesSectionProps) {
+export function StackmatesSection({
+  data,
+  viewAs,
+  isOwnerViewer,
+  isAuthenticated = false,
+}: StackmatesSectionProps) {
   const recentStars = data.recentStars ?? [];
   const mutualMatches = data.mutualMatches ?? [];
   const isOrganization = data.profile?.ownerType === OWNER_TYPE_ORGANIZATION;
@@ -191,6 +201,7 @@ export function StackmatesSection({ data, viewAs, isOwnerViewer }: StackmatesSec
               owner={data.owner}
               viewAs={viewAs}
               isOwnerViewer={isOwnerViewer}
+              isAuthenticated={isAuthenticated}
               data={data}
             />
           </ErrorBoundary>

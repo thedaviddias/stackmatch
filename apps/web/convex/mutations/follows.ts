@@ -1,3 +1,4 @@
+import { FEED_EVENT_TYPE_FOLLOWED } from "@stackmatch/constants/feed";
 import { getFeatureGates } from "@stackmatch/utils";
 import { anyApi } from "convex/server";
 import { ConvexError, v } from "convex/values";
@@ -214,9 +215,10 @@ export const toggleFollow = mutation({
     try {
       await ctx.runMutation(internal.mutations.feed_events.createFeedEvent, {
         owner: githubLogin,
-        type: "followed",
+        type: FEED_EVENT_TYPE_FOLLOWED,
         actorOwner: githubLogin,
         targetOwner,
+        dedupeKey: `follow:${githubLogin}:${targetOwner}`,
       });
     } catch (feedError) {
       console.error("[toggleFollow] Failed to create feed event", feedError);

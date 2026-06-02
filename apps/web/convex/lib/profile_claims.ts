@@ -1,3 +1,4 @@
+import { FEED_EVENT_TYPE_JOINED } from "@stackmatch/constants/feed";
 import { OWNER_TYPE_DEVELOPER } from "@stackmatch/constants/owner";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
@@ -49,6 +50,7 @@ export async function claimProfileForLogin(
     .withIndex("by_owner", (q) => q.eq("owner", login))
     .unique();
 
+  const wasClaimed = isClaimedProfile(existing);
   const memberNumber = await resolveMemberNumber(ctx, existing);
   const data = {
     isClaimed: true,
@@ -78,8 +80,28 @@ export async function claimProfileForLogin(
   await ctx.scheduler.runAfter(0, internal.stack.owner_page_cache.refreshOwnerPageDataCache, {
     owner: login,
   });
+
+  if (!wasClaimed && isPublicFeedProfile(existing)) {
+    try {
+      await ctx.runMutation(internal.mutations.feed_events.createFeedEvent, {
+        owner: login,
+        type: FEED_EVENT_TYPE_JOINED,
+        actorOwner: login,
+        dedupeKey: `joined:${login}`,
+        createdAt: now,
+      });
+    } catch (error) {
+      console.error("[claimProfileForLogin] Failed to create feed event", error);
+    }
+  }
+
+  return { newlyClaimed: !wasClaimed };
 }
 
 export function isClaimedProfile(profile: Doc<"profiles"> | null | undefined) {
   return Boolean(profile?.isClaimed || profile?.memberNumber != null || profile?.claimedAt != null);
+}
+
+function isPublicFeedProfile(profile: Pick<Doc<"profiles">, "visibility"> | null | undefined) {
+  return profile?.visibility !== "hidden" && profile?.visibility !== "private";
 }

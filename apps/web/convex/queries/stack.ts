@@ -4,6 +4,8 @@ import {
   type OwnerType,
 } from "@stackmatch/constants/owner";
 import {
+  BLURRED_TEASER_COUNT,
+  MATCH_PREVIEW_COUNT,
   OWNER_BLURRED_COUNT,
   OWNER_MATCH_CACHE_TTL_MS,
   OWNER_MATCH_CANDIDATE_LIMIT,
@@ -1050,6 +1052,50 @@ async function buildOwnerMatches(
   };
 }
 
+function toLockedOwnerPageMatch(match: OwnerPageMatch, index: number): OwnerPageMatch {
+  return {
+    ...match,
+    owner: `locked-stackmate-${index + 1}`,
+    jaccard: 0,
+    sharedPackageCount: 0,
+    hybridScore: 0,
+    sharedPackagesPreview: [],
+    publicRepoCount: 0,
+    totalStars: 0,
+    starsCount: undefined,
+    isBlurred: true,
+    profile: match.profile
+      ? {
+          avatarUrl: match.profile.avatarUrl,
+          followers: 0,
+          ownerType: match.profile.ownerType,
+        }
+      : null,
+  };
+}
+
+function gateOwnerPageMatchesForPublic(matchData: {
+  matches: OwnerPageMatch[];
+  totalMatchCount: number;
+}): { matches: OwnerPageMatch[]; totalMatchCount: number } {
+  if (
+    matchData.matches.length <= MATCH_PREVIEW_COUNT ||
+    matchData.matches.some((match) => match.isBlurred)
+  ) {
+    return matchData;
+  }
+
+  const previewMatches = matchData.matches.slice(0, MATCH_PREVIEW_COUNT);
+  const lockedTeasers = matchData.matches
+    .slice(MATCH_PREVIEW_COUNT, MATCH_PREVIEW_COUNT + BLURRED_TEASER_COUNT)
+    .map(toLockedOwnerPageMatch);
+
+  return {
+    matches: [...previewMatches, ...lockedTeasers],
+    totalMatchCount: matchData.totalMatchCount,
+  };
+}
+
 async function getFreshOwnerPageMatchCache(ctx: QueryCtx, owner: string) {
   const cached = await ctx.db
     .query("ownerPageMatchCache")
@@ -1174,6 +1220,7 @@ export const getOwnerPageMatches = query({
       visibility: currentProfile?.visibility ?? "public",
       isAuthorizedOwnerViewer: isAuthorizedOrgViewer,
     });
+    const shouldGatePublicMatches = access.isPublicPreview || !viewerLogin;
 
     if (!access.canViewProfile) {
       logOwnerPageQueryTiming(
@@ -1190,10 +1237,12 @@ export const getOwnerPageMatches = query({
       return { matches: [], totalMatchCount: 0 };
     }
 
-    const canUsePublicCache = usePublicMatchMode && !currentProfile?.showPrivateDataPublicly;
+    const canUsePublicCache =
+      usePublicMatchMode && shouldGatePublicMatches && !currentProfile?.showPrivateDataPublicly;
     if (canUsePublicCache) {
       const cached = await getFreshOwnerPageMatchCache(ctx, owner);
       if (cached) {
+        const publicMatchData = gateOwnerPageMatchesForPublic(cached);
         logOwnerPageQueryTiming(
           "getOwnerPageMatches",
           startedAt,
@@ -1202,10 +1251,11 @@ export const getOwnerPageMatches = query({
             cacheStatus: "hit",
             matchMode: args.matchMode ?? "public",
             totalMatchCount: cached.totalMatchCount,
+            visibleMatchCount: publicMatchData.matches.length,
           },
           { always: true }
         );
-        return cached;
+        return publicMatchData;
       }
     }
 
@@ -1229,6 +1279,9 @@ export const getOwnerPageMatches = query({
       privateRows: usePublicMatchMode ? [] : privateRows,
       viewerLogin: usePublicMatchMode || access.isPublicPreview ? null : viewerLogin,
     });
+    const visibleMatchData = shouldGatePublicMatches
+      ? gateOwnerPageMatchesForPublic(matchData)
+      : matchData;
     logOwnerPageQueryTiming(
       "getOwnerPageMatches",
       startedAt,
@@ -1239,11 +1292,12 @@ export const getOwnerPageMatches = query({
         publicPackageCount: publicRows.length,
         privatePackageCount: usePublicMatchMode ? 0 : privateRows.length,
         totalMatchCount: matchData.totalMatchCount,
+        visibleMatchCount: visibleMatchData.matches.length,
       },
       { always: true }
     );
 
-    return matchData;
+    return visibleMatchData;
   },
 });
 

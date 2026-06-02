@@ -566,7 +566,12 @@ function OwnerPageLoadedContent({
 
             {/* 5. Stackmates - primary discovery payoff */}
             <ErrorBoundary level="section">
-              <StackmatesSection data={data} viewAs={viewAs} isOwnerViewer={isOwnerViewer} />
+              <StackmatesSection
+                data={data}
+                viewAs={viewAs}
+                isOwnerViewer={isOwnerViewer}
+                isAuthenticated={isAuthenticated}
+              />
             </ErrorBoundary>
 
             {/* 6. Top Dependencies - detailed package list */}

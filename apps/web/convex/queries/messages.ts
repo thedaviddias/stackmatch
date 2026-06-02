@@ -7,11 +7,11 @@ import {
 } from "@stackmatch/constants/messages";
 import { getFeatureGates } from "@stackmatch/utils";
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { type QueryCtx, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { getWeekStart } from "../lib/date_helpers";
-import { computeStackScore } from "../lib/feature_gates";
+import { computeStackScore, getDailyActionCount } from "../lib/feature_gates";
 import { hasProfileBlock } from "../lib/moderation";
 
 export function clampMessageQueryLimit(
@@ -24,6 +24,27 @@ export function clampMessageQueryLimit(
   }
 
   return Math.max(MESSAGE_QUERY_LIMIT_MIN, Math.min(maxLimit, Math.floor(limit)));
+}
+
+async function getVisibleConversationsForOwner(ctx: QueryCtx, githubLogin: string) {
+  const convosAsA = await ctx.db
+    .query("conversations")
+    .withIndex("by_participantA", (q) => q.eq("participantA", githubLogin))
+    .collect();
+
+  const convosAsB = await ctx.db
+    .query("conversations")
+    .withIndex("by_participantB", (q) => q.eq("participantB", githubLogin))
+    .collect();
+
+  return (
+    await Promise.all(
+      [...convosAsA, ...convosAsB].map(async (convo) => {
+        const blocked = await hasProfileBlock(ctx, convo.participantA, convo.participantB);
+        return blocked ? null : convo;
+      })
+    )
+  ).filter((convo) => convo !== null);
 }
 
 /**
@@ -44,25 +65,7 @@ export const getMyConversations = query({
     const githubLogin = await resolveGitHubLogin(ctx, user);
     if (!githubLogin) return [];
 
-    // Query both participant indexes
-    const convosAsA = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantA", (q) => q.eq("participantA", githubLogin))
-      .collect();
-
-    const convosAsB = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantB", (q) => q.eq("participantB", githubLogin))
-      .collect();
-
-    const visibleConvos = (
-      await Promise.all(
-        [...convosAsA, ...convosAsB].map(async (convo) => {
-          const blocked = await hasProfileBlock(ctx, convo.participantA, convo.participantB);
-          return blocked ? null : convo;
-        })
-      )
-    ).filter((convo) => convo !== null);
+    const visibleConvos = await getVisibleConversationsForOwner(ctx, githubLogin);
 
     visibleConvos.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
     const safeLimit = clampMessageQueryLimit(
@@ -177,24 +180,9 @@ export const getUnreadCount = query({
     const githubLogin = await resolveGitHubLogin(ctx, user);
     if (!githubLogin) return { count: 0 };
 
-    // Get all my conversations
-    const convosAsA = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantA", (q) => q.eq("participantA", githubLogin))
-      .collect();
-    const convosAsB = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantB", (q) => q.eq("participantB", githubLogin))
-      .collect();
-
-    const visibleConvoIds = (
-      await Promise.all(
-        [...convosAsA, ...convosAsB].map(async (convo) => {
-          const blocked = await hasProfileBlock(ctx, convo.participantA, convo.participantB);
-          return blocked ? null : convo._id;
-        })
-      )
-    ).filter((convoId) => convoId !== null);
+    const visibleConvoIds = (await getVisibleConversationsForOwner(ctx, githubLogin)).map(
+      (convo) => convo._id
+    );
 
     let totalUnread = 0;
     for (const convoId of visibleConvoIds) {
@@ -208,6 +196,39 @@ export const getUnreadCount = query({
     }
 
     return { count: totalUnread };
+  },
+});
+
+/**
+ * Auth-gated: returns aggregate messaging usage for quota/status UI.
+ */
+export const getMessagingUsage = query({
+  args: {},
+  handler: async (ctx) => {
+    let user: Awaited<ReturnType<typeof authComponent.getAuthUser>>;
+    try {
+      user = await authComponent.getAuthUser(ctx);
+    } catch {
+      return null;
+    }
+
+    const githubLogin = await resolveGitHubLogin(ctx, user);
+    if (!githubLogin) return null;
+
+    const score = await computeStackScore(ctx, githubLogin, { isClaimed: true });
+    const gates = getFeatureGates(score);
+    const conversationCount = (await getVisibleConversationsForOwner(ctx, githubLogin)).length;
+    const messagesSentToday = await getDailyActionCount(ctx, githubLogin, "message");
+
+    return {
+      canMessage: gates.canMessage,
+      conversationCount,
+      conversationLimit: gates.conversationLimit,
+      conversationsRemaining: Math.max(0, gates.conversationLimit - conversationCount),
+      messageDailyLimit: gates.messageDailyLimit,
+      messagesRemainingToday: Math.max(0, gates.messageDailyLimit - messagesSentToday),
+      messagesSentToday,
+    };
   },
 });
 

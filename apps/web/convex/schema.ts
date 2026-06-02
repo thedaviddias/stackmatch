@@ -107,6 +107,7 @@ export default defineSchema({
     .index("by_owner", ["owner"])
     .index("by_owner_syncStatus", ["owner", "syncStatus"])
     .index("by_syncStatus", ["syncStatus"])
+    .index("by_syncStatus_lastSyncedAt", ["syncStatus", "lastSyncedAt"])
     .index("by_githubId", ["githubId"]),
 
   // Cached PR metadata — avoids re-fetching unchanged PRs on every resync
@@ -388,7 +389,8 @@ export default defineSchema({
   })
     .index("by_owner", ["owner"])
     .index("by_avatarUrl", ["avatarUrl"])
-    .index("by_memberNumber", ["memberNumber"]),
+    .index("by_memberNumber", ["memberNumber"])
+    .index("by_claimedAt", ["claimedAt"]),
 
   hiddenMatches: defineTable({
     owner: v.string(), // The person doing the hiding
@@ -691,7 +693,8 @@ export default defineSchema({
     .index("by_target_week", ["targetOwner", "weekStart"])
     .index("by_target", ["targetOwner"])
     .index("by_week", ["weekStart"])
-    .index("by_starrer_week", ["starrerLogin", "weekStart"]),
+    .index("by_starrer_week", ["starrerLogin", "weekStart"])
+    .index("by_created", ["createdAt"]),
 
   // ─── Invite / Referral System ──────────────────────────────
   // Each user gets 3 single-use invite codes. When redeemed, both
@@ -779,19 +782,22 @@ export default defineSchema({
   })
     .index("by_follower", ["followerOwner", "createdAt"])
     .index("by_following", ["followingOwner", "createdAt"])
-    .index("by_pair", ["followerOwner", "followingOwner"]),
+    .index("by_pair", ["followerOwner", "followingOwner"])
+    .index("by_created", ["createdAt"]),
 
   // ─── Activity Feed ────────────────────────────────────────
   feedEvents: defineTable({
     owner: v.string(), // who generated this event
-    type: v.string(), // "joined" | "starred" | "followed" | "repo_analyzed" | "stack_changed"
+    type: v.string(), // "starred" | "matched" | "followed" | "joined" | "stack_scanned"
     actorOwner: v.string(),
     targetOwner: v.optional(v.string()),
     targetRepo: v.optional(v.string()),
     metadata: v.optional(v.any()),
+    dedupeKey: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_owner_created", ["owner", "createdAt"])
+    .index("by_owner_dedupe", ["owner", "dedupeKey"])
     .index("by_type_created", ["type", "createdAt"])
     .index("by_created", ["createdAt"]),
 

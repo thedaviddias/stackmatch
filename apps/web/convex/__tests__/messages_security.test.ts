@@ -1,7 +1,12 @@
 import { MESSAGE_THREAD_LIMIT_MAX } from "@stackmatch/constants/messages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markConversationRead, sendMessage, startConversation } from "../mutations/messages";
-import { canMessageUser, getMessages, getMyConversations } from "../queries/messages";
+import {
+  canMessageUser,
+  getMessages,
+  getMessagingUsage,
+  getMyConversations,
+} from "../queries/messages";
 
 vi.mock("../auth", () => ({
   authComponent: {
@@ -18,6 +23,7 @@ vi.mock("../lib/presence", () => ({
 }));
 
 const NOW = 1_800_000_000_000;
+const TODAY_KEY = new Date(NOW).toISOString().slice(0, 10);
 const WEEK_START = 1_799_625_600_000;
 const SECRET_MESSAGE = "secret launch details";
 
@@ -248,6 +254,15 @@ function star(starrerLogin: string, targetOwner: string) {
   });
 }
 
+function dailyMessageCount(owner: string, count: number) {
+  return makeRow("dailyActionCounts", `${owner}-message-${TODAY_KEY}`, {
+    owner,
+    action: "message",
+    date: TODAY_KEY,
+    count,
+  });
+}
+
 describe("message security", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -386,6 +401,32 @@ describe("message security", () => {
     await expect(
       getHandler(sendMessage)(ctx, { conversationId: convo._id, body: "hello" })
     ).rejects.toThrow("not available");
+  });
+
+  it("returns aggregate messaging usage without exposing message content", async () => {
+    await signInAs("alice");
+    const visibleConvo = conversation("1", "alice", "bob");
+    const blockedConvo = conversation("2", "alice", "mallory");
+    const ctx = makeCtx({
+      ...makeHighScoreRows("alice"),
+      conversations: [visibleConvo, blockedConvo],
+      dailyActionCounts: [dailyMessageCount("alice", 2)],
+      messages: [
+        message("1", visibleConvo._id, "alice", SECRET_MESSAGE),
+        message("2", blockedConvo._id, "mallory", "blocked thread"),
+      ],
+      profileBlocks: [block("mallory", "alice")],
+    });
+
+    await expect(getHandler(getMessagingUsage)(ctx, {})).resolves.toEqual({
+      canMessage: true,
+      conversationCount: 1,
+      conversationLimit: 3,
+      conversationsRemaining: 2,
+      messageDailyLimit: 10,
+      messagesRemainingToday: 8,
+      messagesSentToday: 2,
+    });
   });
 
   it("clamps message query limits server-side", async () => {

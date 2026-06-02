@@ -13,6 +13,14 @@ import { useQuery } from "@/data/react";
 
 const MESSAGE_LIST_SKELETON_KEYS = ["message-row-1", "message-row-2", "message-row-3"] as const;
 
+type MessagingUsage = {
+  canMessage: boolean;
+  conversationCount: number;
+  conversationLimit: number;
+  messageDailyLimit: number;
+  messagesSentToday: number;
+};
+
 export function MessagesContent() {
   const { session, isPending } = useSession();
 
@@ -40,6 +48,7 @@ export function MessagesContent() {
 
 function ConversationList() {
   const conversations = useQuery(api.queries.messages.getMyConversations, { limit: 30 });
+  const messagingUsage = useQuery(api.queries.messages.getMessagingUsage);
 
   if (!conversations) {
     return (
@@ -60,11 +69,14 @@ function ConversationList() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <ErrorBoundary level="widget">
-        <div className="mb-6">
-          <h1 className="mb-1 text-2xl font-bold text-white">Messages</h1>
-          <p className="text-sm text-neutral-500">
-            Conversations with people you mutually starred this week.
-          </p>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="mb-1 text-2xl font-bold text-white">Messages</h1>
+            <p className="text-sm text-neutral-500">
+              Conversations with people you mutually starred this week.
+            </p>
+          </div>
+          <MessageUsageSummary usage={messagingUsage} />
         </div>
       </ErrorBoundary>
 
@@ -127,6 +139,29 @@ function ConversationList() {
           </div>
         )}
       </ErrorBoundary>
+    </div>
+  );
+}
+
+function MessageUsageSummary({ usage }: { usage: MessagingUsage | null | undefined }) {
+  if (!usage) return null;
+
+  if (!usage.canMessage) {
+    return (
+      <div className="flex w-fit rounded-full border border-neutral-800 bg-neutral-900/40 px-3 py-1.5 text-[11px] font-semibold text-neutral-400">
+        Messaging locked
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2 sm:justify-end">
+      <span className="rounded-full border border-neutral-800 bg-neutral-900/40 px-3 py-1.5 text-[11px] font-semibold text-neutral-400">
+        {usage.conversationCount} / {usage.conversationLimit} conversations
+      </span>
+      <span className="rounded-full border border-neutral-800 bg-neutral-900/40 px-3 py-1.5 text-[11px] font-semibold text-neutral-400">
+        {usage.messagesSentToday} / {usage.messageDailyLimit} messages today
+      </span>
     </div>
   );
 }

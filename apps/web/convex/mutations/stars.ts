@@ -1,3 +1,4 @@
+import { FEED_EVENT_TYPE_MATCHED, FEED_EVENT_TYPE_STARRED } from "@stackmatch/constants/feed";
 import { anyApi } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
@@ -169,9 +170,10 @@ export const toggleStar = mutation({
     try {
       await ctx.runMutation(internal.mutations.feed_events.createFeedEvent, {
         owner: githubLogin,
-        type: "starred",
+        type: isMatch ? FEED_EVENT_TYPE_MATCHED : FEED_EVENT_TYPE_STARRED,
         actorOwner: githubLogin,
         targetOwner,
+        dedupeKey: `star:${githubLogin}:${targetOwner}:${weekStart}`,
       });
     } catch (feedError) {
       console.error("[toggleStar] Failed to create feed event", feedError);

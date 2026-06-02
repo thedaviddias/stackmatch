@@ -3,7 +3,6 @@ import {
   buildDevelopersDirectoryApiUrl,
   buildDevelopersDirectoryPageHref,
   dedupeDevelopers,
-  getDevelopersDirectoryPageRangeLabel,
   normalizeDeveloperDirectoryPageParam,
 } from "../developers/developers-directory-content";
 import { dedupeStacks } from "../stacks/stacks-directory-content";
@@ -122,34 +121,5 @@ describe("directory page item de-duplication", () => {
     expect(normalizeDeveloperDirectoryPageParam("4")).toBe(4);
     expect(normalizeDeveloperDirectoryPageParam("0")).toBe(1);
     expect(normalizeDeveloperDirectoryPageParam("nope")).toBe(1);
-  });
-
-  it("formats developers page result ranges", () => {
-    expect(
-      getDevelopersDirectoryPageRangeLabel({
-        items: [
-          {
-            owner: "octocat",
-            avatarUrl: "https://example.com/octocat.png",
-            displayName: "Octo Cat",
-            followers: 10,
-            repoCount: 2,
-            power: 90,
-            totalStars: 100,
-            starsCount: 4,
-            firstIndexedAt: 1,
-            lastIndexedAt: 2,
-            isSyncing: false,
-            profileStatus: "indexed",
-          },
-        ],
-        nextCursor: 60,
-        page: 3,
-        pageSize: 20,
-        totalPages: 5,
-        nextPage: 4,
-        total: 81,
-      })
-    ).toBe("Results 41-41 of 81");
   });
 });

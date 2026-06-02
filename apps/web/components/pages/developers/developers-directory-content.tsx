@@ -10,9 +10,16 @@ import {
   DIRECTORY_INITIAL_PAGE,
 } from "@stackmatch/constants/directory";
 import { useDebouncedSearchInput } from "@stackmatch/hooks/use-debounced-search-input";
-import { useInfiniteLoadMore } from "@stackmatch/hooks/use-infinite-load-more";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { CalendarDays, Loader2, Search, Star, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Search,
+  Star,
+  Users,
+} from "lucide-react";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo } from "react";
 import { UserCard, type UserCardMetric } from "@/components/cards/user-card";
@@ -88,21 +95,6 @@ export function buildDevelopersDirectoryPageHref(params: DevelopersDirectoryUrlP
   return `/developers?${searchParams.toString()}`;
 }
 
-export function getDevelopersDirectoryPageRangeLabel(page: DevelopersDirectoryApiResponse): string {
-  if (page.items.length === 0) {
-    if (page.totalPages > 0) {
-      const blockLabel = page.totalPages === DIRECTORY_INITIAL_PAGE ? "block" : "blocks";
-      return `No results in block ${page.page.toLocaleString("en-US")}. ${page.totalPages.toLocaleString("en-US")} ${blockLabel} available`;
-    }
-
-    return "No results";
-  }
-
-  const start = (page.page - DIRECTORY_INITIAL_PAGE) * page.pageSize + DIRECTORY_INITIAL_PAGE;
-  const end = start + page.items.length - DIRECTORY_INITIAL_PAGE;
-  return `Results ${start.toLocaleString("en-US")}-${end.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`;
-}
-
 export function dedupeDevelopers(items: DeveloperDirectoryItem[]): DeveloperDirectoryItem[] {
   const seen = new Set<string>();
   const deduped: DeveloperDirectoryItem[] = [];
@@ -146,15 +138,13 @@ async function fetchDevelopersDirectoryPage({
 interface DevelopersDirectoryResultsProps {
   isLoading: boolean;
   isError: boolean;
-  isFetchingNextPage: boolean;
-  hasNextPage: boolean | undefined;
+  isFetching: boolean;
   onRetry: () => void;
-  total: number;
-  pages: DevelopersDirectoryApiResponse[];
+  page: DevelopersDirectoryApiResponse | undefined;
   viewMode: DevelopersDirectoryView;
   sortMode: DevelopersDirectorySort;
-  loadMoreRef: { current: HTMLDivElement | null };
   searchQuery: string;
+  onPageChange: (page: number) => void;
 }
 
 function getDeveloperDirectoryMetric(
@@ -196,18 +186,17 @@ function getDeveloperDirectoryMetric(
 function DevelopersDirectoryResults({
   isLoading,
   isError,
-  isFetchingNextPage,
-  hasNextPage,
+  isFetching,
   onRetry,
-  total,
-  pages,
+  page,
   viewMode,
   sortMode,
-  loadMoreRef,
   searchQuery,
+  onPageChange,
 }: DevelopersDirectoryResultsProps) {
-  const items = useMemo(() => pages.flatMap((page) => page.items), [pages]);
+  const items = useMemo(() => dedupeDevelopers(page?.items ?? []), [page]);
   const presenceByOwner = usePresenceByOwners(items.map((item) => item.owner));
+  const total = page?.total ?? 0;
 
   if (isLoading) {
     return (
@@ -252,78 +241,69 @@ function DevelopersDirectoryResults({
     );
   }
 
+  const totalPages = page?.totalPages ?? DIRECTORY_INITIAL_PAGE;
+  const currentPage = page?.page ?? DIRECTORY_INITIAL_PAGE;
+  const hasPreviousPage = currentPage > DIRECTORY_INITIAL_PAGE;
+  const hasNextPage = page?.nextPage !== null && currentPage < totalPages;
+
   return (
-    <div className="space-y-8">
-      {pages.map((page) => {
-        const showTotalPages = page.totalPages > 0 && page.page <= page.totalPages;
-
-        return (
-          <section
-            key={page.page}
-            id={`developers-page-${page.page}`}
-            aria-labelledby={`developers-page-${page.page}-heading`}
-            className="scroll-mt-24 space-y-4"
-          >
-            <div>
-              <h3
-                id={`developers-page-${page.page}-heading`}
-                className="text-sm font-semibold text-neutral-300"
-              >
-                Result block {page.page.toLocaleString("en-US")}
-                {showTotalPages ? ` of ${page.totalPages.toLocaleString("en-US")}` : ""}
-              </h3>
-              <p className="mt-1 text-xs text-neutral-500">
-                {getDevelopersDirectoryPageRangeLabel(page)}
-              </p>
-            </div>
-
-            {page.items.length > 0 ? (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {page.items.map((item) => (
-                  <UserCard
-                    key={item.owner}
-                    owner={item.owner}
-                    avatarUrl={item.avatarUrl}
-                    displayName={item.displayName ?? undefined}
-                    repoCount={item.repoCount}
-                    isSyncing={item.isSyncing}
-                    isOnline={isOwnerOnline(presenceByOwner, item.owner)}
-                    power={item.power}
-                    starsCount={item.starsCount}
-                    metric={getDeveloperDirectoryMetric(item, viewMode, sortMode)}
-                    profileStatus={item.profileStatus}
-                    stackDataStatus={
-                      viewMode === "claimed" && item.repoCount === 0 ? "missing" : undefined
-                    }
-                    ownerType={item.ownerType}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-3xl border border-dashed border-neutral-800 p-8 text-center text-sm text-neutral-500">
-                No developers in this block.
-              </div>
-            )}
-          </section>
-        );
-      })}
-
-      <div ref={loadMoreRef} className="h-px" />
+    <div className="space-y-6">
+      {items.length > 0 ? (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {items.map((item) => (
+            <UserCard
+              key={item.owner}
+              owner={item.owner}
+              avatarUrl={item.avatarUrl}
+              displayName={item.displayName ?? undefined}
+              repoCount={item.repoCount}
+              isSyncing={item.isSyncing}
+              isOnline={isOwnerOnline(presenceByOwner, item.owner)}
+              power={item.power}
+              starsCount={item.starsCount}
+              metric={getDeveloperDirectoryMetric(item, viewMode, sortMode)}
+              profileStatus={item.profileStatus}
+              stackDataStatus={
+                viewMode === "claimed" && item.repoCount === 0 ? "missing" : undefined
+              }
+              ownerType={item.ownerType}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-dashed border-neutral-800 p-8 text-center text-sm text-neutral-500">
+          No developers on this page.
+        </div>
+      )}
 
       <div
-        className="flex items-center justify-center gap-2 text-xs text-neutral-500"
+        className="flex flex-col items-center justify-between gap-3 text-xs text-neutral-500 sm:flex-row"
         aria-live="polite"
       >
-        {isFetchingNextPage ? (
-          <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading more developers...
-          </>
-        ) : hasNextPage ? (
-          "Scroll to load more"
-        ) : (
-          "End of results"
-        )}
+        <span className="flex items-center gap-2">
+          {isFetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Page {currentPage.toLocaleString("en-US")} of {totalPages.toLocaleString("en-US")}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={!hasPreviousPage}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-800 bg-black px-3 py-2 font-semibold text-neutral-300 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronLeft className="size-3.5" />
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={!hasNextPage}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-800 bg-black px-3 py-2 font-semibold text-neutral-300 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next
+            <ChevronRight className="size-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -367,64 +347,33 @@ export function DevelopersDirectoryContent() {
   );
   const targetLoadedPage = normalizeDeveloperDirectoryPageParam(pageParam);
 
-  const directoryQuery = useInfiniteQuery({
+  const directoryQuery = useQuery({
     queryKey: [
       "developers-directory-v4",
       { page: targetLoadedPage, view: viewMode, sort: sortMode, q: searchParam },
     ],
-    initialPageParam: DIRECTORY_INITIAL_PAGE,
-    queryFn: ({ pageParam }) =>
+    queryFn: () =>
       fetchDevelopersDirectoryPage({
-        pageParam,
+        pageParam: targetLoadedPage,
         view: viewMode,
         sort: sortMode,
         query: searchParam,
       }),
-    getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
     retry: 1,
     staleTime: DEVELOPERS_DIRECTORY_QUERY_STALE_MS,
     gcTime: DEVELOPERS_DIRECTORY_QUERY_GC_MS,
     refetchOnMount: "always",
   });
+  const total = directoryQuery.data?.total ?? 0;
 
   useEffect(() => {
-    const loadedPages = directoryQuery.data?.pages ?? [];
-    const lastLoadedPage = loadedPages[loadedPages.length - 1];
-    if (!lastLoadedPage) {
+    const totalPages = directoryQuery.data?.totalPages ?? 0;
+    if (totalPages === 0 || targetLoadedPage <= totalPages) {
       return;
     }
 
-    if (
-      lastLoadedPage.page < targetLoadedPage &&
-      directoryQuery.hasNextPage &&
-      !directoryQuery.isFetchingNextPage
-    ) {
-      void directoryQuery.fetchNextPage();
-    }
-  }, [
-    directoryQuery.data?.pages,
-    directoryQuery.fetchNextPage,
-    directoryQuery.hasNextPage,
-    directoryQuery.isFetchingNextPage,
-    targetLoadedPage,
-  ]);
-
-  const pages = useMemo(
-    () =>
-      directoryQuery.data?.pages.map((page) => ({
-        ...page,
-        items: dedupeDevelopers(page.items),
-      })) ?? [],
-    [directoryQuery.data]
-  );
-
-  const total = pages[0]?.total ?? 0;
-
-  const loadMoreRef = useInfiniteLoadMore({
-    hasNextPage: directoryQuery.hasNextPage,
-    isFetchingNextPage: directoryQuery.isFetchingNextPage,
-    fetchNextPage: directoryQuery.fetchNextPage,
-  });
+    void setPageParam(String(totalPages));
+  }, [directoryQuery.data?.totalPages, setPageParam, targetLoadedPage]);
 
   return (
     <section className="space-y-6">
@@ -503,17 +452,17 @@ export function DevelopersDirectoryContent() {
         <DevelopersDirectoryResults
           isLoading={directoryQuery.isLoading}
           isError={directoryQuery.isError}
-          isFetchingNextPage={directoryQuery.isFetchingNextPage}
-          hasNextPage={directoryQuery.hasNextPage}
+          isFetching={directoryQuery.isFetching}
           onRetry={() => {
             void directoryQuery.refetch();
           }}
-          total={total}
-          pages={pages}
+          page={directoryQuery.data}
           viewMode={viewMode}
           sortMode={sortMode}
-          loadMoreRef={loadMoreRef}
           searchQuery={searchParam}
+          onPageChange={(nextPage) => {
+            void setPageParam(String(Math.max(DIRECTORY_INITIAL_PAGE, nextPage)));
+          }}
         />
       </ErrorBoundary>
     </section>

@@ -1,3 +1,4 @@
+import { FEED_EVENT_TYPE_MATCHED, FEED_EVENT_TYPE_STARRED } from "@stackmatch/constants/feed";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toggleStar } from "../mutations/stars";
 
@@ -165,6 +166,13 @@ describe("star notifications", () => {
       category: "stars",
       message: "@alice starred your profile this week. Star them back to unlock messaging.",
     });
+    expect(ctx.runMutation.mock.calls[1]?.[1]).toMatchObject({
+      owner: "alice",
+      type: FEED_EVENT_TYPE_STARRED,
+      actorOwner: "alice",
+      targetOwner: "bob",
+      dedupeKey: `star:alice:bob:${WEEK_START}`,
+    });
   });
 
   it("tells the recipient messaging is unlocked when stars are mutual", async () => {
@@ -182,6 +190,13 @@ describe("star notifications", () => {
     expect(ctx.runMutation.mock.calls[0]?.[1]).toMatchObject({
       category: "stars",
       message: "You and @alice starred each other this week. You can message them now.",
+    });
+    expect(ctx.runMutation.mock.calls[1]?.[1]).toMatchObject({
+      owner: "alice",
+      type: FEED_EVENT_TYPE_MATCHED,
+      actorOwner: "alice",
+      targetOwner: "bob",
+      dedupeKey: `star:alice:bob:${WEEK_START}`,
     });
   });
 });

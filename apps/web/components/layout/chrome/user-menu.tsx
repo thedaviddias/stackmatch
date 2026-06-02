@@ -1,21 +1,30 @@
 "use client";
 
 import { ROUTES } from "@stackmatch/config";
-import { Bell, BookOpen, LogOut, Mail, Rss, Settings2, User } from "lucide-react";
+import { Bell, BookOpen, CheckCheck, LogOut, Mail, Rss, Settings2, User } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { useSession } from "@/components/providers/session-provider";
 import { TimeAgo } from "@/components/ui/display/time-ago";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LinkCustom } from "@/components/ui/link";
 import { api } from "@/data/api";
-import { useQuery } from "@/data/react";
+import { useMutation, useQuery } from "@/data/react";
+import type { Id } from "@/data/server-types";
 import { authClient } from "@/lib/auth/auth-client";
 import { isValidGitHubLogin } from "@/lib/leaderboard/login-redirect";
+import { resolveNotificationActionTarget } from "@/lib/notifications/navigation";
+import { captureUserActionError } from "@/lib/observability/user-action-errors";
 import { cn } from "@/lib/storage/utils";
-
-function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//.test(url);
-}
 
 function GitHubMark({ className }: { className?: string }) {
   return (
@@ -32,10 +41,25 @@ function GitHubMark({ className }: { className?: string }) {
 }
 
 const UNREAD_BADGE_MAX = 99;
+const NOTIFICATION_PREVIEW_SKELETON_KEYS = [
+  "notif-preview-1",
+  "notif-preview-2",
+  "notif-preview-3",
+  "notif-preview-4",
+] as const;
+
+function getCurrentOrigin(): string | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  return window.location.origin;
+}
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Header menu intentionally combines user actions and quick notification preview.
 export function UserMenu() {
   const { session, isPending } = useSession();
+  const router = useRouter();
   const myGitHubLogin = useQuery(api.auth.getMyGitHubLogin, session?.user ? {} : "skip");
   const unreadCount = useQuery(
     api.queries.notifications.getMyUnreadNotificationCount,
@@ -51,9 +75,18 @@ export function UserMenu() {
     api.queries.users.getProfileOwnerByAvatarUrl,
     session?.user?.image && !myGitHubLogin ? { avatarUrl: session.user.image } : "skip"
   );
+  const markNotificationRead = useMutation(api.mutations.notifications.markNotificationRead);
+  const markAllNotificationsRead = useMutation(
+    api.mutations.notifications.markAllMyNotificationsRead
+  );
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [markingNotificationId, setMarkingNotificationId] = useState<Id<"notifications"> | null>(
+    null
+  );
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const notificationMenuPortalRef = useRef<HTMLDivElement>(null);
 
   if (isPending) {
     return (
@@ -92,105 +125,178 @@ export function UserMenu() {
     setIsNotificationsOpen(false);
   };
 
+  const navigateToNotificationTarget = (actionUrl: string | undefined) => {
+    const target = resolveNotificationActionTarget(actionUrl, getCurrentOrigin());
+
+    if (target.startsWith("/")) {
+      router.push(target);
+      return;
+    }
+
+    window.location.assign(target);
+  };
+
+  const handleNotificationSelect = async (
+    notificationId: Id<"notifications">,
+    isRead: boolean,
+    actionUrl: string | undefined
+  ) => {
+    setIsNotificationsOpen(false);
+
+    if (!isRead) {
+      setMarkingNotificationId(notificationId);
+      try {
+        await markNotificationRead({ notificationId });
+      } catch (error) {
+        captureUserActionError("mark_notification_read", error, { notificationId });
+        toast.error(error instanceof Error ? error.message : "Failed to update notification.");
+      } finally {
+        setMarkingNotificationId((currentId) => (currentId === notificationId ? null : currentId));
+      }
+    }
+
+    navigateToNotificationTarget(actionUrl);
+  };
+
+  const handleMarkAllRead = async () => {
+    setIsMarkingAllRead(true);
+    try {
+      const result = await markAllNotificationsRead({});
+      toast.success(
+        result.updated > 0
+          ? `Marked ${result.updated} notification${result.updated === 1 ? "" : "s"} as read.`
+          : "No unread notifications."
+      );
+    } catch (error) {
+      captureUserActionError("mark_all_notifications_read", error);
+      toast.error(error instanceof Error ? error.message : "Failed to mark notifications as read.");
+    } finally {
+      setIsMarkingAllRead(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            setIsNotificationsOpen((prev) => !prev);
+      <DropdownMenu
+        open={isNotificationsOpen}
+        onOpenChange={(open) => {
+          setIsNotificationsOpen(open);
+          if (open) {
             setIsUserMenuOpen(false);
-          }}
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground transition-all hover:border-th-accent-1/50 hover:bg-card hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10 dark:hover:text-white"
-          aria-label="Open notifications"
-          aria-expanded={isNotificationsOpen}
+          }
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground transition-all hover:border-th-accent-1/50 hover:bg-card hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10 dark:hover:text-white"
+            aria-label="Open notifications"
+          >
+            <Bell className="h-4 w-4" />
+            {hasUnread && (
+              <span className="absolute -right-1 -top-1 flex min-w-[1.15rem] items-center justify-center rounded-full bg-th-accent-1 px-1 text-[9px] font-black leading-4 text-white">
+                {unreadLabel > UNREAD_BADGE_MAX ? `${UNREAD_BADGE_MAX}+` : unreadLabel}
+              </span>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent
+          align="end"
+          sideOffset={12}
+          collisionPadding={12}
+          portalContainer={notificationMenuPortalRef.current}
+          className="z-[70] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border-border bg-popover p-1 text-popover-foreground shadow-2xl backdrop-blur-xl dark:border-neutral-800 dark:bg-black/90"
         >
-          <Bell className="h-4 w-4" />
-          {hasUnread && (
-            <span className="absolute -right-1 -top-1 flex min-w-[1.15rem] items-center justify-center rounded-full bg-th-accent-1 px-1 text-[9px] font-black leading-4 text-white">
-              {unreadLabel > UNREAD_BADGE_MAX ? `${UNREAD_BADGE_MAX}+` : unreadLabel}
-            </span>
-          )}
-        </button>
-
-        {isNotificationsOpen && (
-          <div className="absolute right-0 top-full z-50 mt-3 w-[22rem] overflow-hidden rounded-2xl border border-border bg-popover p-1 text-popover-foreground shadow-2xl backdrop-blur-xl dark:border-neutral-800 dark:bg-black/90">
-            <div className="flex items-center justify-between border-b border-border px-3 py-2 dark:border-white/5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-400">
-                Notifications
-              </p>
-              <LinkCustom
-                href={ROUTES.notifications}
-                onClick={closePanels}
-                className="text-[10px] font-black uppercase tracking-widest text-th-accent-1"
+          <div className="flex items-center justify-between gap-2 px-2 py-2">
+            <DropdownMenuLabel className="p-0 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-400">
+              Notifications
+            </DropdownMenuLabel>
+            <div className="flex items-center gap-1">
+              <DropdownMenuItem
+                disabled={isMarkingAllRead || unreadLabel === 0}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleMarkAllRead();
+                }}
+                className="h-8 cursor-pointer rounded-lg px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground focus:bg-muted focus:text-foreground dark:text-neutral-400 dark:focus:bg-white/5 dark:focus:text-white"
               >
-                View All
-              </LinkCustom>
-            </div>
-
-            <div className="max-h-80 space-y-1 overflow-y-auto p-1">
-              {recentNotifications === undefined && (
-                <div className="space-y-1">
-                  {["notif-preview-1", "notif-preview-2", "notif-preview-3", "notif-preview-4"].map(
-                    (key) => (
-                      <div
-                        key={key}
-                        className="h-16 animate-pulse rounded-xl bg-muted dark:bg-white/5"
-                      />
-                    )
-                  )}
-                </div>
-              )}
-
-              {recentNotifications !== undefined && notificationItems.length === 0 && (
-                <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-6 text-center dark:border-white/10 dark:bg-white/[0.02]">
-                  <p className="text-xs font-bold text-foreground dark:text-neutral-300">
-                    No notifications yet.
-                  </p>
-                  <p className="mt-1 text-[10px] text-muted-foreground dark:text-neutral-500">
-                    You are all caught up.
-                  </p>
-                </div>
-              )}
-
-              {notificationItems.map((item) => {
-                const href = item.actionUrl ?? ROUTES.notifications;
-                const external = item.actionUrl ? isExternalUrl(item.actionUrl) : false;
-
-                return (
-                  <LinkCustom
-                    key={item._id}
-                    href={href}
-                    external={external}
-                    onClick={closePanels}
-                    className={cn(
-                      "block rounded-xl border px-3 py-2 transition-all",
-                      item.isRead
-                        ? "border-border bg-muted hover:bg-card dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04]"
-                        : "border-th-accent-1/30 bg-th-accent-1/10 hover:bg-th-accent-1/15"
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="line-clamp-1 text-xs font-bold text-foreground dark:text-white">
-                        {item.title}
-                      </p>
-                      {!item.isRead && (
-                        <span className="mt-1 h-2 w-2 rounded-full bg-th-accent-1" />
-                      )}
-                    </div>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground dark:text-neutral-300">
-                      {item.message}
-                    </p>
-                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
-                      <TimeAgo timestamp={item.createdAt} />
-                    </p>
-                  </LinkCustom>
-                );
-              })}
+                <CheckCheck className="h-3.5 w-3.5" />
+                {isMarkingAllRead ? "Saving..." : "Mark all read"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  closePanels();
+                  router.push(ROUTES.notifications);
+                }}
+                className="h-8 cursor-pointer rounded-lg px-2 text-[10px] font-black uppercase tracking-widest text-th-accent-1 focus:bg-th-accent-1/10 focus:text-th-accent-1"
+              >
+                View all
+              </DropdownMenuItem>
             </div>
           </div>
-        )}
-      </div>
+
+          <DropdownMenuSeparator className="dark:bg-white/5" />
+
+          <div className="max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] space-y-1 overflow-y-auto p-1">
+            {recentNotifications === undefined && (
+              <div className="space-y-1">
+                {NOTIFICATION_PREVIEW_SKELETON_KEYS.map((key) => (
+                  <div
+                    key={key}
+                    className="h-16 animate-pulse rounded-xl bg-muted dark:bg-white/5"
+                  />
+                ))}
+              </div>
+            )}
+
+            {recentNotifications !== undefined && notificationItems.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-6 text-center dark:border-white/10 dark:bg-white/[0.02]">
+                <p className="text-xs font-bold text-foreground dark:text-neutral-300">
+                  No notifications yet.
+                </p>
+                <p className="mt-1 text-[10px] text-muted-foreground dark:text-neutral-500">
+                  You are all caught up.
+                </p>
+              </div>
+            )}
+
+            {notificationItems.map((item) => (
+              <DropdownMenuItem
+                key={item._id}
+                onSelect={() => {
+                  void handleNotificationSelect(item._id, item.isRead, item.actionUrl);
+                }}
+                className={cn(
+                  "block h-auto cursor-pointer rounded-xl border px-3 py-2 text-left transition-all focus:ring-2 focus:ring-th-accent-1",
+                  item.isRead
+                    ? "border-border bg-muted hover:bg-card focus:bg-card dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04] dark:focus:bg-white/[0.04]"
+                    : "border-th-accent-1/30 bg-th-accent-1/10 hover:bg-th-accent-1/15 focus:bg-th-accent-1/15"
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="line-clamp-1 text-xs font-bold text-foreground dark:text-white">
+                    {item.title}
+                  </p>
+                  {!item.isRead && (
+                    <span className="shrink-0 rounded-full border border-th-accent-1/30 bg-th-accent-1/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-th-accent-1-text">
+                      Unread
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground dark:text-neutral-300">
+                  {item.message}
+                </p>
+                <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
+                  <TimeAgo timestamp={item.createdAt} />
+                  {markingNotificationId === item._id && <span>Saving...</span>}
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <div ref={notificationMenuPortalRef} className="contents" />
 
       <div className="relative">
         <button
@@ -294,7 +400,7 @@ export function UserMenu() {
         )}
       </div>
 
-      {(isUserMenuOpen || isNotificationsOpen) && (
+      {isUserMenuOpen && (
         <button
           type="button"
           className="fixed inset-0 z-40"

@@ -146,7 +146,11 @@ export function StackmateGrid({
     );
   }
 
-  const gatedCount = totalMatchCount !== undefined ? totalMatchCount - MATCH_PREVIEW_COUNT : 0;
+  const lockedPreviewCount = filteredMatches.filter((match) => match.isBlurred).length;
+  const gatedCount =
+    totalMatchCount !== undefined
+      ? Math.max(lockedPreviewCount, totalMatchCount - MATCH_PREVIEW_COUNT)
+      : lockedPreviewCount;
 
   return (
     <div className="space-y-8">

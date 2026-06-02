@@ -101,6 +101,23 @@ describe("StackmatesSection", () => {
       owner: "octocat",
       matchMode: "public",
     });
+    expect(discoveryFeedMock).toHaveBeenCalledWith(
+      expect.objectContaining({ shouldGateMatches: true })
+    );
+  });
+
+  it("does not gate discovery matches for signed-in visitors", () => {
+    activeTabMock.mockReturnValue("discovery");
+    useQueryMock.mockReturnValue({
+      matches: [],
+      totalMatchCount: 0,
+    });
+
+    render(<StackmatesSection data={baseData} isOwnerViewer={false} isAuthenticated />);
+
+    expect(discoveryFeedMock).toHaveBeenCalledWith(
+      expect.objectContaining({ shouldGateMatches: false })
+    );
   });
 
   it("requests cacheable public discovery matches for public preview", () => {
@@ -117,6 +134,9 @@ describe("StackmatesSection", () => {
       viewAs: "public",
       matchMode: "public",
     });
+    expect(discoveryFeedMock).toHaveBeenCalledWith(
+      expect.objectContaining({ shouldGateMatches: true })
+    );
   });
 
   it("uses organization-safe copy for company profiles", () => {

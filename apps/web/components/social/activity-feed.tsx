@@ -2,6 +2,16 @@
 
 import { ROUTES } from "@stackmatch/config";
 import {
+  FEED_EVENT_TYPE_FOLLOWED,
+  FEED_EVENT_TYPE_JOINED,
+  FEED_EVENT_TYPE_MATCHED,
+  FEED_EVENT_TYPE_STACK_SCANNED,
+  FEED_EVENT_TYPE_STARRED,
+  FEED_FILTER_ALL,
+  FEED_FILTERS,
+  type FeedFilterKey,
+} from "@stackmatch/constants/feed";
+import {
   EyeOff,
   GitBranch,
   Heart,
@@ -13,6 +23,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DropdownMenu } from "@/components/ui/display/profile-elements";
@@ -28,7 +39,7 @@ interface ActivityFeedProps {
   limit?: number;
 }
 
-type FeedFilter = "all" | "followed" | "starred" | "repo_analyzed";
+type FeedFilter = FeedFilterKey;
 
 type FeedEvent = {
   _id: Id<"feedEvents">;
@@ -44,6 +55,19 @@ type FeedEvent = {
   createdAt: number;
 };
 
+type StackScannedMetadata = {
+  repoCount?: number;
+  packageCount?: number;
+  manifestCount?: number;
+};
+
+type FeedEventMenuItem = {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  variant?: "default" | "destructive";
+};
+
 const FEED_SKELETON_KEYS = [
   "feed-skeleton-1",
   "feed-skeleton-2",
@@ -52,27 +76,67 @@ const FEED_SKELETON_KEYS = [
   "feed-skeleton-5",
 ] as const;
 
-const FILTERS: Array<{ key: FeedFilter; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "followed", label: "Follows" },
-  { key: "starred", label: "Stars" },
-  { key: "repo_analyzed", label: "Repos" },
-];
-
 const EVENT_CONFIG: Record<string, { icon: typeof Heart; label: string; color: string }> = {
-  starred: { icon: Star, label: "starred", color: "text-amber-400" },
-  followed: { icon: UserPlus, label: "followed", color: "text-blue-400" },
-  joined: { icon: Zap, label: "joined StackMatch", color: "text-green-400" },
-  repo_analyzed: { icon: GitBranch, label: "analyzed", color: "text-purple-400" },
-  comment: { icon: Heart, label: "commented on", color: "text-pink-400" },
+  [FEED_EVENT_TYPE_STARRED]: { icon: Star, label: "starred", color: "text-amber-400" },
+  [FEED_EVENT_TYPE_MATCHED]: { icon: Heart, label: "matched with", color: "text-pink-400" },
+  [FEED_EVENT_TYPE_FOLLOWED]: { icon: UserPlus, label: "followed", color: "text-blue-400" },
+  [FEED_EVENT_TYPE_JOINED]: { icon: Zap, label: "joined StackMatch", color: "text-green-400" },
+  [FEED_EVENT_TYPE_STACK_SCANNED]: {
+    icon: GitBranch,
+    label: "updated their stack",
+    color: "text-purple-400",
+  },
 };
 
 function filterEventsByType(events: FeedEvent[], filter: FeedFilter): FeedEvent[] {
-  if (filter === "all") {
+  if (filter === FEED_FILTER_ALL) {
     return events;
   }
 
   return events.filter((event) => event.type === filter);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readPositiveNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function getStackScannedMetadata(metadata: unknown): StackScannedMetadata | null {
+  if (!isRecord(metadata)) {
+    return null;
+  }
+
+  return {
+    repoCount: readPositiveNumber(metadata.repoCount),
+    packageCount: readPositiveNumber(metadata.packageCount),
+    manifestCount: readPositiveNumber(metadata.manifestCount),
+  };
+}
+
+function formatCount(count: number | undefined, singular: string, plural: string): string | null {
+  if (count === undefined) {
+    return null;
+  }
+
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatStackScannedMetadata(metadata: unknown): string | null {
+  const parsed = getStackScannedMetadata(metadata);
+  if (!parsed) {
+    return null;
+  }
+
+  const parts = [
+    formatCount(parsed.repoCount, "repo", "repos"),
+    formatCount(parsed.packageCount, "package", "packages"),
+    formatCount(parsed.manifestCount, "manifest", "manifests"),
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 export function ActivityFeed({ mode, limit = 20 }: ActivityFeedProps) {
@@ -171,8 +235,8 @@ export function ActivityFeed({ mode, limit = 20 }: ActivityFeedProps) {
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-8 text-center">
         <p className="text-sm text-neutral-400">
           {mode === "personal"
-            ? "Follow developers with adjacent stacks to turn their stars, scans, and matches into your feed."
-            : "No activity yet. Scan a profile or star a stacker to create the first signal."}
+            ? "Follow developers with adjacent stacks to see their stars, matches, follows, joins, and stack scans."
+            : "No activity yet. Star, follow, claim, or scan a profile to create the first signal."}
         </p>
         <Link
           href={mode === "personal" ? ROUTES.developers : ROUTES.home}
@@ -188,7 +252,7 @@ export function ActivityFeed({ mode, limit = 20 }: ActivityFeedProps) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3">
         <div className="inline-flex rounded-xl border border-white/10 bg-black/30 p-1">
-          {FILTERS.map((filter) => (
+          {FEED_FILTERS.map((filter) => (
             <button
               key={filter.key}
               type="button"
@@ -276,65 +340,25 @@ function FeedEventCard({
     color: "text-neutral-400",
   };
   const Icon = config.icon;
+  const stackScannedSummary =
+    event.type === FEED_EVENT_TYPE_STACK_SCANNED
+      ? formatStackScannedMetadata(event.metadata)
+      : null;
 
   const open = (path: string) => {
     window.location.href = path;
   };
 
-  const menuItems = [
-    {
-      label: "View Profile",
-      icon: <UserPlus className="h-3.5 w-3.5" />,
-      onClick: () => open(`/${event.actorOwner}`),
-      variant: "default" as const,
-    },
-    ...(event.targetOwner
-      ? [
-          {
-            label: "Open Target",
-            icon: <UserPlus className="h-3.5 w-3.5" />,
-            onClick: () => open(`/${event.targetOwner}`),
-            variant: "default" as const,
-          },
-        ]
-      : []),
-    ...(event.targetRepo
-      ? [
-          {
-            label: "Open Repository",
-            icon: <GitBranch className="h-3.5 w-3.5" />,
-            onClick: () => open(`/${event.actorOwner}/${event.targetRepo}`),
-            variant: "default" as const,
-          },
-        ]
-      : []),
-    ...(canUnfollow
-      ? [
-          {
-            label: isUnfollowing ? "Unfollowing..." : `Unfollow @${event.actorOwner}`,
-            icon: <UserMinus className="h-3.5 w-3.5" />,
-            onClick: () => {
-              if (isUnfollowing) return;
-              void onUnfollow(event.actorOwner);
-            },
-            variant: "default" as const,
-          },
-        ]
-      : []),
-    ...(canDismiss
-      ? [
-          {
-            label: isDismissing ? "Removing..." : "Remove from feed",
-            icon: <EyeOff className="h-3.5 w-3.5" />,
-            onClick: () => {
-              if (isDismissing) return;
-              void onDismiss(event._id);
-            },
-            variant: "destructive" as const,
-          },
-        ]
-      : []),
-  ];
+  const menuItems = buildFeedEventMenuItems({
+    canDismiss,
+    canUnfollow,
+    event,
+    isDismissing,
+    isUnfollowing,
+    onDismiss,
+    onUnfollow,
+    open,
+  });
 
   return (
     <div className="rounded-2xl border border-white/5 bg-white/[0.03] px-3 py-2.5 transition-all hover:border-white/10 hover:bg-white/[0.04]">
@@ -387,6 +411,8 @@ function FeedEventCard({
             )}
           </p>
 
+          {stackScannedSummary && <p className="text-xs text-neutral-400">{stackScannedSummary}</p>}
+
           <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
             <TimeAgo timestamp={event.createdAt} />
           </p>
@@ -401,4 +427,77 @@ function FeedEventCard({
       </div>
     </div>
   );
+}
+
+function buildFeedEventMenuItems({
+  canDismiss,
+  canUnfollow,
+  event,
+  isDismissing,
+  isUnfollowing,
+  onDismiss,
+  onUnfollow,
+  open,
+}: {
+  canDismiss: boolean;
+  canUnfollow: boolean;
+  event: FeedEvent;
+  isDismissing: boolean;
+  isUnfollowing: boolean;
+  onDismiss: (eventId: Id<"feedEvents">) => Promise<void>;
+  onUnfollow: (targetOwner: string) => Promise<void>;
+  open: (path: string) => void;
+}): FeedEventMenuItem[] {
+  const menuItems: FeedEventMenuItem[] = [
+    {
+      label: "View Profile",
+      icon: <UserPlus className="h-3.5 w-3.5" />,
+      onClick: () => open(`/${event.actorOwner}`),
+      variant: "default",
+    },
+  ];
+
+  if (event.targetOwner) {
+    menuItems.push({
+      label: "Open Target",
+      icon: <UserPlus className="h-3.5 w-3.5" />,
+      onClick: () => open(`/${event.targetOwner}`),
+      variant: "default",
+    });
+  }
+
+  if (event.targetRepo) {
+    menuItems.push({
+      label: "Open Repository",
+      icon: <GitBranch className="h-3.5 w-3.5" />,
+      onClick: () => open(`/${event.actorOwner}/${event.targetRepo}`),
+      variant: "default",
+    });
+  }
+
+  if (canUnfollow) {
+    menuItems.push({
+      label: isUnfollowing ? "Unfollowing..." : `Unfollow @${event.actorOwner}`,
+      icon: <UserMinus className="h-3.5 w-3.5" />,
+      onClick: () => {
+        if (isUnfollowing) return;
+        void onUnfollow(event.actorOwner);
+      },
+      variant: "default",
+    });
+  }
+
+  if (canDismiss) {
+    menuItems.push({
+      label: isDismissing ? "Removing..." : "Remove from feed",
+      icon: <EyeOff className="h-3.5 w-3.5" />,
+      onClick: () => {
+        if (isDismissing) return;
+        void onDismiss(event._id);
+      },
+      variant: "destructive",
+    });
+  }
+
+  return menuItems;
 }
