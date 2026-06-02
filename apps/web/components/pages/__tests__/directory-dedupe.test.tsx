@@ -7,7 +7,7 @@ import {
   normalizeDeveloperDirectoryPageParam,
 } from "../developers/developers-directory-content";
 import { dedupeStacks } from "../stacks/stacks-directory-content";
-import { dedupeTopStackers } from "../top-stackers/top-stackers-directory-content";
+import { dedupeTopStackers } from "../top-stackers/top-stackers-directory-utils";
 
 describe("directory page item de-duplication", () => {
   it("keeps the first developer item for repeated owners across pages", () => {

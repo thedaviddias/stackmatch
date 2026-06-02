@@ -34,10 +34,10 @@ export default function TopStackersPage() {
           <div className="inline-flex items-center gap-2 rounded-full border border-th-accent-1/30 bg-th-accent-1/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-th-accent-1-text">
             Weekly Leaderboard
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+          <h1 className="text-4xl font-black tracking-tight text-foreground dark:text-white sm:text-5xl">
             Top Stackers This Week
           </h1>
-          <p className="max-w-3xl text-base font-medium leading-relaxed text-neutral-400">
+          <p className="max-w-3xl text-base font-medium leading-relaxed text-muted-foreground dark:text-neutral-400">
             Discover the most recognized developers and organizations for the current week.
           </p>
         </header>

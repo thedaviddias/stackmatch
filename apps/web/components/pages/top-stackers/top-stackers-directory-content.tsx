@@ -17,8 +17,11 @@ import { useMemo } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
 import type { TopStackerDirectoryItem } from "@/lib/directory/top-stackers-directory";
 import { formatJoinDate } from "@/lib/storage/utils";
+import { dedupeTopStackers } from "./top-stackers-directory-utils";
 
 type TopStackersSort = "stars" | "followers" | "name";
+type TopStackersResultsStatus = "loading" | "error" | "ready";
+type TopStackersPaginationStatus = "loading" | "has-more" | "end";
 
 interface TopStackersApiResponse {
   items: TopStackerDirectoryItem[];
@@ -36,25 +39,13 @@ const LOADING_SKELETON_IDS = [
   "top-stackers-skeleton-6",
 ] as const;
 
-export function dedupeTopStackers(items: TopStackerDirectoryItem[]): TopStackerDirectoryItem[] {
-  const seen = new Set<string>();
-  const deduped: TopStackerDirectoryItem[] = [];
-
-  for (const item of items) {
-    const key = item.owner.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(item);
-  }
-
-  return deduped;
-}
+const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 function formatCompact(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+  return COMPACT_NUMBER_FORMATTER.format(value);
 }
 
 async function fetchTopStackersPage({
@@ -85,10 +76,8 @@ async function fetchTopStackersPage({
 }
 
 interface TopStackersResultsProps {
-  isLoading: boolean;
-  isError: boolean;
-  isFetchingNextPage: boolean;
-  hasNextPage: boolean | undefined;
+  status: TopStackersResultsStatus;
+  paginationStatus: TopStackersPaginationStatus;
   onRetry: () => void;
   total: number;
   items: TopStackerDirectoryItem[];
@@ -96,16 +85,14 @@ interface TopStackersResultsProps {
 }
 
 function TopStackersResults({
-  isLoading,
-  isError,
-  isFetchingNextPage,
-  hasNextPage,
+  status,
+  paginationStatus,
   onRetry,
   total,
   items,
   loadMoreRef,
 }: TopStackersResultsProps) {
-  if (isLoading) {
+  if (status === "loading") {
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {LOADING_SKELETON_IDS.map((skeletonId) => (
@@ -118,14 +105,16 @@ function TopStackersResults({
     );
   }
 
-  if (isError) {
+  if (status === "error") {
     return (
       <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
-        <p className="font-semibold text-red-200">Unable to load top stackers right now.</p>
+        <p className="font-semibold text-red-700 dark:text-red-200">
+          Unable to load top stackers right now.
+        </p>
         <button
           type="button"
           onClick={onRetry}
-          className="mt-4 rounded-lg border border-neutral-700 bg-black/40 px-4 py-2 text-sm font-semibold text-white"
+          className="mt-4 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted dark:border-neutral-700 dark:bg-black/40 dark:text-white"
         >
           Retry
         </button>
@@ -135,10 +124,12 @@ function TopStackersResults({
 
   if (total === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-neutral-800 p-16 text-center">
-        <Trophy className="mx-auto h-10 w-10 text-neutral-500" />
-        <h3 className="mt-4 text-lg font-bold text-white">No top stackers yet this week</h3>
-        <p className="mt-2 text-sm text-neutral-400">
+      <div className="rounded-3xl border border-dashed border-border bg-card/60 p-16 text-center dark:border-neutral-800 dark:bg-neutral-950/40">
+        <Trophy className="mx-auto size-10 text-muted-foreground dark:text-neutral-500" />
+        <h3 className="mt-4 text-lg font-bold text-foreground dark:text-white">
+          No top stackers yet this week
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground dark:text-neutral-400">
           Star a developer to start this week&apos;s leaderboard.
         </p>
       </div>
@@ -152,16 +143,16 @@ function TopStackersResults({
           <Link
             href={`/${stacker.owner}`}
             key={stacker.owner}
-            className="group relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950/50 p-6 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--theme-hover-border)] hover:bg-neutral-900/80 hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.15)]"
+            className="group relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--theme-hover-border)] hover:bg-muted hover:shadow-[0_8px_30px_rgba(var(--theme-hover-glow),0.15)] dark:border-neutral-800 dark:bg-neutral-950/50 dark:hover:bg-neutral-900/80"
           >
-            <div className="absolute right-0 top-0 -mr-16 -mt-16 h-32 w-32 rounded-full bg-gradient-to-br from-th-accent-1/10 to-th-accent-2/10 blur-2xl transition-transform duration-700 group-hover:scale-150" />
+            <div className="absolute right-0 top-0 -mr-16 -mt-16 size-32 rounded-full bg-gradient-to-br from-th-accent-1/10 to-th-accent-2/10 blur-2xl transition-transform duration-700 group-hover:scale-150" />
 
             <div className="relative z-10 flex items-start justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900/80 text-sm font-black text-white shadow-inner">
-                {index === 0 ? <Crown className="h-5 w-5 text-amber-500" /> : `#${index + 1}`}
+              <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-muted text-sm font-black text-foreground shadow-inner dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-white">
+                {index === 0 ? <Crown className="size-5 text-amber-500" /> : `#${index + 1}`}
               </div>
               <div className="flex items-center gap-1.5 rounded-full border border-th-accent-1/20 bg-th-accent-1/10 px-3 py-1 text-xs font-black text-th-accent-1-text">
-                <Star className="h-3 w-3 fill-th-accent-1" />
+                <Star className="size-3 fill-th-accent-1" />
                 {stacker.stars}
               </div>
             </div>
@@ -172,14 +163,14 @@ function TopStackersResults({
                 alt={`${stacker.owner} avatar`}
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-xl border-2 border-neutral-800 object-cover"
+                className="size-12 rounded-xl border-2 border-border object-cover dark:border-neutral-800"
                 unoptimized
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-black text-white">
+                <p className="truncate text-base font-black text-foreground dark:text-white">
                   {stacker.name ?? `@${stacker.owner}`}
                 </p>
-                <p className="truncate text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                <p className="truncate text-[10px] font-bold uppercase tracking-widest text-muted-foreground dark:text-neutral-500">
                   @{stacker.owner}
                 </p>
                 {stacker.memberNumber && (
@@ -190,11 +181,11 @@ function TopStackersResults({
               </div>
             </div>
 
-            <div className="relative z-10 mt-2 border-t border-neutral-800/50 pt-3">
-              <span className="text-[9px] font-black uppercase tracking-widest text-neutral-600">
+            <div className="relative z-10 mt-2 border-t border-border pt-3 dark:border-neutral-800/50">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground dark:text-neutral-600">
                 Followers
               </span>
-              <p className="text-xs font-black text-neutral-300">
+              <p className="text-xs font-black text-foreground dark:text-neutral-300">
                 {formatCompact(stacker.followers)}
               </p>
             </div>
@@ -204,13 +195,13 @@ function TopStackersResults({
 
       <div ref={loadMoreRef} className="h-px" />
 
-      <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
-        {isFetchingNextPage ? (
+      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground dark:text-neutral-500">
+        {paginationStatus === "loading" ? (
           <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading more top stackers...
+            <Loader2 className="size-3.5 animate-spin" />
+            Loading more top stackers&hellip;
           </>
-        ) : hasNextPage ? (
+        ) : paginationStatus === "has-more" ? (
           "Scroll to load more"
         ) : (
           "End of results"
@@ -256,6 +247,16 @@ export function TopStackersDirectoryContent() {
 
   const total = topStackersQuery.data?.pages[0]?.total ?? 0;
   const weekLabel = topStackersQuery.data?.pages[0]?.weekLabel;
+  const resultsStatus: TopStackersResultsStatus = topStackersQuery.isLoading
+    ? "loading"
+    : topStackersQuery.isError
+      ? "error"
+      : "ready";
+  const paginationStatus: TopStackersPaginationStatus = topStackersQuery.isFetchingNextPage
+    ? "loading"
+    : topStackersQuery.hasNextPage
+      ? "has-more"
+      : "end";
 
   const loadMoreRef = useInfiniteLoadMore({
     hasNextPage: topStackersQuery.hasNextPage,
@@ -269,16 +270,16 @@ export function TopStackersDirectoryContent() {
         <div className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+              <h2 className="text-2xl font-black tracking-tight text-foreground dark:text-white sm:text-3xl">
                 Top Stackers This Week
               </h2>
-              <p className="mt-1 text-sm font-medium text-neutral-400">
+              <p className="mt-1 text-sm font-medium text-muted-foreground dark:text-neutral-400">
                 Most recognized developers this week{weekLabel ? ` — ${weekLabel}` : ""}.{" "}
                 {total.toLocaleString("en-US")} listed.
               </p>
             </div>
 
-            <div className="inline-flex rounded-lg border border-neutral-800 bg-black p-1">
+            <div className="inline-flex rounded-lg border border-border bg-muted p-1 dark:border-neutral-800 dark:bg-neutral-950">
               {TOP_STACKERS_DIRECTORY_SORT_OPTIONS.map((option) => (
                 <button
                   key={option}
@@ -288,8 +289,8 @@ export function TopStackersDirectoryContent() {
                   }}
                   className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
                     sortMode === option
-                      ? "bg-white text-black"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-background text-foreground shadow-sm dark:bg-white dark:text-black"
+                      : "text-muted-foreground hover:text-foreground dark:text-neutral-400 dark:hover:text-white"
                   }`}
                 >
                   {option}
@@ -300,16 +301,16 @@ export function TopStackersDirectoryContent() {
 
           <label
             htmlFor="top-stackers-search"
-            className="flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-950/50 px-4 py-3"
+            className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950/50"
           >
-            <Search className="h-4 w-4 text-neutral-500" />
+            <Search className="size-4 text-muted-foreground dark:text-neutral-500" />
             <input
               id="top-stackers-search"
               type="search"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Search by owner or display name"
-              className="w-full bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none dark:text-white dark:placeholder:text-neutral-500"
             />
           </label>
         </div>
@@ -317,10 +318,8 @@ export function TopStackersDirectoryContent() {
 
       <ErrorBoundary level="section">
         <TopStackersResults
-          isLoading={topStackersQuery.isLoading}
-          isError={topStackersQuery.isError}
-          isFetchingNextPage={topStackersQuery.isFetchingNextPage}
-          hasNextPage={topStackersQuery.hasNextPage}
+          status={resultsStatus}
+          paginationStatus={paginationStatus}
           onRetry={() => {
             void topStackersQuery.refetch();
           }}
