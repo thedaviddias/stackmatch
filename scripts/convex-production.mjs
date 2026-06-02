@@ -11,6 +11,7 @@ function usage() {
   console.error(`Usage:
   pnpm convex:prod --env-file <file> deploy [convex deploy args...]
   pnpm convex:prod --env-file <file> run <functionName> [jsonArgs]
+  pnpm convex:prod --env-file <file> check-scan-readiness
   pnpm backfill:auth-profiles:prod --env-file <file> [--limit 10] [--cursor CURSOR] [--write]
 
 Env file must be pulled from Vercel production, for example:
@@ -22,16 +23,13 @@ function parseCli(argv) {
   const args = [...argv];
   let envFile = process.env.STACKMATCH_PROD_ENV_FILE ?? DEFAULT_ENV_FILE;
 
-  while (args[0]?.startsWith("--")) {
-    const flag = args.shift();
-    if (flag === "--env-file") {
-      const value = args.shift();
-      if (!value) throw new Error("--env-file requires a path");
-      envFile = value;
-      continue;
-    }
-    args.unshift(flag);
-    break;
+  for (let index = 0; index < args.length; index++) {
+    if (args[index] !== "--env-file") continue;
+    const value = args[index + 1];
+    if (!value) throw new Error("--env-file requires a path");
+    envFile = value;
+    args.splice(index, 2);
+    index--;
   }
 
   const command = args.shift();
@@ -91,6 +89,46 @@ function runPnpm(commandArgs, env) {
 
   if (result.error) throw result.error;
   process.exit(result.status ?? 1);
+}
+
+function runPnpmCapture(commandArgs, env) {
+  const result = spawnSync("pnpm", commandArgs, {
+    cwd: process.cwd(),
+    env,
+    encoding: "utf8",
+    stdio: ["inherit", "pipe", "inherit"],
+  });
+
+  if (result.error) throw result.error;
+  if (result.status !== 0) process.exit(result.status ?? 1);
+  return result.stdout.trim();
+}
+
+function parseConvexJsonOutput(raw) {
+  const start = raw.indexOf("{");
+  if (start === -1) {
+    throw new Error("Convex command did not return JSON output");
+  }
+  return JSON.parse(raw.slice(start));
+}
+
+function printScanReadiness(result) {
+  const github = result.checks?.githubToken ?? {};
+  const analyze = result.checks?.analyzeApiKey ?? {};
+
+  console.error(`Scan readiness: ${result.ready ? "ready" : "not ready"}`);
+  console.error(`  ANALYZE_API_KEY configured: ${analyze.configured ? "yes" : "no"}`);
+  console.error(`  GITHUB_TOKEN configured: ${github.configured ? "yes" : "no"}`);
+  console.error(`  GITHUB_TOKEN valid: ${github.valid ? "yes" : "no"}`);
+  if (typeof github.status === "number") {
+    console.error(`  GitHub status: ${github.status}`);
+  }
+  if (github.remaining !== undefined) {
+    console.error(`  GitHub remaining: ${github.remaining ?? "unknown"}`);
+  }
+  if (github.error) {
+    console.error(`  GitHub error: ${github.error}`);
+  }
 }
 
 function buildChildEnv(env) {
@@ -159,6 +197,27 @@ if (command === "run") {
     ["--filter", "@stackmatch/web", "exec", "convex", "run", "--deployment", deployment, ...args],
     buildRunEnv(env)
   );
+}
+
+if (command === "check-scan-readiness") {
+  console.error(`Checking scan readiness on live Vercel production deployment: ${deployment}`);
+  const raw = runPnpmCapture(
+    [
+      "--filter",
+      "@stackmatch/web",
+      "exec",
+      "convex",
+      "run",
+      "--deployment",
+      deployment,
+      "github/scan_readiness:checkScanReadiness",
+      "{}",
+    ],
+    buildRunEnv(env)
+  );
+  const result = parseConvexJsonOutput(raw);
+  printScanReadiness(result);
+  process.exit(result.ready ? 0 : 1);
 }
 
 if (command === "backfill-auth-profiles") {

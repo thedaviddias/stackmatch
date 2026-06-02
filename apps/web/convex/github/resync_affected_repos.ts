@@ -27,10 +27,10 @@ interface ResyncResult {
  *  - have no `toolBreakdown` at all (synced before the feature was added)
  *
  * Usage:
- *   npx convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{}'
- *   npx convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{"maxRepos": 100}'
- *   npx convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{"dryRun": true}'
- *   npx convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{"onlyUnspecified": true}'
+ *   pnpm --filter @stackmatch/web exec convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{}'
+ *   pnpm --filter @stackmatch/web exec convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{"maxRepos": 100}'
+ *   pnpm --filter @stackmatch/web exec convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{"dryRun": true}'
+ *   pnpm --filter @stackmatch/web exec convex run --prod github/resyncAffectedRepos:resyncAffectedRepos '{"onlyUnspecified": true}'
  */
 export const resyncAffectedRepos = internalAction({
   args: {

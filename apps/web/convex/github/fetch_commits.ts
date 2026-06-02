@@ -5,6 +5,10 @@ import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import type { CommitPayload } from "../classification/bot_detector";
 import { classifyCommit } from "../classification/bot_detector";
+import {
+  GITHUB_TOKEN_NOT_CONFIGURED_ERROR,
+  reportGitHubScanFailure,
+} from "../lib/scan_failure_reporting";
 
 const PER_PAGE = 100;
 
@@ -25,9 +29,15 @@ export const fetchCommits = internalAction({
   handler: async (ctx, args) => {
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
+      await reportGitHubScanFailure(ctx, {
+        pipeline: "github",
+        owner: args.owner,
+        repo: args.name,
+        error: GITHUB_TOKEN_NOT_CONFIGURED_ERROR,
+      });
       await ctx.runMutation(internal.github.ingest_repo.markError, {
         repoId: args.repoId,
-        error: "GITHUB_TOKEN not configured",
+        error: GITHUB_TOKEN_NOT_CONFIGURED_ERROR,
       });
       return;
     }

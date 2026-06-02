@@ -13,7 +13,6 @@ import { resolveGitHubLogin } from "./auth_helpers";
 const ADMIN_AUTH_USER_IDS_ENV = "STACKMATCH_ADMIN_AUTH_USER_IDS";
 const ADMIN_TOKEN_IDENTIFIERS_ENV = "STACKMATCH_ADMIN_TOKEN_IDENTIFIERS";
 const ADMIN_GITHUB_LOGINS_ENV = "STACKMATCH_ADMIN_GITHUB_LOGINS";
-const ALLOW_PRODUCTION_ADMIN_GITHUB_LOGINS_ENV = "STACKMATCH_ALLOW_PRODUCTION_ADMIN_GITHUB_LOGINS";
 const ROLE_PRECEDENCE = [ADMIN_ROLE_VIEWER, ADMIN_ROLE_MODERATOR, ADMIN_ROLE_OWNER] as const;
 export type AdminGrantSource = "authUserId" | "tokenIdentifier" | "githubLogin";
 
@@ -66,8 +65,7 @@ function isRoleAtLeast(role: AdminRole, requiredRole: AdminRole): boolean {
 }
 
 function areGitHubLoginAdminGrantsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.NODE_ENV !== "production") return true;
-  return env[ALLOW_PRODUCTION_ADMIN_GITHUB_LOGINS_ENV]?.trim().toLowerCase() === "true";
+  return readLowercaseEnvSet(ADMIN_GITHUB_LOGINS_ENV, env).size > 0;
 }
 
 export function resolveAdminGrant(
@@ -85,9 +83,7 @@ export function resolveAdminGrant(
     return { role: ADMIN_ROLE_OWNER, source: "tokenIdentifier" };
   }
 
-  const githubLoginGrants = areGitHubLoginAdminGrantsEnabled(env)
-    ? readLowercaseEnvSet(ADMIN_GITHUB_LOGINS_ENV, env)
-    : new Set<string>();
+  const githubLoginGrants = readLowercaseEnvSet(ADMIN_GITHUB_LOGINS_ENV, env);
   if (githubLoginGrants.has(user.githubLogin.toLowerCase())) {
     return { role: ADMIN_ROLE_OWNER, source: "githubLogin" };
   }
@@ -108,8 +104,6 @@ export function getAdminGrantDiagnostics(
       tokenIdentifiers: readExactEnvSet(ADMIN_TOKEN_IDENTIFIERS_ENV, env).size,
       githubLogins: readLowercaseEnvSet(ADMIN_GITHUB_LOGINS_ENV, env).size,
       githubLoginGrantsEnabled: areGitHubLoginAdminGrantsEnabled(env),
-      productionGithubLoginGrantOverride:
-        env[ALLOW_PRODUCTION_ADMIN_GITHUB_LOGINS_ENV]?.trim().toLowerCase() === "true",
     },
   };
 }

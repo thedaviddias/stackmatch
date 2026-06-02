@@ -54,20 +54,10 @@ describe("resolveAdminGrant", () => {
     ).toEqual({ role: ADMIN_ROLE_OWNER, source: "githubLogin" });
   });
 
-  it("disables GitHub login grants in production by default", () => {
+  it("grants owner access from a GitHub login in production", () => {
     expect(
       resolveAdminGrant(USER, {
         STACKMATCH_ADMIN_GITHUB_LOGINS: USER.githubLogin,
-        NODE_ENV: "production",
-      })
-    ).toBeNull();
-  });
-
-  it("requires an explicit production override for GitHub login grants", () => {
-    expect(
-      resolveAdminGrant(USER, {
-        STACKMATCH_ADMIN_GITHUB_LOGINS: USER.githubLogin,
-        STACKMATCH_ALLOW_PRODUCTION_ADMIN_GITHUB_LOGINS: "true",
         NODE_ENV: "production",
       })
     ).toEqual({ role: ADMIN_ROLE_OWNER, source: "githubLogin" });
@@ -102,8 +92,7 @@ describe("getAdminGrantDiagnostics", () => {
         authUserIds: 2,
         tokenIdentifiers: 2,
         githubLogins: 1,
-        githubLoginGrantsEnabled: false,
-        productionGithubLoginGrantOverride: false,
+        githubLoginGrantsEnabled: true,
       },
     });
   });

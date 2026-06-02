@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
+import { resolveRepoSyncPipeline } from "../lib/repo_sync_pipeline";
 
 /** Shape returned by getAllRepos (subset of fields we use). */
 interface RepoRow {
@@ -12,6 +13,8 @@ interface RepoRow {
   name: string;
   fullName: string;
   syncStatus: string;
+  syncPipeline?: "github" | "stack";
+  syncStage?: string;
   pushedAt?: number;
   requestedAt: number;
 }
@@ -21,7 +24,7 @@ interface RepoRow {
  * and kicks off the ingestion chain.
  *
  * Intended to be called from the CLI script `scripts/resync-all-users.ts`
- * via `npx convex run`. Bypasses user-facing rate limits.
+ * via `pnpm --filter @stackmatch/web exec convex run`. Bypasses user-facing rate limits.
  *
  * Within-owner queueing is handled by Convex's own `markSynced` →
  * `triggerNextPending` chain — repos process sequentially. We only
@@ -96,7 +99,11 @@ export const adminResyncOwner = internalAction({
       if (pending.length > 0 && !alreadySyncing) {
         const first = pending[0];
         if (first) {
-          await ctx.scheduler.runAfter(0, internal.github.fetch_repo.fetchRepo, {
+          const fetchRepo =
+            resolveRepoSyncPipeline(first) === "stack"
+              ? internal.stack.fetch_repo.fetchRepo
+              : internal.github.fetch_repo.fetchRepo;
+          await ctx.scheduler.runAfter(0, fetchRepo, {
             repoId: first._id,
             owner: first.owner,
             name: first.name,

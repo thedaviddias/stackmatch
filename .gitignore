@@ -58,7 +58,3 @@ next-env.d.ts
 .cursor/
 .gemini/
 .gitnexus/
-
-# admin scripts (local-only, not committed)
-scripts/resync-all-users.ts
-scripts/RESYNC-GUIDE.md

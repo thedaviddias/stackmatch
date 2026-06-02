@@ -4,9 +4,12 @@ import { ROUTES } from "@stackmatch/config";
 import { AlertTriangle, FileSearch, Search, ServerCog, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, type ReactNode, useContext, useEffect } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { useSession } from "@/components/providers/session-provider";
 import { api } from "@/data/api";
-import { useQuery } from "@/data/react";
+import { useAction, useQuery } from "@/data/react";
+import { buildLoginUrlForCurrentLocation } from "@/lib/auth/login-url";
+import { logger } from "@/lib/re-exports/logger";
 
 type AdminStatus = {
   githubLogin: string;
@@ -15,6 +18,7 @@ type AdminStatus = {
 };
 
 const AdminStatusContext = createContext<AdminStatus | null>(null);
+type AdminRepairStatus = "idle" | "repairing" | "completed";
 
 const ADMIN_NAV_ITEMS = [
   { href: ROUTES.admin.home, label: "Overview", icon: ShieldCheck },
@@ -35,19 +39,58 @@ export function useAdminStatus() {
 export function AdminShell({ children, title }: { children: ReactNode; title: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const adminStatus = useQuery(api.queries.moderation.getMyAdminStatus, {});
+  const { session, isPending: isSessionPending } = useSession();
+  const repairGitHubLogin = useAction(api.auth.repairMyGitHubLogin);
+  const [repairStatus, setRepairStatus] = useState<AdminRepairStatus>("idle");
+  const adminStatus = useQuery(
+    api.queries.moderation.getMyAdminStatus,
+    session?.user && !isSessionPending ? {} : "skip"
+  );
 
   useEffect(() => {
-    if (adminStatus === null) {
+    if (isSessionPending) return;
+    if (!session?.user) {
+      router.replace(buildLoginUrlForCurrentLocation());
+    }
+  }, [isSessionPending, router, session?.user]);
+
+  useEffect(() => {
+    if (!session?.user || isSessionPending || adminStatus !== null || repairStatus !== "idle") {
+      return;
+    }
+
+    let cancelled = false;
+    setRepairStatus("repairing");
+    repairGitHubLogin()
+      .catch((error: unknown) => {
+        logger.error("Failed to repair admin GitHub login:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setRepairStatus("completed");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adminStatus, isSessionPending, repairGitHubLogin, repairStatus, session?.user]);
+
+  useEffect(() => {
+    if (session?.user && adminStatus === null && repairStatus === "completed") {
       router.replace(ROUTES.home);
     }
-  }, [adminStatus, router]);
+  }, [adminStatus, repairStatus, router, session?.user]);
 
-  if (adminStatus === undefined) {
+  if (
+    isSessionPending ||
+    !session?.user ||
+    adminStatus === undefined ||
+    repairStatus === "repairing" ||
+    (adminStatus === null && repairStatus === "idle")
+  ) {
     return (
-      <main className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6">
+      <section className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6">
         <div className="mx-auto max-w-app text-sm text-muted-foreground">Loading...</div>
-      </main>
+      </section>
     );
   }
 
@@ -57,7 +100,7 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
 
   return (
     <AdminStatusContext.Provider value={adminStatus}>
-      <main className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6">
+      <section className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6">
         <div className="mx-auto flex max-w-app flex-col gap-6">
           <header className="flex flex-col gap-4 border-b border-border pb-5 dark:border-neutral-800 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -94,7 +137,7 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
 
           {children}
         </div>
-      </main>
+      </section>
     </AdminStatusContext.Provider>
   );
 }

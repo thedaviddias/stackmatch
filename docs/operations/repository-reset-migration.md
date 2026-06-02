@@ -56,7 +56,6 @@ Track status in this table during the migration. Do not paste secret values into
 | `STACKMATCH_ADMIN_AUTH_USER_IDS` | Convex | env var | production | existing Convex env/admin records | admin access | No | No |
 | `STACKMATCH_ADMIN_TOKEN_IDENTIFIERS` | Convex | env var | production | existing Convex env/admin records | admin access | No | No |
 | `STACKMATCH_ADMIN_GITHUB_LOGINS` | Convex | env var | production | existing Convex env/admin records | admin access | No | No |
-| `STACKMATCH_ALLOW_PRODUCTION_ADMIN_GITHUB_LOGINS` | Convex | env var | production | existing Convex env policy | admin login policy | No | No |
 | `GITHUB_APP_SLUG` | Vercel | env var | preview, production | GitHub App settings | private repository install link | No | No |
 | `GITHUB_APP_ID` | Vercel + Convex | env var | preview, production | GitHub App settings | private repository installation tokens | No | No |
 | `GITHUB_APP_PRIVATE_KEY` | Vercel + Convex | env var | preview, production | GitHub App private key or rotated key | private repository installation tokens | No | No |

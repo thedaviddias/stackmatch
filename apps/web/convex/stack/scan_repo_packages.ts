@@ -19,6 +19,10 @@ import {
   isGitHubTokenInvalidResponse,
 } from "../github/github_api";
 import {
+  GITHUB_TOKEN_NOT_CONFIGURED_ERROR,
+  reportGitHubScanFailure,
+} from "../lib/scan_failure_reporting";
+import {
   type ParsedMaintainedPackageEntry,
   type ParsedPackageEntry,
   parseMaintainedPackageManifest,
@@ -152,9 +156,15 @@ export const scanRepoPackages = internalAction({
   handler: async (ctx, args) => {
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
+      await reportGitHubScanFailure(ctx, {
+        pipeline: "stack",
+        owner: args.owner,
+        repo: args.name,
+        error: GITHUB_TOKEN_NOT_CONFIGURED_ERROR,
+      });
       await ctx.runMutation(internal.stack.ingest_repo.markError, {
         repoId: args.repoId,
-        error: "GITHUB_TOKEN not configured",
+        error: GITHUB_TOKEN_NOT_CONFIGURED_ERROR,
       });
       return;
     }

@@ -642,7 +642,6 @@ type AdminDiagnosticsData = {
     tokenIdentifiers: number;
     githubLogins: number;
     githubLoginGrantsEnabled: boolean;
-    productionGithubLoginGrantOverride: boolean;
   };
 };
 
@@ -686,12 +685,6 @@ function AdminDiagnostics({
           <Metric
             label="GitHub Login Grants"
             value={diagnostics.configuredGrants.githubLoginGrantsEnabled ? "Enabled" : "Disabled"}
-          />
-          <Metric
-            label="Production Override"
-            value={
-              diagnostics.configuredGrants.productionGithubLoginGrantOverride ? "Enabled" : "Off"
-            }
           />
         </div>
       )}

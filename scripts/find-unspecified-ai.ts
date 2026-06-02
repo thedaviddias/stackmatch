@@ -1,26 +1,38 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Diagnostic script: finds all repos with "Unspecified AI Assistant" entries
  * and identifies which repos need re-syncing.
  *
  * Usage:
- *   npx tsx scripts/find-unspecified-ai.ts          # query production
- *   npx tsx scripts/find-unspecified-ai.ts --local   # query local dev
+ *   pnpm tsx scripts/find-unspecified-ai.ts          # query production
+ *   pnpm tsx scripts/find-unspecified-ai.ts --local   # query local dev
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const isLocal = process.argv.includes("--local");
 const envFlag = isLocal ? "" : "--prod";
 
 function convexRun(fnPath: string, args: string): string {
-  const cmd = `npx convex run ${envFlag} '${fnPath}' '${args}'`;
-  return execSync(cmd, {
-    cwd: process.env.PROJECT_ROOT ?? ".",
-    encoding: "utf-8",
-    timeout: 30_000,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  return execFileSync(
+    "pnpm",
+    [
+      "--filter",
+      "@stackmatch/web",
+      "exec",
+      "convex",
+      "run",
+      ...(envFlag ? [envFlag] : []),
+      fnPath,
+      args,
+    ],
+    {
+      cwd: process.env.PROJECT_ROOT ?? ".",
+      encoding: "utf-8",
+      timeout: 30_000,
+      stdio: ["pipe", "pipe", "pipe"],
+    }
+  );
 }
 
 interface BreakdownEntry {

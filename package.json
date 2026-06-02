@@ -12,6 +12,7 @@
     "typecheck": "turbo run typecheck",
     "check:web": "pnpm --filter @stackmatch/web check",
     "check:sentry": "pnpm --filter @stackmatch/web check:sentry",
+    "check:production-scan-readiness": "node scripts/convex-production.mjs check-scan-readiness",
     "check:commit-msg": "node scripts/check-commit-msg.mjs",
     "check:constants": "node scripts/check-centralized-constants.mjs",
     "check:data-boundary": "node scripts/check-data-boundary.mjs",
@@ -29,6 +30,7 @@
     "@biomejs/biome": "^2.4.16",
     "all-contributors-cli": "^6.26.1",
     "lefthook": "^2.1.9",
+    "tsx": "^4.22.4",
     "turbo": "^2.9.16"
   },
   "pnpm": {

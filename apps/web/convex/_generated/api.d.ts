@@ -17,6 +17,7 @@ import type * as classification_detailed_breakdown from "../classification/detai
 import type * as classification_known_bots from "../classification/known_bots.js";
 import type * as classification_pr_attribution from "../classification/pr_attribution.js";
 import type * as crons from "../crons.js";
+import type * as github_admin_queue_owner_scan from "../github/admin_queue_owner_scan.js";
 import type * as github_admin_resync_owner from "../github/admin_resync_owner.js";
 import type * as github_ai_detection from "../github/ai_detection.js";
 import type * as github_classify_prs from "../github/classify_prs.js";
@@ -33,6 +34,7 @@ import type * as github_private_repo_sync from "../github/private_repo_sync.js";
 import type * as github_recover_stuck_repos from "../github/recover_stuck_repos.js";
 import type * as github_resync_affected_repos from "../github/resync_affected_repos.js";
 import type * as github_resync_stale_repos from "../github/resync_stale_repos.js";
+import type * as github_scan_readiness from "../github/scan_readiness.js";
 import type * as github_stats_computation from "../github/stats_computation.js";
 import type * as http from "../http.js";
 import type * as invitations_request_resend from "../invitations/request_resend.js";
@@ -52,6 +54,7 @@ import type * as lib_presence from "../lib/presence.js";
 import type * as lib_profile_claims from "../lib/profile_claims.js";
 import type * as lib_repo_sync_pipeline from "../lib/repo_sync_pipeline.js";
 import type * as lib_resync_throttle from "../lib/resync_throttle.js";
+import type * as lib_scan_failure_reporting from "../lib/scan_failure_reporting.js";
 import type * as lib_sentry_reporting from "../lib/sentry_reporting.js";
 import type * as lib_stack_score from "../lib/stack_score.js";
 import type * as lib_stackmatch_follow_counts from "../lib/stackmatch_follow_counts.js";
@@ -157,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   "classification/known_bots": typeof classification_known_bots;
   "classification/pr_attribution": typeof classification_pr_attribution;
   crons: typeof crons;
+  "github/admin_queue_owner_scan": typeof github_admin_queue_owner_scan;
   "github/admin_resync_owner": typeof github_admin_resync_owner;
   "github/ai_detection": typeof github_ai_detection;
   "github/classify_prs": typeof github_classify_prs;
@@ -173,6 +177,7 @@ declare const fullApi: ApiFromModules<{
   "github/recover_stuck_repos": typeof github_recover_stuck_repos;
   "github/resync_affected_repos": typeof github_resync_affected_repos;
   "github/resync_stale_repos": typeof github_resync_stale_repos;
+  "github/scan_readiness": typeof github_scan_readiness;
   "github/stats_computation": typeof github_stats_computation;
   http: typeof http;
   "invitations/request_resend": typeof invitations_request_resend;
@@ -192,6 +197,7 @@ declare const fullApi: ApiFromModules<{
   "lib/profile_claims": typeof lib_profile_claims;
   "lib/repo_sync_pipeline": typeof lib_repo_sync_pipeline;
   "lib/resync_throttle": typeof lib_resync_throttle;
+  "lib/scan_failure_reporting": typeof lib_scan_failure_reporting;
   "lib/sentry_reporting": typeof lib_sentry_reporting;
   "lib/stack_score": typeof lib_stack_score;
   "lib/stackmatch_follow_counts": typeof lib_stackmatch_follow_counts;
