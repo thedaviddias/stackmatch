@@ -1,8 +1,8 @@
 import { ROUTES, siteConfig } from "@stackmatch/config";
 
 export const EMAIL_DEFAULTS = {
-  from: "stackmatch.dev <noreply@mail.stackmatch.dev>",
-  replyTo: "support@mail.stackmatch.dev",
+  from: "Stackmatch <hello@mail.stackmatch.dev>",
+  replyTo: siteConfig.contactEmail,
 } as const;
 
 export const EMAIL_BRAND = {

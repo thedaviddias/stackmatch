@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MessageButton } from "../message-button";
@@ -41,6 +41,30 @@ afterEach(() => {
 });
 
 describe("MessageButton", () => {
+  it("uses the accent treatment when messaging is available", () => {
+    render(<MessageButton targetOwner="octocat" viewerStackScore={100} />);
+
+    expect(screen.getByRole("button", { name: "Message @octocat" })).toHaveClass(
+      "border-th-accent-1/30",
+      "bg-th-accent-1/10",
+      "text-th-accent-1-text"
+    );
+  });
+
+  it("uses the locked treatment while starting a conversation", async () => {
+    mocks.startConversation.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+
+    render(<MessageButton targetOwner="octocat" viewerStackScore={100} />);
+    const button = screen.getByRole("button", { name: "Message @octocat" });
+
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(button).toHaveClass("border-border", "bg-muted/60", "opacity-50", "opacity-65");
+    });
+  });
+
   it("explains when neither person has starred the other this week", async () => {
     mocks.canMessageResult = {
       canMessage: false,
@@ -51,7 +75,11 @@ describe("MessageButton", () => {
     const user = userEvent.setup();
 
     render(<MessageButton targetOwner="octocat" viewerStackScore={100} />);
-    await user.click(screen.getByRole("button", { name: "Star each other to message" }));
+    const button = screen.getByRole("button", { name: "Star each other to message" });
+
+    expect(button).toHaveClass("border-border", "bg-muted/60", "text-muted-foreground");
+
+    await user.click(button);
 
     expect(mocks.toastInfo).toHaveBeenCalledWith(
       "Star @octocat first. You can message once they star you back this week."
@@ -95,7 +123,11 @@ describe("MessageButton", () => {
     const user = userEvent.setup();
 
     render(<MessageButton targetOwner="octocat" viewerStackScore={100} />);
-    await user.click(screen.getByRole("button", { name: "Checking message availability" }));
+    const button = screen.getByRole("button", { name: "Checking message availability" });
+
+    expect(button).toHaveClass("border-border", "bg-muted/60", "opacity-50", "opacity-65");
+
+    await user.click(button);
 
     expect(mocks.toastInfo).toHaveBeenCalledWith("Checking whether messaging is available...");
   });

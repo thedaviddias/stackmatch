@@ -102,6 +102,30 @@ describe("Email Templates", () => {
       );
       expect(html).toContain("Open notifications");
     });
+
+    it("links actor handles in digest items", async () => {
+      const html = await render(
+        <NotificationDigestEmail
+          name="David"
+          title="You have 1 new notification on StackMatch"
+          count={1}
+          items={[
+            {
+              text: "You received a new star: @octocat starred your profile this week.",
+              actorOwner: "octocat",
+              actionUrl: "https://stackmatch.com/octocat",
+            },
+          ]}
+          action={{
+            label: "Open notifications",
+            url: "https://stackmatch.com/notifications",
+          }}
+        />
+      );
+
+      expect(html).toContain('href="https://stackmatch.com/octocat"');
+      expect(html).toContain("@octocat");
+    });
   });
 
   describe("WaitlistConfirmationEmail", () => {

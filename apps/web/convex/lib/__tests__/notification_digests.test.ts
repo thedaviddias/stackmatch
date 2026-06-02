@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDigestEmailItems,
   buildDigestKey,
   buildDigestLines,
   buildDigestSubject,
@@ -56,6 +57,28 @@ describe("notification digest helpers", () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe("A: one");
     expect(lines[1]).toBe("B: two");
+  });
+
+  it("preserves actor profile metadata for linked digest items", () => {
+    const items = buildDigestEmailItems(
+      [
+        {
+          title: "You received a new star",
+          message: "@octocat starred your profile this week.",
+          actorOwner: "octocat",
+          actionUrl: "https://stackmatch.dev/octocat",
+        },
+      ],
+      1
+    );
+
+    expect(items).toEqual([
+      {
+        text: "You received a new star: @octocat starred your profile this week.",
+        actorOwner: "octocat",
+        actionUrl: "https://stackmatch.dev/octocat",
+      },
+    ]);
   });
 
   it("builds utc day keys and next-day boundaries", () => {

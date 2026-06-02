@@ -1,7 +1,35 @@
-import { Button, Section, Text } from "@react-email/components";
+import { Button, Link, Section, Text } from "@react-email/components";
 import { EMAIL_BRAND } from "../../keys";
-import type { NotificationDigestEmailProps } from "../../types";
+import type { NotificationDigestEmailItem, NotificationDigestEmailProps } from "../../types";
 import { BaseLayout } from "../shared/base-layout";
+
+function normalizeDigestItem(
+  item: string | NotificationDigestEmailItem
+): NotificationDigestEmailItem {
+  return typeof item === "string" ? { text: item } : item;
+}
+
+function renderDigestItem(item: NotificationDigestEmailItem) {
+  if (!item.actorOwner || !item.actionUrl) {
+    return item.text;
+  }
+
+  const mention = `@${item.actorOwner}`;
+  const mentionIndex = item.text.indexOf(mention);
+  if (mentionIndex < 0) {
+    return item.text;
+  }
+
+  return (
+    <>
+      {item.text.slice(0, mentionIndex)}
+      <Link href={item.actionUrl} style={itemLinkStyle}>
+        {mention}
+      </Link>
+      {item.text.slice(mentionIndex + mention.length)}
+    </>
+  );
+}
 
 export function NotificationDigestEmail({
   name,
@@ -18,11 +46,14 @@ export function NotificationDigestEmail({
         <Text style={paragraphStyle}>
           You have {count} new notification{count === 1 ? "" : "s"}:
         </Text>
-        {items.map((item) => (
-          <Text key={item} style={itemStyle}>
-            • {item}
-          </Text>
-        ))}
+        {items.map((rawItem) => {
+          const item = normalizeDigestItem(rawItem);
+          return (
+            <Text key={item.text} style={itemStyle}>
+              • {renderDigestItem(item)}
+            </Text>
+          );
+        })}
         {action && (
           <Section style={buttonContainerStyle}>
             <Button href={action.url} style={buttonStyle}>
@@ -57,6 +88,12 @@ const itemStyle = {
   fontSize: "14px",
   lineHeight: "20px",
   margin: "0 0 10px",
+};
+
+const itemLinkStyle = {
+  color: EMAIL_BRAND.primary,
+  fontWeight: "600" as const,
+  textDecoration: "underline",
 };
 
 const buttonContainerStyle = {

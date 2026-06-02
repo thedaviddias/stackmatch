@@ -44,11 +44,11 @@ All route error screens now use registry-backed route entries through `RouteErro
 
 | Registry id | Surface | Trigger | Placement | Audience | Migrated |
 | --- | --- | --- | --- | --- | --- |
-| `profile.sync.active` | Banner | Public repo sync running | After Identity Management | Owner/public viewer context | Yes |
-| `profile.sync.queued` | Banner | Public repos waiting to index | After Identity Management | Owner/public viewer context | Yes |
-| `profile.sync.stalled` | Warning banner | Repo sync older than stuck threshold | After Identity Management | Owner, with retry action | Yes |
+| `profile.sync.active` | Banner | Public repo sync running | After Identity Management | Owner only | Yes |
+| `profile.sync.queued` | Banner | Public repos waiting to index | After Identity Management | Owner only | Yes |
+| `profile.sync.stalled` | Warning banner | Repo sync older than stuck threshold | After Identity Management | Owner only, with retry action | Yes |
 | `profile.sync.stale-public-stack` | Warning banner | Owner public stack is outside freshness window | After Identity Management | Owner only | Yes |
-| `profile.sync.failed` | Error banner | Only sync errors and no synced repos | After Identity Management | Owner/public viewer context | Yes |
+| `profile.sync.failed` | Error banner | Only sync errors and no synced repos | After Identity Management | Owner only | Yes |
 | `profile.status.reindex-queueing` | Fixed status | Owner queues re-index from sync alert | Top overlay | Owner | Yes |
 | `profile.status.reindex-queued` | Fixed status | Re-index request succeeds | Top overlay | Owner | Yes |
 | `profile.status.public-resync-queued` | Fixed status | Public stack refresh succeeds | Top overlay | Owner | Yes |

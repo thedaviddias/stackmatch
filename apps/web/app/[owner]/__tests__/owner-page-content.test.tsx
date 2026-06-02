@@ -1,8 +1,9 @@
 import { OWNER_PAGE_PUBLIC_REPOS_PREVIEW_LIMIT } from "@stackmatch/constants/social";
+import { SYNC_STUCK_REPO_THRESHOLD_MS } from "@stackmatch/constants/sync";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getWebAlertTitle } from "@/lib/feedback/alert-registry";
 import {
   getRepoSyncLastProgressAt,
@@ -10,6 +11,7 @@ import {
   type OwnerPageData,
   OwnerPageProfileDetails,
   PublicPreviewBanner,
+  resolveOwnerSyncPresentation,
 } from "../owner-page-content";
 import {
   isOwnerPublicPreview,
@@ -23,11 +25,17 @@ import { NotableProjectsSection } from "../sections/notable-projects-section";
 import { getNotableProjects, type NotableProjectRepo } from "../sections/notable-projects-utils";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   cleanup();
 });
 
 const REQUESTED_AT = Date.parse("2023-11-14T22:13:20.000Z");
 const SYNC_LAST_PROGRESS_AT = REQUESTED_AT + 1;
+const OWNER_SYNC_NOW = Date.parse("2026-06-01T00:00:00.000Z");
+const STALE_OWNER_SYNC_PROGRESS_AT = OWNER_SYNC_NOW - SYNC_STUCK_REPO_THRESHOLD_MS - 1;
+
+type SyncPresentationData = Parameters<typeof resolveOwnerSyncPresentation>[0];
+type SyncPresentationRepo = SyncPresentationData["repos"][number];
 
 function makeRepo(overrides: Partial<NotableProjectRepo> & { name: string }): NotableProjectRepo {
   const { name, ...repoOverrides } = overrides;
@@ -45,6 +53,42 @@ function makeRepo(overrides: Partial<NotableProjectRepo> & { name: string }): No
     isExcluded: false,
     ...repoOverrides,
   };
+}
+
+function makeSyncPresentationRepo(
+  overrides: Partial<SyncPresentationRepo> & Pick<SyncPresentationRepo, "name" | "syncStatus">
+): SyncPresentationRepo {
+  const { name, syncStatus, ...repoOverrides } = overrides;
+
+  return {
+    repoId: `repo:${name}`,
+    name,
+    fullName: `octocat/${name}`,
+    syncStatus,
+    scannedPackageCount: 0,
+    scannedManifestCount: 0,
+    stars: 0,
+    requestedAt: REQUESTED_AT,
+    isExcluded: false,
+    ...repoOverrides,
+  } as SyncPresentationRepo;
+}
+
+function makeSyncPresentationData(repos: SyncPresentationRepo[]): SyncPresentationData {
+  return {
+    owner: "octocat",
+    repos,
+    syncCounts: {
+      total: repos.length,
+      pending: repos.filter((repo) => repo.syncStatus === "pending").length,
+      queued: repos.filter((repo) => repo.syncStatus === "queued").length,
+      syncing: repos.filter((repo) => repo.syncStatus === "syncing").length,
+      synced: repos.filter((repo) => repo.syncStatus === "synced").length,
+      error: repos.filter((repo) => repo.syncStatus === "error").length,
+    },
+    isOwnerViewer: true,
+    publicLastSyncedAt: OWNER_SYNC_NOW,
+  } as SyncPresentationData;
 }
 
 describe("public preview UI", () => {
@@ -146,6 +190,70 @@ describe("owner page data hydration", () => {
   it("treats only zero indexed public repos as the zero-project state", () => {
     expect(hasNoPublicRepos({ total: 0 })).toBe(true);
     expect(hasNoPublicRepos({ total: 1 })).toBe(false);
+  });
+
+  it("keeps stale plain pending repos in the queued state", () => {
+    vi.spyOn(Date, "now").mockReturnValue(OWNER_SYNC_NOW);
+
+    const result = resolveOwnerSyncPresentation(
+      makeSyncPresentationData([
+        makeSyncPresentationRepo({
+          name: "old-pending",
+          syncStatus: "pending",
+          syncLastProgressAt: STALE_OWNER_SYNC_PROGRESS_AT,
+        }),
+      ])
+    );
+
+    expect(result.syncAlertState).toEqual({
+      status: "queued",
+      repoCount: 1,
+      pendingRepoCount: 1,
+      nextRepoName: "old-pending",
+    });
+  });
+
+  it("treats stale queued repos as stalled", () => {
+    vi.spyOn(Date, "now").mockReturnValue(OWNER_SYNC_NOW);
+
+    const result = resolveOwnerSyncPresentation(
+      makeSyncPresentationData([
+        makeSyncPresentationRepo({
+          name: "old-queued",
+          syncStatus: "queued",
+          syncLastProgressAt: STALE_OWNER_SYNC_PROGRESS_AT,
+        }),
+      ])
+    );
+
+    expect(result.syncAlertState).toMatchObject({
+      status: "stalled",
+      repoCount: 1,
+      pendingRepoCount: 1,
+      stalledRepoName: "old-queued",
+    });
+  });
+
+  it("treats stale syncing repos as stalled", () => {
+    vi.spyOn(Date, "now").mockReturnValue(OWNER_SYNC_NOW);
+
+    const result = resolveOwnerSyncPresentation(
+      makeSyncPresentationData([
+        makeSyncPresentationRepo({
+          name: "old-syncing",
+          syncStatus: "syncing",
+          syncLastProgressAt: STALE_OWNER_SYNC_PROGRESS_AT,
+          syncStage: "scanning_packages",
+        }),
+      ])
+    );
+
+    expect(result.syncAlertState).toMatchObject({
+      status: "stalled",
+      repoCount: 1,
+      pendingRepoCount: 0,
+      stalledRepoName: "old-syncing",
+    });
   });
 
   it("resolves query-string UI state on the client", () => {

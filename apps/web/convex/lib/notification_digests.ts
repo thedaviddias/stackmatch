@@ -21,6 +21,9 @@ import {
 } from "@stackmatch/constants/notifications";
 import { DAY_MS, MINUTE_MS } from "@stackmatch/constants/time";
 
+const DIGEST_EMAIL_ITEM_TEXT_MAX_LENGTH = 180;
+const DIGEST_EMAIL_ITEM_ELLIPSIS_OFFSET = 3;
+
 export {
   DEFAULT_NOTIFICATION_CATEGORY,
   DEFAULT_NOTIFICATION_TYPE,
@@ -139,16 +142,41 @@ export function buildDigestSubject(count: number): string {
 export interface DigestLineInput {
   title: string;
   message: string;
+  actorOwner?: string;
+  actionUrl?: string;
+}
+
+export interface DigestEmailItem {
+  text: string;
+  actorOwner?: string;
+  actionUrl?: string;
+}
+
+export function buildDigestEmailItems(
+  items: DigestLineInput[],
+  maxLines: number = MAX_DIGEST_ITEMS_IN_EMAIL
+): DigestEmailItem[] {
+  return items.slice(0, normalizeMaxDigestItems(maxLines)).map((item) => {
+    const line = `${item.title}: ${item.message}`;
+    return {
+      text:
+        line.length > DIGEST_EMAIL_ITEM_TEXT_MAX_LENGTH
+          ? `${line.slice(
+              0,
+              DIGEST_EMAIL_ITEM_TEXT_MAX_LENGTH - DIGEST_EMAIL_ITEM_ELLIPSIS_OFFSET
+            )}...`
+          : line,
+      actorOwner: item.actorOwner,
+      actionUrl: item.actionUrl,
+    };
+  });
 }
 
 export function buildDigestLines(
   items: DigestLineInput[],
   maxLines: number = MAX_DIGEST_ITEMS_IN_EMAIL
 ): string[] {
-  return items
-    .slice(0, normalizeMaxDigestItems(maxLines))
-    .map((item) => `${item.title}: ${item.message}`)
-    .map((line) => (line.length > 180 ? `${line.slice(0, 177)}...` : line));
+  return buildDigestEmailItems(items, maxLines).map((item) => item.text);
 }
 
 export function buildUtcDayKey(timestamp: number): string {

@@ -20,3 +20,18 @@ export const resetStuckRepo = internalMutation({
     });
   },
 });
+
+export const touchPendingRepoRecovery = internalMutation({
+  args: { repoId: v.id("repos") },
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (repo?.syncStatus !== "pending") {
+      return { touched: false as const };
+    }
+
+    await ctx.db.patch(args.repoId, {
+      syncLastProgressAt: Date.now(),
+    });
+    return { touched: true as const };
+  },
+});

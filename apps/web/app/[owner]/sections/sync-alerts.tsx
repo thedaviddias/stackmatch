@@ -184,6 +184,8 @@ export function SyncAlerts({
   isRetryingIndex,
   onRetryIndexing,
 }: SyncAlertsProps) {
+  if (!isOwnerViewer) return null;
+
   const staleAlert = getWebAlert("profile.sync.stale-public-stack");
   const failedAlert = getWebAlert("profile.sync.failed");
 

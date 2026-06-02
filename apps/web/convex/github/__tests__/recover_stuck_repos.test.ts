@@ -1,10 +1,11 @@
 import { SYNC_STUCK_REPO_THRESHOLD_MS } from "@stackmatch/constants/sync";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getRepoRecoveryPipeline,
   getRepoRecoveryTimestamp,
   isRepoStuck,
   type RepoRow,
+  recoverStuckRepos,
 } from "../recover_stuck_repos";
 
 const ONE_MS = 1;
@@ -26,7 +27,26 @@ function repo(overrides: Partial<RepoRow> = {}): RepoRow {
   };
 }
 
+function getHandler(fn: unknown) {
+  return (
+    fn as {
+      _handler: (
+        ctx: {
+          runMutation: ReturnType<typeof vi.fn>;
+          runQuery: ReturnType<typeof vi.fn>;
+          scheduler: { runAfter: ReturnType<typeof vi.fn> };
+        },
+        args: Record<string, never>
+      ) => Promise<void>;
+    }
+  )._handler;
+}
+
 describe("recover stuck repos", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("uses syncLastProgressAt before falling back to requestedAt", () => {
     expect(getRepoRecoveryTimestamp(repo({ syncLastProgressAt: FRESH_PROGRESS_AT }))).toBe(
       FRESH_PROGRESS_AT
@@ -52,5 +72,35 @@ describe("recover stuck repos", () => {
     expect(getRepoRecoveryPipeline(repo({ syncPipeline: "stack" }))).toBe("stack");
     expect(getRepoRecoveryPipeline(repo({ syncStage: "scanning_packages" }))).toBe("stack");
     expect(getRepoRecoveryPipeline(repo())).toBe("github");
+  });
+
+  it("touches orphaned pending repos before re-kicking the queue", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const pendingRepo = repo({
+      syncStatus: "pending",
+      syncPipeline: "stack",
+      syncLastProgressAt: STALE_PROGRESS_AT,
+    });
+    const ctx = {
+      runMutation: vi.fn(),
+      runQuery: vi.fn().mockResolvedValueOnce([pendingRepo]).mockResolvedValueOnce([pendingRepo]),
+      scheduler: {
+        runAfter: vi.fn(),
+      },
+    };
+
+    await getHandler(recoverStuckRepos)(ctx, {});
+
+    expect(ctx.runMutation).toHaveBeenCalledWith(expect.anything(), {
+      repoId: pendingRepo._id,
+    });
+    expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(0, expect.anything(), {
+      repoId: pendingRepo._id,
+      owner: pendingRepo.owner,
+      name: pendingRepo.name,
+    });
+    expect(ctx.runMutation.mock.invocationCallOrder[0]).toBeLessThan(
+      ctx.scheduler.runAfter.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
   });
 });

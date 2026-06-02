@@ -288,29 +288,30 @@ export function getRepoSyncLastProgressAt(repo: {
   return repo.syncLastProgressAt ?? repo.requestedAt;
 }
 
-function resolveOwnerSyncPresentation(data: ResolvedOwnerPageData) {
-  const pendingRepos = data.repos.filter(
+export function resolveOwnerSyncPresentation(data: ResolvedOwnerPageData) {
+  const queuedRepos = data.repos.filter((repo) => repo.syncStatus === "queued");
+  const waitingRepos = data.repos.filter(
     (repo) => repo.syncStatus === "pending" || repo.syncStatus === "queued"
   );
   const syncingRepos = data.repos.filter((repo) => repo.syncStatus === "syncing");
-  const repoCount = pendingRepos.length + syncingRepos.length;
+  const repoCount = waitingRepos.length + syncingRepos.length;
   const activeRepo = syncingRepos[0];
   const now = Date.now();
   const staleSyncingRepo = syncingRepos.find(
     (repo) => now - getRepoSyncLastProgressAt(repo) > SYNC_STUCK_REPO_THRESHOLD_MS
   );
-  const stalePendingRepo =
+  const staleQueuedRepo =
     syncingRepos.length === 0
-      ? pendingRepos.find(
+      ? queuedRepos.find(
           (repo) => now - getRepoSyncLastProgressAt(repo) > SYNC_STUCK_REPO_THRESHOLD_MS
         )
       : undefined;
-  const stalledRepo = staleSyncingRepo ?? stalePendingRepo;
+  const stalledRepo = staleSyncingRepo ?? staleQueuedRepo;
   const syncAlertState: SyncAlertState = stalledRepo
     ? {
         status: "stalled",
         repoCount,
-        pendingRepoCount: pendingRepos.length,
+        pendingRepoCount: waitingRepos.length,
         stalledRepoName: stalledRepo.name,
         stageLabel:
           stalledRepo.syncStatus === "syncing"
@@ -321,16 +322,16 @@ function resolveOwnerSyncPresentation(data: ResolvedOwnerPageData) {
       ? {
           status: "active",
           repoCount,
-          pendingRepoCount: pendingRepos.length,
+          pendingRepoCount: waitingRepos.length,
           activeRepoName: activeRepo.name,
           stageLabel: getSyncStageLabel(activeRepo.syncStage, activeRepo.syncCommitsFetched),
         }
-      : pendingRepos.length > 0
+      : waitingRepos.length > 0
         ? {
             status: "queued",
             repoCount,
-            pendingRepoCount: pendingRepos.length,
-            nextRepoName: pendingRepos[0]?.name,
+            pendingRepoCount: waitingRepos.length,
+            nextRepoName: waitingRepos[0]?.name,
           }
         : {
             status: "idle",

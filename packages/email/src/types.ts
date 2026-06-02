@@ -39,11 +39,17 @@ export interface NotificationEmailProps {
   };
 }
 
+export interface NotificationDigestEmailItem {
+  text: string;
+  actorOwner?: string;
+  actionUrl?: string;
+}
+
 export interface NotificationDigestEmailProps {
   name: string;
   title: string;
   count: number;
-  items: string[];
+  items: Array<string | NotificationDigestEmailItem>;
   action?: {
     label: string;
     url: string;

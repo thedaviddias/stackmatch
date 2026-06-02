@@ -12,7 +12,7 @@ import React from "react";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import {
-  buildDigestLines,
+  buildDigestEmailItems,
   buildDigestSubject,
   getDigestRetryDelayMs,
   MAX_DIGEST_ITEMS_IN_EMAIL,
@@ -99,6 +99,8 @@ interface DigestNotificationRecord {
   _id: Id<"notifications">;
   title: string;
   message: string;
+  actorOwner?: string;
+  actionUrl?: string;
   emailedAt?: number;
 }
 
@@ -198,15 +200,17 @@ export const deliverDigest = internalAction({
     const maxDigestItems = normalizeMaxDigestItems(
       payload.digest.maxItemsPerEmail ?? MAX_DIGEST_ITEMS_IN_EMAIL
     );
-    const digestLines = buildDigestLines(
+    const digestItems = buildDigestEmailItems(
       payload.notifications.map((notification) => ({
         title: notification.title,
         message: notification.message,
+        actorOwner: notification.actorOwner,
+        actionUrl: notification.actionUrl,
       })),
       maxDigestItems
     );
-    if (notificationCount > digestLines.length) {
-      digestLines.push(`...and ${notificationCount - digestLines.length} more`);
+    if (notificationCount > digestItems.length) {
+      digestItems.push({ text: `...and ${notificationCount - digestItems.length} more` });
     }
     const subject = buildDigestSubject(notificationCount);
     const result = await sendEmail({
@@ -221,7 +225,7 @@ export const deliverDigest = internalAction({
         name: claim.owner,
         title: subject,
         count: notificationCount,
-        items: digestLines,
+        items: digestItems,
         action: {
           label: "Open notifications",
           url: buildNotificationsInboxUrl(process.env.NEXT_PUBLIC_BASE_URL),

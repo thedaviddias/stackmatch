@@ -8,6 +8,9 @@ let resendContactsClient: Resend | null = null;
 type ResendReactNode = Extract<CreateEmailOptions, { react: unknown }>["react"];
 type ResendTopicSubscription = "opt_in" | "opt_out";
 type ResendContactProperties = Record<string, string | number | null>;
+type SenderAddressField = "from" | "replyTo";
+
+const NO_REPLY_ADDRESS_PATTERN = /(^|[^a-z0-9])no[-_.\s]?reply([^a-z0-9]|$)/i;
 
 export interface SubscribeContactToTopicOptions {
   email: string;
@@ -55,9 +58,18 @@ function getContactsClient(): Resend {
   return resendContactsClient;
 }
 
-export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-  const client = getClient();
+function validateSenderAddress(field: SenderAddressField, value: string): SendEmailResult | null {
+  if (!NO_REPLY_ADDRESS_PATTERN.test(value)) {
+    return null;
+  }
 
+  return {
+    success: false,
+    error: `Email ${field} address must not use a no-reply mailbox.`,
+  };
+}
+
+export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const {
     to,
     subject,
@@ -69,6 +81,14 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     tags,
     scheduledAt,
   } = options;
+
+  const fromValidation = validateSenderAddress("from", from);
+  if (fromValidation) return fromValidation;
+
+  const replyToValidation = validateSenderAddress("replyTo", replyTo);
+  if (replyToValidation) return replyToValidation;
+
+  const client = getClient();
 
   try {
     const { data, error } = await client.emails.send({

@@ -6,7 +6,7 @@ import { SyncAlerts } from "../sync-alerts";
 
 function renderSyncAlerts(overrides: Partial<ComponentProps<typeof SyncAlerts>> = {}) {
   const onRetryIndexing = vi.fn();
-  render(
+  const view = render(
     <SyncAlerts
       owner="octocat"
       isOwnerViewer
@@ -19,7 +19,7 @@ function renderSyncAlerts(overrides: Partial<ComponentProps<typeof SyncAlerts>> 
       {...overrides}
     />
   );
-  return { onRetryIndexing };
+  return { onRetryIndexing, ...view };
 }
 
 describe("SyncAlerts", () => {
@@ -76,6 +76,74 @@ describe("SyncAlerts", () => {
     fireEvent.click(screen.getByRole("button", { name: /retry indexing/i }));
 
     expect(onRetryIndexing).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows failed indexing and lets owners retry", () => {
+    const failedAlert = getWebAlert("profile.sync.failed");
+    const { onRetryIndexing } = renderSyncAlerts({
+      hasOnlySyncErrors: true,
+      firstSyncError: "GitHub token invalid",
+    });
+
+    expect(screen.getByText(failedAlert.title)).toBeInTheDocument();
+    expect(screen.getByText(/GitHub token invalid/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /retry indexing/i }));
+
+    expect(onRetryIndexing).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      "active",
+      {
+        syncAlertState: {
+          status: "active" as const,
+          repoCount: 1,
+          pendingRepoCount: 0,
+          activeRepoName: "octo-repo",
+          stageLabel: "Fetching commits...",
+        },
+      },
+      getWebAlert("profile.sync.active").title,
+    ],
+    [
+      "queued",
+      {
+        syncAlertState: {
+          status: "queued" as const,
+          repoCount: 1,
+          pendingRepoCount: 1,
+          nextRepoName: "hello-world",
+        },
+      },
+      getWebAlert("profile.sync.queued").title,
+    ],
+    [
+      "stalled",
+      {
+        syncAlertState: {
+          status: "stalled" as const,
+          repoCount: 1,
+          pendingRepoCount: 1,
+          stalledRepoName: "stuck-repo",
+        },
+      },
+      getWebAlert("profile.sync.stalled").title,
+    ],
+    [
+      "failed",
+      {
+        hasOnlySyncErrors: true,
+        firstSyncError: "GitHub token invalid",
+      },
+      getWebAlert("profile.sync.failed").title,
+    ],
+  ])("does not show %s sync alerts to public visitors", (_label, overrides, title) => {
+    renderSyncAlerts({ isOwnerViewer: false, ...overrides });
+
+    expect(screen.queryByText(title)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retry indexing/i })).not.toBeInTheDocument();
   });
 
   it("shows an owner-only stale public stack alert", () => {

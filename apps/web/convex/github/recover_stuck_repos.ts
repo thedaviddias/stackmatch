@@ -136,6 +136,9 @@ export const recoverStuckRepos = internalAction({
         pipeline === "stack"
           ? internal.stack.fetch_repo.fetchRepo
           : internal.github.fetch_repo.fetchRepo;
+      await ctx.runMutation(internal.mutations.reset_stuck_repo.touchPendingRepoRecovery, {
+        repoId: repo._id,
+      });
       await ctx.scheduler.runAfter(i * DELAY_PER_OWNER_MS, fetchRepo, {
         repoId: repo._id,
         owner: repo.owner,

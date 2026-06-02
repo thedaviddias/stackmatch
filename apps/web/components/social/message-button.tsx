@@ -116,7 +116,13 @@ export function MessageButton({
   const featureLocked = canMessage?.canMessage === false && canMessage.reason === "feature_locked";
   const isUnavailable = canMessage?.canMessage === false;
   const isDisabledVisually =
-    isCheckingMessage || isLocked || Boolean(noMatch) || blocked || featureLocked || isUnavailable;
+    isLoading ||
+    isCheckingMessage ||
+    isLocked ||
+    Boolean(noMatch) ||
+    blocked ||
+    featureLocked ||
+    isUnavailable;
   const unavailableMessage = getUnavailableMessage({
     blocked,
     featureLocked,
@@ -175,7 +181,7 @@ export function MessageButton({
       aria-disabled={isLoading || isCheckingMessage}
       title={noMatch ? "Star each other to message" : undefined}
       className={profileActionButtonClassName({
-        intent: isDisabledVisually ? "locked" : "neutral",
+        intent: isDisabledVisually ? "locked" : "accent",
         size: "icon",
         className: cn(
           (isLoading || isCheckingMessage) && "opacity-50",

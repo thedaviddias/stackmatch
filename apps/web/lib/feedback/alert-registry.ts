@@ -80,7 +80,7 @@ export const WEB_ALERTS = {
     id: "profile.sync.failed",
     surface: "banner",
     severity: "error",
-    audience: "public",
+    audience: "owner",
     placement: "profile",
     title: "Indexing failed",
     description: "We could not index this profile's repositories yet.",
