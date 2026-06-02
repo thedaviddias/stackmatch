@@ -1,4 +1,7 @@
-import { DEVELOPERS_DIRECTORY_PAGE_SIZE } from "@stackmatch/constants/directory";
+import {
+  DEVELOPERS_DIRECTORY_PAGE_SIZE,
+  DIRECTORY_INITIAL_PAGE,
+} from "@stackmatch/constants/directory";
 import { listClaimedDevelopersDirectoryRows, listDevelopersDirectoryRows } from "@/data/discovery";
 import {
   type DeveloperDirectoryItem,
@@ -50,6 +53,7 @@ export async function getBaseDevelopersDirectory(
 
 export async function getCachedBaseDevelopersDirectory(): Promise<DeveloperDirectoryItem[]> {
   return getBaseDevelopersDirectory({
+    page: DIRECTORY_INITIAL_PAGE,
     cursor: 0,
     limit: DEVELOPERS_DIRECTORY_PAGE_SIZE,
     view: "indexed",
@@ -64,5 +68,5 @@ export async function getDevelopersDirectoryPage(
   const baseItems = await getBaseDevelopersDirectory(params);
   const filtered = filterDevelopersDirectory(baseItems, params.q);
   const sorted = sortDevelopersDirectory(filtered, params.view, params.sort);
-  return paginateDevelopersDirectory(sorted, params.cursor, params.limit);
+  return paginateDevelopersDirectory(sorted, params.cursor, params.limit, params.page);
 }

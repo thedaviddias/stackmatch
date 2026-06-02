@@ -7,10 +7,6 @@ import { createMetadata, createWebPageJsonLd } from "@/lib/re-exports/seo";
 
 const i18n = getI18n();
 
-function getUtcDayAnchorMs(now = new Date()) {
-  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -38,13 +34,11 @@ export default async function RepoPage({
 }) {
   const { owner, repo: repoName } = await params;
   const fullName = `${owner}/${repoName}`;
-  const heatmapTodayMs = getUtcDayAnchorMs();
 
   // Parallel fetch initial data on the server for zero-CLS and faster TTFB
-  const [repoData, summary, dailyStats, contributors] = await Promise.all([
+  const [repoData, summary, contributors] = await Promise.all([
     fetchQuery(api.queries.repos.getRepoBySlug, { owner, name: repoName }),
     fetchQuery(api.queries.stats.getRepoSummary, { repoFullName: fullName }),
-    fetchQuery(api.queries.stats.getDailyStats, { repoFullName: fullName }),
     fetchQuery(api.queries.contributors.getContributorBreakdown, { repoFullName: fullName }),
   ]);
 
@@ -55,9 +49,7 @@ export default async function RepoPage({
         repoName={repoName}
         initialRepo={repoData}
         initialSummary={summary}
-        initialDailyStats={dailyStats ?? []}
         initialContributors={contributors ?? []}
-        heatmapTodayMs={heatmapTodayMs}
       />
       <script type="application/ld+json">
         {JSON.stringify(

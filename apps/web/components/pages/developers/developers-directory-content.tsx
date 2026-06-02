@@ -7,13 +7,14 @@ import {
   DEVELOPERS_DIRECTORY_QUERY_STALE_MS,
   DEVELOPERS_DIRECTORY_SORT_OPTIONS,
   DEVELOPERS_DIRECTORY_VIEW_OPTIONS,
+  DIRECTORY_INITIAL_PAGE,
 } from "@stackmatch/constants/directory";
 import { useDebouncedSearchInput } from "@stackmatch/hooks/use-debounced-search-input";
 import { useInfiniteLoadMore } from "@stackmatch/hooks/use-infinite-load-more";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { CalendarDays, Loader2, Search, Star, Users } from "lucide-react";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { UserCard, type UserCardMetric } from "@/components/cards/user-card";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { isOwnerOnline, usePresenceByOwners } from "@/components/presence/use-presence-by-owners";
@@ -24,9 +25,13 @@ import { formatCompactNumber, formatJoinDate } from "@/lib/storage/utils";
 type DevelopersDirectoryView = "indexed" | "claimed";
 type DevelopersDirectorySort = "joined" | "followers" | "stars";
 
-interface DevelopersDirectoryApiResponse {
+export interface DevelopersDirectoryApiResponse {
   items: DeveloperDirectoryItem[];
   nextCursor: number | null;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  nextPage: number | null;
   total: number;
 }
 
@@ -40,6 +45,63 @@ const LOADING_SKELETON_IDS = [
   "developers-skeleton-7",
   "developers-skeleton-8",
 ] as const;
+
+interface DevelopersDirectoryUrlParams {
+  page: number;
+  view: DevelopersDirectoryView;
+  sort: DevelopersDirectorySort;
+  query: string;
+}
+
+export function normalizeDeveloperDirectoryPageParam(value: string | null | undefined): number {
+  const parsed = Number(value?.trim());
+  return Number.isInteger(parsed) && parsed >= DIRECTORY_INITIAL_PAGE
+    ? parsed
+    : DIRECTORY_INITIAL_PAGE;
+}
+
+function appendDevelopersDirectoryParams(
+  params: URLSearchParams,
+  { page, view, sort, query }: DevelopersDirectoryUrlParams
+) {
+  params.set("page", String(Math.max(DIRECTORY_INITIAL_PAGE, page)));
+  params.set("limit", String(DEVELOPERS_DIRECTORY_PAGE_SIZE));
+  params.set("view", view);
+  params.set("sort", sort);
+
+  const normalizedQuery = query.trim();
+  if (normalizedQuery.length > 0) {
+    params.set("q", normalizedQuery);
+  }
+}
+
+export function buildDevelopersDirectoryApiUrl(params: DevelopersDirectoryUrlParams): string {
+  const searchParams = new URLSearchParams();
+  appendDevelopersDirectoryParams(searchParams, params);
+  return `/api/developers?${searchParams.toString()}`;
+}
+
+export function buildDevelopersDirectoryPageHref(params: DevelopersDirectoryUrlParams): string {
+  const searchParams = new URLSearchParams();
+  appendDevelopersDirectoryParams(searchParams, params);
+  searchParams.delete("limit");
+  return `/developers?${searchParams.toString()}`;
+}
+
+export function getDevelopersDirectoryPageRangeLabel(page: DevelopersDirectoryApiResponse): string {
+  if (page.items.length === 0) {
+    if (page.totalPages > 0) {
+      const blockLabel = page.totalPages === DIRECTORY_INITIAL_PAGE ? "block" : "blocks";
+      return `No results in block ${page.page.toLocaleString("en-US")}. ${page.totalPages.toLocaleString("en-US")} ${blockLabel} available`;
+    }
+
+    return "No results";
+  }
+
+  const start = (page.page - DIRECTORY_INITIAL_PAGE) * page.pageSize + DIRECTORY_INITIAL_PAGE;
+  const end = start + page.items.length - DIRECTORY_INITIAL_PAGE;
+  return `Results ${start.toLocaleString("en-US")}-${end.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`;
+}
 
 export function dedupeDevelopers(items: DeveloperDirectoryItem[]): DeveloperDirectoryItem[] {
   const seen = new Set<string>();
@@ -66,18 +128,14 @@ async function fetchDevelopersDirectoryPage({
   sort: DevelopersDirectorySort;
   query: string;
 }): Promise<DevelopersDirectoryApiResponse> {
-  const params = new URLSearchParams({
-    cursor: String(pageParam),
-    limit: String(DEVELOPERS_DIRECTORY_PAGE_SIZE),
-    view,
-    sort,
-  });
-
-  if (query.trim().length > 0) {
-    params.set("q", query.trim());
-  }
-
-  const response = await fetch(`/api/developers?${params.toString()}`);
+  const response = await fetch(
+    buildDevelopersDirectoryApiUrl({
+      page: pageParam,
+      view,
+      sort,
+      query,
+    })
+  );
   if (!response.ok) {
     throw new Error("Failed to load developers directory");
   }
@@ -92,7 +150,7 @@ interface DevelopersDirectoryResultsProps {
   hasNextPage: boolean | undefined;
   onRetry: () => void;
   total: number;
-  items: DeveloperDirectoryItem[];
+  pages: DevelopersDirectoryApiResponse[];
   viewMode: DevelopersDirectoryView;
   sortMode: DevelopersDirectorySort;
   loadMoreRef: { current: HTMLDivElement | null };
@@ -142,12 +200,13 @@ function DevelopersDirectoryResults({
   hasNextPage,
   onRetry,
   total,
-  items,
+  pages,
   viewMode,
   sortMode,
   loadMoreRef,
   searchQuery,
 }: DevelopersDirectoryResultsProps) {
+  const items = useMemo(() => pages.flatMap((page) => page.items), [pages]);
   const presenceByOwner = usePresenceByOwners(items.map((item) => item.owner));
 
   if (isLoading) {
@@ -194,30 +253,67 @@ function DevelopersDirectoryResults({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {items.map((item) => (
-          <UserCard
-            key={item.owner}
-            owner={item.owner}
-            avatarUrl={item.avatarUrl}
-            displayName={item.displayName ?? undefined}
-            repoCount={item.repoCount}
-            isSyncing={item.isSyncing}
-            isOnline={isOwnerOnline(presenceByOwner, item.owner)}
-            power={item.power}
-            starsCount={item.starsCount}
-            metric={getDeveloperDirectoryMetric(item, viewMode, sortMode)}
-            profileStatus={item.profileStatus}
-            stackDataStatus={viewMode === "claimed" && item.repoCount === 0 ? "missing" : undefined}
-            ownerType={item.ownerType}
-          />
-        ))}
-      </div>
+    <div className="space-y-8">
+      {pages.map((page) => {
+        const showTotalPages = page.totalPages > 0 && page.page <= page.totalPages;
+
+        return (
+          <section
+            key={page.page}
+            id={`developers-page-${page.page}`}
+            aria-labelledby={`developers-page-${page.page}-heading`}
+            className="scroll-mt-24 space-y-4"
+          >
+            <div>
+              <h3
+                id={`developers-page-${page.page}-heading`}
+                className="text-sm font-semibold text-neutral-300"
+              >
+                Result block {page.page.toLocaleString("en-US")}
+                {showTotalPages ? ` of ${page.totalPages.toLocaleString("en-US")}` : ""}
+              </h3>
+              <p className="mt-1 text-xs text-neutral-500">
+                {getDevelopersDirectoryPageRangeLabel(page)}
+              </p>
+            </div>
+
+            {page.items.length > 0 ? (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {page.items.map((item) => (
+                  <UserCard
+                    key={item.owner}
+                    owner={item.owner}
+                    avatarUrl={item.avatarUrl}
+                    displayName={item.displayName ?? undefined}
+                    repoCount={item.repoCount}
+                    isSyncing={item.isSyncing}
+                    isOnline={isOwnerOnline(presenceByOwner, item.owner)}
+                    power={item.power}
+                    starsCount={item.starsCount}
+                    metric={getDeveloperDirectoryMetric(item, viewMode, sortMode)}
+                    profileStatus={item.profileStatus}
+                    stackDataStatus={
+                      viewMode === "claimed" && item.repoCount === 0 ? "missing" : undefined
+                    }
+                    ownerType={item.ownerType}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-dashed border-neutral-800 p-8 text-center text-sm text-neutral-500">
+                No developers in this block.
+              </div>
+            )}
+          </section>
+        );
+      })}
 
       <div ref={loadMoreRef} className="h-px" />
 
-      <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+      <div
+        className="flex items-center justify-center gap-2 text-xs text-neutral-500"
+        aria-live="polite"
+      >
         {isFetchingNextPage ? (
           <>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -234,6 +330,10 @@ function DevelopersDirectoryResults({
 }
 
 export function DevelopersDirectoryContent() {
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault(String(DIRECTORY_INITIAL_PAGE)).withOptions({ scroll: false })
+  );
   const [viewMode, setViewMode] = useQueryState(
     "view",
     parseAsStringLiteral(DEVELOPERS_DIRECTORY_VIEW_OPTIONS)
@@ -250,11 +350,29 @@ export function DevelopersDirectoryContent() {
     "q",
     parseAsString.withDefault("").withOptions({ scroll: false })
   );
-  const [searchInput, setSearchInput] = useDebouncedSearchInput(searchParam, setSearchParam);
+  const resetPageParam = useCallback(
+    () => setPageParam(String(DIRECTORY_INITIAL_PAGE)),
+    [setPageParam]
+  );
+  const setSearchParamAndResetPage = useCallback(
+    (nextValue: string) => {
+      void resetPageParam();
+      return setSearchParam(nextValue);
+    },
+    [resetPageParam, setSearchParam]
+  );
+  const [searchInput, setSearchInput] = useDebouncedSearchInput(
+    searchParam,
+    setSearchParamAndResetPage
+  );
+  const targetLoadedPage = normalizeDeveloperDirectoryPageParam(pageParam);
 
   const directoryQuery = useInfiniteQuery({
-    queryKey: ["developers-directory-v3", { view: viewMode, sort: sortMode, q: searchParam }],
-    initialPageParam: 0,
+    queryKey: [
+      "developers-directory-v4",
+      { page: targetLoadedPage, view: viewMode, sort: sortMode, q: searchParam },
+    ],
+    initialPageParam: DIRECTORY_INITIAL_PAGE,
     queryFn: ({ pageParam }) =>
       fetchDevelopersDirectoryPage({
         pageParam,
@@ -262,19 +380,45 @@ export function DevelopersDirectoryContent() {
         sort: sortMode,
         query: searchParam,
       }),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
     retry: 1,
     staleTime: DEVELOPERS_DIRECTORY_QUERY_STALE_MS,
     gcTime: DEVELOPERS_DIRECTORY_QUERY_GC_MS,
     refetchOnMount: "always",
   });
 
-  const items = useMemo(
-    () => dedupeDevelopers(directoryQuery.data?.pages.flatMap((page) => page.items) ?? []),
+  useEffect(() => {
+    const loadedPages = directoryQuery.data?.pages ?? [];
+    const lastLoadedPage = loadedPages[loadedPages.length - 1];
+    if (!lastLoadedPage) {
+      return;
+    }
+
+    if (
+      lastLoadedPage.page < targetLoadedPage &&
+      directoryQuery.hasNextPage &&
+      !directoryQuery.isFetchingNextPage
+    ) {
+      void directoryQuery.fetchNextPage();
+    }
+  }, [
+    directoryQuery.data?.pages,
+    directoryQuery.fetchNextPage,
+    directoryQuery.hasNextPage,
+    directoryQuery.isFetchingNextPage,
+    targetLoadedPage,
+  ]);
+
+  const pages = useMemo(
+    () =>
+      directoryQuery.data?.pages.map((page) => ({
+        ...page,
+        items: dedupeDevelopers(page.items),
+      })) ?? [],
     [directoryQuery.data]
   );
 
-  const total = directoryQuery.data?.pages[0]?.total ?? 0;
+  const total = pages[0]?.total ?? 0;
 
   const loadMoreRef = useInfiniteLoadMore({
     hasNextPage: directoryQuery.hasNextPage,
@@ -305,6 +449,7 @@ export function DevelopersDirectoryContent() {
                   key={option}
                   type="button"
                   onClick={() => {
+                    void resetPageParam();
                     void setViewMode(option);
                   }}
                   className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
@@ -325,6 +470,7 @@ export function DevelopersDirectoryContent() {
                 key={option}
                 type="button"
                 onClick={() => {
+                  void resetPageParam();
                   void setSortMode(option);
                 }}
                 className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
@@ -363,7 +509,7 @@ export function DevelopersDirectoryContent() {
             void directoryQuery.refetch();
           }}
           total={total}
-          items={items}
+          pages={pages}
           viewMode={viewMode}
           sortMode={sortMode}
           loadMoreRef={loadMoreRef}

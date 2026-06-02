@@ -4,6 +4,7 @@ import {
   DEVELOPERS_DIRECTORY_PAGE_SIZE,
   DEVELOPERS_DIRECTORY_SORT_OPTIONS,
   DEVELOPERS_DIRECTORY_VIEW_OPTIONS,
+  DIRECTORY_INITIAL_PAGE,
   DIRECTORY_MAX_LIMIT,
   DIRECTORY_MIN_LIMIT,
 } from "@stackmatch/constants/directory";
@@ -33,10 +34,15 @@ export interface DeveloperDirectoryItem {
 export interface DevelopersDirectoryPage {
   items: DeveloperDirectoryItem[];
   nextCursor: number | null;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  nextPage: number | null;
   total: number;
 }
 
 export interface ParsedDevelopersDirectoryParams {
+  page: number;
   cursor: number;
   limit: number;
   view: DevelopersDirectoryView;
@@ -63,20 +69,31 @@ function parseInteger(value: string | null | undefined): number | null {
 }
 
 export function parseDevelopersDirectoryParams(input: {
+  page?: string | null;
   cursor?: string | null;
   limit?: string | null;
   view?: string | null;
   sort?: string | null;
   q?: string | null;
 }): ParsedDevelopersDirectoryParams {
-  const parsedCursor = parseInteger(input.cursor);
-  const cursor = parsedCursor !== null && parsedCursor >= 0 ? parsedCursor : 0;
-
   const parsedLimit = parseInteger(input.limit);
   const limit = Math.min(
     MAX_LIMIT,
     Math.max(MIN_LIMIT, parsedLimit !== null ? parsedLimit : DEFAULT_LIMIT)
   );
+
+  const pageInput = input.page?.trim();
+  const hasPageParam = Boolean(pageInput);
+  const parsedPage = parseInteger(pageInput);
+  const parsedCursor = parseInteger(input.cursor);
+  const fallbackCursor = parsedCursor !== null && parsedCursor >= 0 ? parsedCursor : 0;
+  const page =
+    hasPageParam || parsedCursor === null
+      ? parsedPage !== null && parsedPage >= DIRECTORY_INITIAL_PAGE
+        ? parsedPage
+        : DIRECTORY_INITIAL_PAGE
+      : Math.floor(fallbackCursor / limit) + DIRECTORY_INITIAL_PAGE;
+  const cursor = hasPageParam ? (page - DIRECTORY_INITIAL_PAGE) * limit : fallbackCursor;
 
   const view = VIEW_VALUES.has(input.view as DevelopersDirectoryView)
     ? (input.view as DevelopersDirectoryView)
@@ -87,7 +104,7 @@ export function parseDevelopersDirectoryParams(input: {
 
   const q = (input.q ?? "").trim().slice(0, 100);
 
-  return { cursor, limit, view, sort, q };
+  return { page, cursor, limit, view, sort, q };
 }
 
 export function filterDevelopersDirectory(
@@ -148,16 +165,26 @@ function getRecencyValue(item: DeveloperDirectoryItem, view: DevelopersDirectory
 export function paginateDevelopersDirectory(
   items: DeveloperDirectoryItem[],
   cursor: number,
-  limit: number
+  limit: number,
+  page?: number
 ): DevelopersDirectoryPage {
   const safeCursor = Math.max(0, cursor);
   const safeLimit = Math.max(MIN_LIMIT, Math.min(MAX_LIMIT, limit));
+  const currentPage =
+    page && page >= DIRECTORY_INITIAL_PAGE
+      ? page
+      : Math.floor(safeCursor / safeLimit) + DIRECTORY_INITIAL_PAGE;
   const pageItems = items.slice(safeCursor, safeCursor + safeLimit);
   const nextCursor = safeCursor + safeLimit < items.length ? safeCursor + safeLimit : null;
+  const totalPages = items.length === 0 ? 0 : Math.ceil(items.length / safeLimit);
 
   return {
     items: pageItems,
     nextCursor,
+    page: currentPage,
+    pageSize: safeLimit,
+    totalPages,
+    nextPage: nextCursor === null ? null : currentPage + 1,
     total: items.length,
   };
 }

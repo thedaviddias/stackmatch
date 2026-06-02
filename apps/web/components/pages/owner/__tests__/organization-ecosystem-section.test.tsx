@@ -1,6 +1,14 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import type { ComponentProps } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { OrganizationEcosystemSection } from "../organization-ecosystem-section";
+
+vi.mock("next/image", () => ({
+  default: ({ alt, ...props }: ComponentProps<"img">) => {
+    // biome-ignore lint/performance/noImgElement: Test mock for next/image.
+    return <img alt={alt ?? ""} {...props} />;
+  },
+}));
 
 afterEach(() => {
   cleanup();
@@ -56,6 +64,10 @@ describe("OrganizationEcosystemSection", () => {
     expect(screen.getByText("@stackmatch/ui")).not.toBeNull();
     expect(screen.getByText(/7 adopters/i)).not.toBeNull();
     expect(screen.getByRole("link", { name: /octocat/i })).not.toBeNull();
+    expect(screen.getByAltText("Octocat avatar")).toHaveAttribute(
+      "src",
+      "https://github.com/octocat.png"
+    );
     expect(screen.getByRole("link", { name: "next" })).not.toBeNull();
   });
 
@@ -82,7 +94,7 @@ describe("OrganizationEcosystemSection", () => {
     render(<OrganizationEcosystemSection {...baseProps} />);
 
     expect(screen.getByText(/maintained package adoption is not available yet/i)).not.toBeNull();
-    expect(screen.getByText(/no indexed adopters are connected/i)).not.toBeNull();
+    expect(screen.getByText(/no indexed public adopters are connected/i)).not.toBeNull();
     expect(screen.getByText("developer-tools")).not.toBeNull();
   });
 });

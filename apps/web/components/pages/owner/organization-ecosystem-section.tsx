@@ -11,8 +11,13 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { TimeAgo } from "@/components/ui/display/time-ago";
+
+const USED_BY_AVATAR_STRIP_LIMIT = 4;
+const USED_BY_ROW_AVATAR_SIZE = 40;
+const USED_BY_STRIP_AVATAR_SIZE = 32;
 
 interface OrganizationProfile {
   name?: string;
@@ -140,6 +145,8 @@ export function OrganizationEcosystemSection({
   const displayName = profile.name ?? `@${owner}`;
   const maintainedPackages = organizationAdoption?.maintainedPackages ?? [];
   const topAdopters = organizationAdoption?.topAdopters ?? [];
+  const displayedTopAdopters = topAdopters.slice(0, OWNER_PAGE_ORG_ECOSYSTEM_PREVIEW_LIMIT);
+  const avatarStripAdopters = displayedTopAdopters.slice(0, USED_BY_AVATAR_STRIP_LIMIT);
   const relatedPackages = organizationAdoption?.relatedPackages ?? [];
   const topRepos = [...repos]
     .filter((repo) => repo.syncStatus === "synced")
@@ -230,23 +237,46 @@ export function OrganizationEcosystemSection({
         </div>
 
         <div className="rounded-2xl border border-border bg-card/70 p-5 dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="flex items-center gap-2 text-sm font-black text-foreground dark:text-white">
-            <Users className="size-4 text-emerald-400" />
-            Used By
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <p className="flex items-center gap-2 text-sm font-black text-foreground dark:text-white">
+              <Users className="size-4 text-emerald-400" />
+              Used By
+            </p>
+            {avatarStripAdopters.length > 0 ? (
+              <div className="flex shrink-0 -space-x-2">
+                {avatarStripAdopters.map((adopter) => (
+                  <Image
+                    key={adopter.owner}
+                    src={adopter.avatarUrl}
+                    alt={`${adopter.name ?? adopter.owner} avatar`}
+                    width={USED_BY_STRIP_AVATAR_SIZE}
+                    height={USED_BY_STRIP_AVATAR_SIZE}
+                    className="size-8 rounded-full border-2 border-card bg-muted object-cover dark:border-neutral-950"
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
           <p className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
             Indexed developers and organizations whose manifests depend on maintained packages.
           </p>
-          {topAdopters.length > 0 ? (
+          {displayedTopAdopters.length > 0 ? (
             <div className="mt-4 grid gap-2">
-              {topAdopters.slice(0, OWNER_PAGE_ORG_ECOSYSTEM_PREVIEW_LIMIT).map((adopter) => (
+              {displayedTopAdopters.map((adopter) => (
                 <Link
                   key={adopter.owner}
                   href={ROUTES.owner(adopter.owner)}
                   className="rounded-xl border border-border bg-background/70 px-3 py-2 transition-colors hover:border-th-accent-1/40 dark:border-white/10 dark:bg-black/20"
                 >
-                  <span className="flex items-center justify-between gap-3">
-                    <span className="min-w-0">
+                  <span className="flex items-center gap-3">
+                    <Image
+                      src={adopter.avatarUrl}
+                      alt=""
+                      width={USED_BY_ROW_AVATAR_SIZE}
+                      height={USED_BY_ROW_AVATAR_SIZE}
+                      className="size-10 shrink-0 rounded-full border border-border bg-muted object-cover dark:border-white/10"
+                    />
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-foreground dark:text-white">
                         {adopter.name ?? `@${adopter.owner}`}
                       </span>
@@ -263,7 +293,7 @@ export function OrganizationEcosystemSection({
             </div>
           ) : (
             <p className="mt-4 text-sm font-medium text-muted-foreground">
-              No indexed adopters are connected to maintained packages yet.
+              No indexed public adopters are connected to these maintained packages yet.
             </p>
           )}
         </div>

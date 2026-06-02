@@ -65,6 +65,7 @@ describe("developers directory helpers", () => {
     });
 
     expect(parsed).toEqual({
+      page: 1,
       cursor: 0,
       limit: 100,
       view: "indexed",
@@ -93,8 +94,9 @@ describe("developers directory helpers", () => {
     });
 
     expect(parsed).toEqual({
+      page: 1,
       cursor: 0,
-      limit: 40,
+      limit: 20,
       view: "indexed",
       sort: "joined",
       q: "ok",
@@ -111,11 +113,69 @@ describe("developers directory helpers", () => {
     });
 
     expect(parsed).toEqual({
+      page: 1,
       cursor: 5,
       limit: 7,
       view: "indexed",
       sort: "joined",
       q: "owner",
+    });
+  });
+
+  it("uses page as a one-based public cursor", () => {
+    const parsed = parseDevelopersDirectoryParams({
+      page: "3",
+      cursor: "999",
+      limit: "20",
+      view: "indexed",
+      sort: "joined",
+      q: "owner",
+    });
+
+    expect(parsed).toEqual({
+      page: 3,
+      cursor: 40,
+      limit: 20,
+      view: "indexed",
+      sort: "joined",
+      q: "owner",
+    });
+  });
+
+  it("falls back to page one when page is invalid even if cursor is present", () => {
+    const parsed = parseDevelopersDirectoryParams({
+      page: "nope",
+      cursor: "40",
+      limit: "20",
+      view: "indexed",
+      sort: "joined",
+    });
+
+    expect(parsed).toEqual({
+      page: 1,
+      cursor: 0,
+      limit: 20,
+      view: "indexed",
+      sort: "joined",
+      q: "",
+    });
+  });
+
+  it("keeps cursor-only requests backward compatible", () => {
+    const parsed = parseDevelopersDirectoryParams({
+      cursor: "40",
+      limit: "20",
+      view: "indexed",
+      sort: "joined",
+    });
+
+    expect(parsed).toEqual({
+      page: 3,
+      cursor: 40,
+      limit: 20,
+      view: "indexed",
+      sort: "joined",
+      q: "",
     });
   });
 
@@ -144,13 +204,20 @@ describe("developers directory helpers", () => {
   });
 
   it("paginates with nextCursor and total", () => {
-    const page = paginateDevelopersDirectory(FIXTURES, 1, 1);
+    const page = paginateDevelopersDirectory(FIXTURES, 1, 1, 2);
     expect(page.items.map((item) => item.owner)).toEqual(["beta"]);
     expect(page.nextCursor).toBe(2);
+    expect(page.page).toBe(2);
+    expect(page.pageSize).toBe(1);
+    expect(page.totalPages).toBe(3);
+    expect(page.nextPage).toBe(3);
     expect(page.total).toBe(3);
 
     const lastPage = paginateDevelopersDirectory(FIXTURES, 2, 2);
     expect(lastPage.items.map((item) => item.owner)).toEqual(["gamma"]);
     expect(lastPage.nextCursor).toBeNull();
+    expect(lastPage.page).toBe(2);
+    expect(lastPage.totalPages).toBe(2);
+    expect(lastPage.nextPage).toBeNull();
   });
 });

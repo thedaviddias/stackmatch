@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
 
   const params = parseDevelopersDirectoryParams({
+    page: url.searchParams.get("page"),
     cursor: url.searchParams.get("cursor"),
     limit: url.searchParams.get("limit"),
     view: url.searchParams.get("view"),

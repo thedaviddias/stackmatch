@@ -47,21 +47,35 @@ describe("directory API routes", () => {
   });
 
   it("returns developers directory payload with cache headers", async () => {
-    const parsed = { cursor: 0, limit: 40, view: "indexed", sort: "joined", q: "" } as const;
-    const payload = { items: [{ owner: "octocat" }], nextCursor: null, total: 1 };
+    const parsed = {
+      page: 3,
+      cursor: 40,
+      limit: 20,
+      view: "indexed",
+      sort: "joined",
+      q: "",
+    } as const;
+    const payload = {
+      items: [{ owner: "octocat" }],
+      nextCursor: null,
+      page: 3,
+      pageSize: 20,
+      totalPages: 3,
+      nextPage: null,
+      total: 41,
+    };
 
     parseDevelopersParamsMock.mockReturnValue(parsed);
     getDevelopersPageMock.mockResolvedValue(payload as never);
 
     const response = await getDevelopersRoute(
-      new Request(
-        "https://stackmatch.dev/api/developers?cursor=0&limit=40&view=indexed&sort=joined"
-      )
+      new Request("https://stackmatch.dev/api/developers?page=3&limit=20&view=indexed&sort=joined")
     );
 
     expect(parseDevelopersParamsMock).toHaveBeenCalledWith({
-      cursor: "0",
-      limit: "40",
+      page: "3",
+      cursor: null,
+      limit: "20",
       view: "indexed",
       sort: "joined",
       q: null,
