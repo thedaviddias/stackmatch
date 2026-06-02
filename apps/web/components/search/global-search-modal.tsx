@@ -243,7 +243,7 @@ export function GlobalSearchModal({ open, onOpenChange }: GlobalSearchModalProps
                       <CompactOwnerScanForm
                         defaultOwner={debouncedQuery}
                         onScanSuccess={closeSearch}
-                        submitLabel="Find Stackmates"
+                        submitLabel="Find stackmates"
                       />
                     </div>
                   </CommandEmpty>

@@ -76,7 +76,7 @@ export function OwnerLookupForm() {
           ) : (
             <Flame className="size-5 fill-current" />
           )}
-          <span>{isSubmitting ? "Scanning…" : "Find Stackmates"}</span>
+          <span>{isSubmitting ? "Scanning…" : "Find stackmates"}</span>
         </button>
       </div>
 

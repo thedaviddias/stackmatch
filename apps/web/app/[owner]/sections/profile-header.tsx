@@ -580,7 +580,7 @@ function OwnerProfileActions({
             <ul className="space-y-2">
               <ScoreGrowthItem
                 done={!!isClaimed}
-                label="Claim Profile (+15)"
+                label="Claim profile (+15)"
                 action="Connect the stack fingerprint to a trusted GitHub identity."
               />
               <ScoreGrowthItem

@@ -299,7 +299,7 @@ export const en: AppCopy = {
         "The graph is still growing. Deepen your stack or explore the ecosystem to surface more matches.",
       exploreStacksCta: "Explore trending stacks",
       exploreDevelopersCta: "Browse developers",
-      signInCta: "Sign in to see your matches",
+      signInCta: "Connect GitHub",
     },
   },
   feedback: {
@@ -349,13 +349,13 @@ export const en: AppCopy = {
       analyze: "Analyze",
     },
     login: {
-      continueWithGitHub: "Continue with GitHub",
+      continueWithGitHub: "Connect GitHub",
     },
     share: {
       copyLink: "Copy Link",
       shareOnX: "Share on X",
       share: "Share",
-      shareCard: "Share my stack card",
+      shareCard: "Share profile",
       tweetText: "Check out this developer's stack on Stackmatch!",
       tweetTextOwn:
         "Here's my dev stack fingerprint on Stackmatch — find developers who build with your tools:",

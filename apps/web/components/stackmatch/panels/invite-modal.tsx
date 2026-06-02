@@ -93,7 +93,7 @@ export function InviteModal({
             </div>
             <div>
               <h2 className="text-xl font-black text-white uppercase tracking-tighter">
-                Invite Friends
+                Invite stackmates
               </h2>
               <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-0.5">
                 Share your technical DNA

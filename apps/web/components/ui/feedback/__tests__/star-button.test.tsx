@@ -125,6 +125,26 @@ describe("StarButton accessibility", () => {
     expect(screen.getByText("150")).toBeInTheDocument();
   });
 
+  it("keeps the unstarred action variant visually restrained", () => {
+    renderWithQueryClient(<StarButton targetOwner="testuser" starCount={150} variant="action" />);
+
+    const starButton = screen.getByRole("button", { name: "Star stacker" });
+    expect(starButton).toHaveClass("border-border", "bg-background/80", "text-muted-foreground");
+    expect(starButton).not.toHaveClass("border-amber-500/45");
+    expect(starButton).not.toHaveClass("text-amber-700");
+  });
+
+  it("uses the active amber treatment for the starred action variant", () => {
+    const { container } = renderWithQueryClient(
+      <StarButton targetOwner="testuser" initialStarred starCount={150} variant="action" />
+    );
+
+    const starButton = screen.getByRole("button", { name: "Remove star" });
+    expect(starButton).toHaveClass("border-amber-500/45", "bg-amber-500/10", "text-amber-700");
+    expect(screen.getByText("Starred")).toBeInTheDocument();
+    expect(container.querySelector("svg")).toHaveClass("fill-amber-500", "text-amber-500");
+  });
+
   it("should use aria-disabled instead of disabled when loading", () => {
     // The aria-disabled state is set via isLoading state, which we can't easily trigger
     // without interaction. Test the initial non-disabled state instead.

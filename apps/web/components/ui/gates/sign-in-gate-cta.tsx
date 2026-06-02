@@ -38,7 +38,7 @@ export function SignInGateCta({ message, className }: SignInGateCtaProps) {
         href={loginUrl}
         className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground px-8 py-3 text-[10px] font-black uppercase tracking-widest text-background transition-[background-color,border-color,color] hover:bg-foreground/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-th-accent-1 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
       >
-        Sign in with GitHub
+        Connect GitHub
       </Link>
     </div>
   );

@@ -101,7 +101,7 @@ describe("OwnerActionsPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Invite stackmates" }));
 
-    expect(await screen.findByRole("heading", { name: "Invite Friends" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Invite stackmates" })).toBeInTheDocument();
   });
 
   it("keeps invite access in the manage dropdown", () => {

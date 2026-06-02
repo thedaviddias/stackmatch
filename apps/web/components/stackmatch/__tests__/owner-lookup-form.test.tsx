@@ -30,7 +30,7 @@ describe("OwnerLookupForm", () => {
 
   it("disables the submit button when the input is empty", () => {
     const { getByRole } = render(<OwnerLookupForm />);
-    const submitBtn = getByRole("button", { name: /Find Stackmates/i });
+    const submitBtn = getByRole("button", { name: /Find stackmates/i });
     expect(submitBtn).toHaveAttribute("aria-disabled", "true");
   });
 
@@ -44,7 +44,7 @@ describe("OwnerLookupForm", () => {
   it("enables the submit button when input is provided", () => {
     const { getByLabelText, getByRole } = render(<OwnerLookupForm />);
     const input = getByLabelText(/GitHub User Or Organization/i);
-    const submitBtn = getByRole("button", { name: /Find Stackmates/i });
+    const submitBtn = getByRole("button", { name: /Find stackmates/i });
 
     fireEvent.change(input, { target: { value: "octocat" } });
     expect(submitBtn).toHaveAttribute("aria-disabled", "false");
@@ -59,7 +59,7 @@ describe("OwnerLookupForm", () => {
 
     const { getByLabelText, getByRole } = render(<OwnerLookupForm />);
     const input = getByLabelText(/GitHub User Or Organization/i);
-    const submitBtn = getByRole("button", { name: /Find Stackmates/i });
+    const submitBtn = getByRole("button", { name: /Find stackmates/i });
 
     fireEvent.change(input, { target: { value: "octocat" } });
     fireEvent.click(submitBtn);
@@ -82,7 +82,7 @@ describe("OwnerLookupForm", () => {
 
     const { getByLabelText, getByRole } = render(<OwnerLookupForm />);
     const input = getByLabelText(/GitHub User Or Organization/i);
-    const submitBtn = getByRole("button", { name: /Find Stackmates/i });
+    const submitBtn = getByRole("button", { name: /Find stackmates/i });
 
     fireEvent.change(input, { target: { value: "https://github.com/MrSunshyne" } });
     fireEvent.click(submitBtn);
@@ -98,7 +98,7 @@ describe("OwnerLookupForm", () => {
 
     const { getByLabelText, getByRole } = render(<OwnerLookupForm />);
     const input = getByLabelText(/GitHub User Or Organization/i);
-    const submitBtn = getByRole("button", { name: /Find Stackmates/i });
+    const submitBtn = getByRole("button", { name: /Find stackmates/i });
 
     fireEvent.change(input, { target: { value: "https://github.com/facebook/react" } });
     fireEvent.click(submitBtn);
@@ -112,7 +112,7 @@ describe("OwnerLookupForm", () => {
   it("shows client-side feedback for invalid URLs", () => {
     const { getByLabelText, getByRole, getByText } = render(<OwnerLookupForm />);
     const input = getByLabelText(/GitHub User Or Organization/i);
-    const submitBtn = getByRole("button", { name: /Find Stackmates/i });
+    const submitBtn = getByRole("button", { name: /Find stackmates/i });
 
     fireEvent.change(input, { target: { value: "https://example.com/octocat" } });
     fireEvent.click(submitBtn);

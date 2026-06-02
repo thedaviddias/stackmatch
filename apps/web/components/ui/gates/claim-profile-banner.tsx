@@ -46,7 +46,7 @@ export function ClaimProfileBanner({ owner, ownerType }: ClaimProfileBannerProps
           href={href}
           className="shrink-0 rounded-full border border-amber-600/40 bg-amber-100 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-amber-800 transition-all hover:bg-amber-200 hover:text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20 dark:hover:text-amber-200"
         >
-          {isOrganization ? "Verify Organization" : "Claim Profile"}
+          {isOrganization ? "Verify Organization" : "Claim profile"}
         </Link>
       </div>
     </div>
