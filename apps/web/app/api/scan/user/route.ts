@@ -263,6 +263,16 @@ function resolveScanOwner(
   return inferredOwner;
 }
 
+async function getCanonicalScanQueueInput(owner: string, repos: ScanUserRepoInput[]) {
+  const resolvedOwnerProfile =
+    (await fetchGitHubOwnerProfile(owner)) ?? getFallbackOwnerProfile(owner);
+  const canonicalOwner = resolvedOwnerProfile.login ?? owner;
+  const reposForCanonicalOwner = repos.map((repo) => ({ ...repo, owner: canonicalOwner }));
+  const { login: _login, ...ownerProfile } = resolvedOwnerProfile;
+
+  return { canonicalOwner, ownerProfile, reposForCanonicalOwner };
+}
+
 async function requestScanForOwner({
   request,
   owner,
@@ -294,11 +304,14 @@ async function requestScanForOwner({
     return jsonError("No public repositories found for this owner", NOT_FOUND_STATUS);
   }
 
-  const ownerProfile = (await fetchGitHubOwnerProfile(owner)) ?? getFallbackOwnerProfile(owner);
+  const { canonicalOwner, ownerProfile, reposForCanonicalOwner } = await getCanonicalScanQueueInput(
+    owner,
+    repos
+  );
 
   try {
     const result = await fetchMutation(api.mutations.request_user_scan.requestUserScan, {
-      repos,
+      repos: reposForCanonicalOwner,
       apiKey,
       ownerProfile,
       ...(submitter ? { submitter } : {}),
@@ -307,13 +320,15 @@ async function requestScanForOwner({
     if (result.length === 0) {
       logger.error("scan-user request queued zero repositories", undefined, {
         owner,
-        requestedRepoCount: repos.length,
+        canonicalOwner,
+        requestedRepoCount: reposForCanonicalOwner.length,
         submitterScope: submitter ? "authenticated" : "anonymous",
       });
-    } else if (result.length < repos.length) {
+    } else if (result.length < reposForCanonicalOwner.length) {
       logger.error("scan-user request queued fewer repositories than requested", undefined, {
         owner,
-        requestedRepoCount: repos.length,
+        canonicalOwner,
+        requestedRepoCount: reposForCanonicalOwner.length,
         queuedRepoCount: result.length,
         submitterScope: submitter ? "authenticated" : "anonymous",
       });
@@ -323,7 +338,8 @@ async function requestScanForOwner({
   } catch (error) {
     logger.error("requestUserScan mutation failed", error, {
       owner,
-      repoCount: repos.length,
+      canonicalOwner,
+      repoCount: reposForCanonicalOwner.length,
     });
 
     return jsonError(SCAN_REQUEST_FAILED_MESSAGE, INTERNAL_SERVER_ERROR_STATUS);

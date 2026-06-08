@@ -529,6 +529,31 @@ describe("message security", () => {
     expect(notificationArgs.actionUrl).toContain(`/messages/${convo._id}`);
   });
 
+  it("allows a mixed-case signed-in owner to reply in a legacy lowercase conversation", async () => {
+    await signInAs("OctoCat");
+    const convo = conversation("1", "alice", "octocat");
+    const ctx = makeCtx({
+      ...makeHighScoreRows("octocat"),
+      conversations: [convo],
+    });
+
+    await expect(
+      getHandler(sendMessage)(ctx, {
+        conversationId: convo._id,
+        body: "reply",
+      })
+    ).resolves.toEqual({ messageId: "messages_1" });
+
+    expect(ctx.tables.messages?.[0]).toMatchObject({
+      senderOwner: "octocat",
+      body: "reply",
+    });
+    expect(ctx.runMutation.mock.calls[0]?.[1]).toMatchObject({
+      recipientOwner: "alice",
+      actorOwner: "octocat",
+    });
+  });
+
   it("skips message notifications while the recipient has unread messages from the sender", async () => {
     await signInAs("alice");
     const convo = conversation("1", "alice", "bob");

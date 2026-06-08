@@ -20,6 +20,13 @@ import {
 } from "../lib/feature_gates";
 import { assertNoProfileBlock, hasProfileBlock } from "../lib/moderation";
 import { buildMessageConversationNotificationUrl } from "../lib/notification_urls";
+import {
+  areSameOwner,
+  getConversationParticipantOwner,
+  getOtherConversationParticipant,
+  ownerVariants,
+  sortOwnersForConversation,
+} from "../lib/owners";
 import { touchOwnerPresence } from "../lib/presence";
 
 function requireModule<T>(value: T | undefined, name: string): T {
@@ -69,12 +76,87 @@ export function buildMessageNotificationText(senderOwner: string): string {
   return `@${senderOwner} sent you a message.`;
 }
 
-/**
- * Sorts two participant names alphabetically to create a canonical pair.
- * Ensures exactly one conversation exists between any two users.
- */
-function sortParticipants(a: string, b: string): [string, string] {
-  return a < b ? [a, b] : [b, a];
+async function findExistingConversation(ctx: MutationCtx, ownerA: string, ownerB: string) {
+  const [participantA, participantB] = sortOwnersForConversation(ownerA, ownerB);
+  const exact = await ctx.db
+    .query("conversations")
+    .withIndex("by_participantA", (q) => q.eq("participantA", participantA))
+    .filter((q) => q.eq(q.field("participantB"), participantB))
+    .first();
+  if (exact) return exact;
+
+  const ownerAKey = ownerA.trim().toLowerCase();
+  const ownerBKey = ownerB.trim().toLowerCase();
+  const participantAVariants = new Set([...ownerVariants(ownerA), ...ownerVariants(ownerB)]);
+
+  for (const participantAVariant of participantAVariants) {
+    const candidates = await ctx.db
+      .query("conversations")
+      .withIndex("by_participantA", (q) => q.eq("participantA", participantAVariant))
+      .collect();
+    const match = candidates.find((conversation) => {
+      const aKey = conversation.participantA.trim().toLowerCase();
+      const bKey = conversation.participantB.trim().toLowerCase();
+      return (
+        (aKey === ownerAKey && bKey === ownerBKey) || (aKey === ownerBKey && bKey === ownerAKey)
+      );
+    });
+    if (match) return match;
+  }
+
+  return null;
+}
+
+async function findWeeklyStar(
+  ctx: MutationCtx,
+  starrerLogin: string,
+  targetOwner: string,
+  weekStart: number
+) {
+  const exact = await ctx.db
+    .query("stars")
+    .withIndex("by_starrer_target_week", (q) =>
+      q.eq("starrerLogin", starrerLogin).eq("targetOwner", targetOwner).eq("weekStart", weekStart)
+    )
+    .unique();
+  if (exact) return exact;
+
+  const weeklyStars = await ctx.db
+    .query("stars")
+    .withIndex("by_week", (q) => q.eq("weekStart", weekStart))
+    .collect();
+
+  return (
+    weeklyStars.find(
+      (star) =>
+        areSameOwner(star.starrerLogin, starrerLogin) && areSameOwner(star.targetOwner, targetOwner)
+    ) ?? null
+  );
+}
+
+async function countConversationsForOwner(ctx: MutationCtx, owner: string): Promise<number> {
+  const conversationIds = new Set<string>();
+
+  for (const ownerVariant of ownerVariants(owner)) {
+    const [convosAsA, convosAsB] = await Promise.all([
+      ctx.db
+        .query("conversations")
+        .withIndex("by_participantA", (q) => q.eq("participantA", ownerVariant))
+        .collect(),
+      ctx.db
+        .query("conversations")
+        .withIndex("by_participantB", (q) => q.eq("participantB", ownerVariant))
+        .collect(),
+    ]);
+
+    for (const conversation of [...convosAsA, ...convosAsB]) {
+      if (getConversationParticipantOwner(conversation, owner)) {
+        conversationIds.add(conversation._id);
+      }
+    }
+  }
+
+  return conversationIds.size;
 }
 
 /**
@@ -104,7 +186,7 @@ export const startConversation = mutation({
     }
     await touchOwnerPresence(ctx, githubLogin);
 
-    if (githubLogin === targetOwner) {
+    if (areSameOwner(githubLogin, targetOwner)) {
       throw new ConvexError("You cannot message yourself.");
     }
 
@@ -114,12 +196,7 @@ export const startConversation = mutation({
     await assertFeatureGate(ctx, githubLogin, "message");
 
     // ── 3. Check for existing conversation ─────────────────────
-    const [participantA, participantB] = sortParticipants(githubLogin, targetOwner);
-    const existing = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantA", (q) => q.eq("participantA", participantA))
-      .filter((q) => q.eq(q.field("participantB"), participantB))
-      .first();
+    const existing = await findExistingConversation(ctx, githubLogin, targetOwner);
 
     if (existing) {
       return { conversationId: existing._id, isNew: false };
@@ -127,19 +204,8 @@ export const startConversation = mutation({
 
     // ── 4. Mutual match check (for new conversations only) ─────
     const weekStart = getWeekStart();
-    const myStar = await ctx.db
-      .query("stars")
-      .withIndex("by_starrer_target_week", (q) =>
-        q.eq("starrerLogin", githubLogin).eq("targetOwner", targetOwner).eq("weekStart", weekStart)
-      )
-      .unique();
-
-    const theirStar = await ctx.db
-      .query("stars")
-      .withIndex("by_starrer_target_week", (q) =>
-        q.eq("starrerLogin", targetOwner).eq("targetOwner", githubLogin).eq("weekStart", weekStart)
-      )
-      .unique();
+    const myStar = await findWeeklyStar(ctx, githubLogin, targetOwner, weekStart);
+    const theirStar = await findWeeklyStar(ctx, targetOwner, githubLogin, weekStart);
 
     if (!myStar || !theirStar) {
       throw new ConvexError(
@@ -151,16 +217,7 @@ export const startConversation = mutation({
     const score = await computeStackScore(ctx, githubLogin, { isClaimed: true });
     const gates = getFeatureGates(score);
 
-    const myConversationsA = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantA", (q) => q.eq("participantA", githubLogin))
-      .collect();
-    const myConversationsB = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantB", (q) => q.eq("participantB", githubLogin))
-      .collect();
-
-    const totalConversations = myConversationsA.length + myConversationsB.length;
+    const totalConversations = await countConversationsForOwner(ctx, githubLogin);
     if (totalConversations >= gates.conversationLimit) {
       throw new ConvexError(
         `You've reached your conversation limit of ${gates.conversationLimit}. Increase your Stack Score for more!`
@@ -169,6 +226,7 @@ export const startConversation = mutation({
 
     // ── 6. Create conversation ─────────────────────────────────
     const now = Date.now();
+    const [participantA, participantB] = sortOwnersForConversation(githubLogin, targetOwner);
     const conversationId = await ctx.db.insert("conversations", {
       participantA,
       participantB,
@@ -207,24 +265,22 @@ export const sendMessage = mutation({
     }
     await touchOwnerPresence(ctx, githubLogin);
 
-    // ── 2. Gate check ──────────────────────────────────────────
-    await assertFeatureGate(ctx, githubLogin, "message");
-
-    // ── 3. Verify participant ──────────────────────────────────
+    // ── 2. Verify participant ──────────────────────────────────
     const conversation = await ctx.db.get(conversationId);
     if (!conversation) {
       throw new ConvexError("Conversation not found.");
     }
 
-    if (conversation.participantA !== githubLogin && conversation.participantB !== githubLogin) {
+    const senderOwner = getConversationParticipantOwner(conversation, githubLogin);
+    if (!senderOwner) {
       throw new ConvexError("You are not a participant of this conversation.");
     }
 
-    const recipientOwner =
-      conversation.participantA === githubLogin
-        ? conversation.participantB
-        : conversation.participantA;
-    await assertNoProfileBlock(ctx, githubLogin, recipientOwner);
+    // ── 3. Gate check ──────────────────────────────────────────
+    await assertFeatureGate(ctx, senderOwner, "message");
+
+    const recipientOwner = getOtherConversationParticipant(conversation, senderOwner);
+    await assertNoProfileBlock(ctx, senderOwner, recipientOwner);
 
     // ── 4. Validate input ──────────────────────────────────────
     const trimmed = body.trim();
@@ -236,9 +292,9 @@ export const sendMessage = mutation({
     }
 
     // ── 5. Daily limit check ───────────────────────────────────
-    const score = await computeStackScore(ctx, githubLogin, { isClaimed: true });
+    const score = await computeStackScore(ctx, senderOwner, { isClaimed: true });
     const gates = getFeatureGates(score);
-    await assertDailyLimit(ctx, githubLogin, "message", gates.messageDailyLimit);
+    await assertDailyLimit(ctx, senderOwner, "message", gates.messageDailyLimit);
 
     const unreadFromSender = await ctx.db
       .query("messages")
@@ -246,15 +302,15 @@ export const sendMessage = mutation({
         q.eq("conversationId", conversationId).eq("isRead", false)
       )
       .collect();
-    const recipientAlreadyHasUnreadFromSender = unreadFromSender.some(
-      (message) => message.senderOwner === githubLogin
+    const recipientAlreadyHasUnreadFromSender = unreadFromSender.some((message) =>
+      areSameOwner(message.senderOwner, senderOwner)
     );
 
     // ── 6. Insert message ──────────────────────────────────────
     const now = Date.now();
     const messageId = await ctx.db.insert("messages", {
       conversationId,
-      senderOwner: githubLogin,
+      senderOwner,
       body: trimmed,
       createdAt: now,
       isRead: false,
@@ -272,23 +328,23 @@ export const sendMessage = mutation({
     });
 
     // ── 8. Track daily action ──────────────────────────────────
-    await incrementDailyAction(ctx, githubLogin, "message");
+    await incrementDailyAction(ctx, senderOwner, "message");
 
     // ── 9. Notification to recipient (best-effort) ─────────────
     if (!recipientAlreadyHasUnreadFromSender) {
       try {
         await ctx.runMutation(enqueueForOwnerFn, {
           recipientOwner,
-          actorOwner: githubLogin,
+          actorOwner: senderOwner,
           category: NOTIFICATION_CATEGORY_MESSAGES,
           type: "new_message",
           title: "New message",
-          message: buildMessageNotificationText(githubLogin),
+          message: buildMessageNotificationText(senderOwner),
           actionUrl: buildMessageConversationNotificationUrl(
             conversationId,
             process.env.NEXT_PUBLIC_BASE_URL
           ),
-          dedupeKey: `msg:${conversationId}:${githubLogin}:${Math.floor(
+          dedupeKey: `msg:${conversationId}:${senderOwner}:${Math.floor(
             now / MESSAGE_NOTIFICATION_DEDUPE_WINDOW_MS
           )}`,
           allowEmail: true,
@@ -297,7 +353,7 @@ export const sendMessage = mutation({
         console.error("[sendMessage] Failed to enqueue notification", notificationError);
         await reportBackgroundFailure(ctx, {
           action: "enqueue_notification",
-          owner: githubLogin,
+          owner: senderOwner,
           targetOwner: recipientOwner,
           error: notificationError,
         });
@@ -332,7 +388,8 @@ export const markConversationRead = mutation({
     const conversation = await ctx.db.get(conversationId);
     if (!conversation) return { updated: 0 };
 
-    if (conversation.participantA !== githubLogin && conversation.participantB !== githubLogin) {
+    const participantOwner = getConversationParticipantOwner(conversation, githubLogin);
+    if (!participantOwner) {
       throw new ConvexError("You are not a participant of this conversation.");
     }
 
@@ -348,7 +405,7 @@ export const markConversationRead = mutation({
       )
       .collect();
 
-    const toMark = unread.filter((m) => m.senderOwner !== githubLogin);
+    const toMark = unread.filter((m) => !areSameOwner(m.senderOwner, participantOwner));
 
     await Promise.all(toMark.map((m) => ctx.db.patch(m._id, { isRead: true })));
 

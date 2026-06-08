@@ -14,6 +14,12 @@ import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { getWeekStart } from "../lib/date_helpers";
 import { computeStackScore, getDailyActionCount } from "../lib/feature_gates";
 import { hasProfileBlock } from "../lib/moderation";
+import {
+  areSameOwner,
+  getConversationParticipantOwner,
+  getOtherConversationParticipant,
+  ownerVariants,
+} from "../lib/owners";
 import { resolveStackMatchFollowerCount } from "../lib/stackmatch_follow_counts";
 
 export function clampMessageQueryLimit(
@@ -29,19 +35,30 @@ export function clampMessageQueryLimit(
 }
 
 async function getVisibleConversationsForOwner(ctx: QueryCtx, githubLogin: string) {
-  const convosAsA = await ctx.db
-    .query("conversations")
-    .withIndex("by_participantA", (q) => q.eq("participantA", githubLogin))
-    .collect();
+  const conversationsById = new Map<string, Doc<"conversations">>();
 
-  const convosAsB = await ctx.db
-    .query("conversations")
-    .withIndex("by_participantB", (q) => q.eq("participantB", githubLogin))
-    .collect();
+  for (const ownerVariant of ownerVariants(githubLogin)) {
+    const [convosAsA, convosAsB] = await Promise.all([
+      ctx.db
+        .query("conversations")
+        .withIndex("by_participantA", (q) => q.eq("participantA", ownerVariant))
+        .collect(),
+      ctx.db
+        .query("conversations")
+        .withIndex("by_participantB", (q) => q.eq("participantB", ownerVariant))
+        .collect(),
+    ]);
+
+    for (const conversation of [...convosAsA, ...convosAsB]) {
+      if (getConversationParticipantOwner(conversation, githubLogin)) {
+        conversationsById.set(conversation._id, conversation);
+      }
+    }
+  }
 
   return (
     await Promise.all(
-      [...convosAsA, ...convosAsB].map(async (convo) => {
+      [...conversationsById.values()].map(async (convo) => {
         const blocked = await hasProfileBlock(ctx, convo.participantA, convo.participantB);
         return blocked ? null : convo;
       })
@@ -50,9 +67,57 @@ async function getVisibleConversationsForOwner(ctx: QueryCtx, githubLogin: strin
 }
 
 function getOtherParticipant(conversation: Doc<"conversations">, githubLogin: string): string {
-  return conversation.participantA === githubLogin
-    ? conversation.participantB
-    : conversation.participantA;
+  return getOtherConversationParticipant(conversation, githubLogin);
+}
+
+async function findExistingConversation(ctx: QueryCtx, ownerA: string, ownerB: string) {
+  const ownerAKey = ownerA.trim().toLowerCase();
+  const ownerBKey = ownerB.trim().toLowerCase();
+  const participantAVariants = new Set([...ownerVariants(ownerA), ...ownerVariants(ownerB)]);
+
+  for (const participantAVariant of participantAVariants) {
+    const candidates = await ctx.db
+      .query("conversations")
+      .withIndex("by_participantA", (q) => q.eq("participantA", participantAVariant))
+      .collect();
+    const match = candidates.find((conversation) => {
+      const aKey = conversation.participantA.trim().toLowerCase();
+      const bKey = conversation.participantB.trim().toLowerCase();
+      return (
+        (aKey === ownerAKey && bKey === ownerBKey) || (aKey === ownerBKey && bKey === ownerAKey)
+      );
+    });
+    if (match) return match;
+  }
+
+  return null;
+}
+
+async function findWeeklyStar(
+  ctx: QueryCtx,
+  starrerLogin: string,
+  targetOwner: string,
+  weekStart: number
+) {
+  const exact = await ctx.db
+    .query("stars")
+    .withIndex("by_starrer_target_week", (q) =>
+      q.eq("starrerLogin", starrerLogin).eq("targetOwner", targetOwner).eq("weekStart", weekStart)
+    )
+    .unique();
+  if (exact) return exact;
+
+  const weeklyStars = await ctx.db
+    .query("stars")
+    .withIndex("by_week", (q) => q.eq("weekStart", weekStart))
+    .collect();
+
+  return (
+    weeklyStars.find(
+      (star) =>
+        areSameOwner(star.starrerLogin, starrerLogin) && areSameOwner(star.targetOwner, targetOwner)
+    ) ?? null
+  );
 }
 
 function isClaimedProfile(profile: Doc<"profiles"> | null | undefined): boolean {
@@ -107,7 +172,8 @@ export const getMyConversations = query({
     // Enrich with the other participant's profile and unread count
     const enriched = await Promise.all(
       pageConvos.map(async (convo) => {
-        const otherOwner = getOtherParticipant(convo, githubLogin);
+        const participantOwner = getConversationParticipantOwner(convo, githubLogin) ?? githubLogin;
+        const otherOwner = getOtherParticipant(convo, participantOwner);
 
         const profile = await ctx.db
           .query("profiles")
@@ -121,7 +187,9 @@ export const getMyConversations = query({
             q.eq("conversationId", convo._id).eq("isRead", false)
           )
           .collect();
-        const unreadCount = unread.filter((m) => m.senderOwner !== githubLogin).length;
+        const unreadCount = unread.filter(
+          (m) => !areSameOwner(m.senderOwner, participantOwner)
+        ).length;
 
         return {
           _id: convo._id,
@@ -160,7 +228,8 @@ export const getConversationPeerProfile = query({
     const conversation = await ctx.db.get(conversationId);
     if (!conversation) return null;
 
-    if (conversation.participantA !== githubLogin && conversation.participantB !== githubLogin) {
+    const participantOwner = getConversationParticipantOwner(conversation, githubLogin);
+    if (!participantOwner) {
       return null;
     }
 
@@ -168,7 +237,7 @@ export const getConversationPeerProfile = query({
       return null;
     }
 
-    const owner = getOtherParticipant(conversation, githubLogin);
+    const owner = getOtherParticipant(conversation, participantOwner);
     const profile = await ctx.db
       .query("profiles")
       .withIndex("by_owner", (q) => q.eq("owner", owner))
@@ -218,7 +287,8 @@ export const getMessages = query({
     const conversation = await ctx.db.get(conversationId);
     if (!conversation) return [];
 
-    if (conversation.participantA !== githubLogin && conversation.participantB !== githubLogin) {
+    const participantOwner = getConversationParticipantOwner(conversation, githubLogin);
+    if (!participantOwner) {
       return [];
     }
 
@@ -244,7 +314,7 @@ export const getMessages = query({
       body: m.body,
       createdAt: m.createdAt,
       isRead: m.isRead,
-      isMine: m.senderOwner === githubLogin,
+      isMine: areSameOwner(m.senderOwner, participantOwner),
     }));
   },
 });
@@ -265,19 +335,18 @@ export const getUnreadCount = query({
     const githubLogin = await resolveGitHubLogin(ctx, user);
     if (!githubLogin) return { count: 0 };
 
-    const visibleConvoIds = (await getVisibleConversationsForOwner(ctx, githubLogin)).map(
-      (convo) => convo._id
-    );
+    const visibleConvos = await getVisibleConversationsForOwner(ctx, githubLogin);
 
     let totalUnread = 0;
-    for (const convoId of visibleConvoIds) {
+    for (const convo of visibleConvos) {
+      const participantOwner = getConversationParticipantOwner(convo, githubLogin) ?? githubLogin;
       const unread = await ctx.db
         .query("messages")
         .withIndex("by_conversation_unread", (q) =>
-          q.eq("conversationId", convoId).eq("isRead", false)
+          q.eq("conversationId", convo._id).eq("isRead", false)
         )
         .collect();
-      totalUnread += unread.filter((m) => m.senderOwner !== githubLogin).length;
+      totalUnread += unread.filter((m) => !areSameOwner(m.senderOwner, participantOwner)).length;
     }
 
     return { count: totalUnread };
@@ -336,7 +405,7 @@ export const canMessageUser = query({
       return { canMessage: false, reason: "no_login" as const };
     }
 
-    if (githubLogin === targetOwner) {
+    if (areSameOwner(githubLogin, targetOwner)) {
       return { canMessage: false, reason: "self" as const };
     }
 
@@ -350,14 +419,7 @@ export const canMessageUser = query({
     }
 
     // Check for existing conversation (always allowed to continue)
-    const [participantA, participantB] =
-      githubLogin < targetOwner ? [githubLogin, targetOwner] : [targetOwner, githubLogin];
-
-    const existing = await ctx.db
-      .query("conversations")
-      .withIndex("by_participantA", (q) => q.eq("participantA", participantA))
-      .filter((q) => q.eq(q.field("participantB"), participantB))
-      .first();
+    const existing = await findExistingConversation(ctx, githubLogin, targetOwner);
 
     if (existing) {
       return { canMessage: true, conversationId: existing._id };
@@ -365,19 +427,8 @@ export const canMessageUser = query({
 
     // Check mutual match
     const weekStart = getWeekStart();
-    const myStar = await ctx.db
-      .query("stars")
-      .withIndex("by_starrer_target_week", (q) =>
-        q.eq("starrerLogin", githubLogin).eq("targetOwner", targetOwner).eq("weekStart", weekStart)
-      )
-      .unique();
-
-    const theirStar = await ctx.db
-      .query("stars")
-      .withIndex("by_starrer_target_week", (q) =>
-        q.eq("starrerLogin", targetOwner).eq("targetOwner", githubLogin).eq("weekStart", weekStart)
-      )
-      .unique();
+    const myStar = await findWeeklyStar(ctx, githubLogin, targetOwner, weekStart);
+    const theirStar = await findWeeklyStar(ctx, targetOwner, githubLogin, weekStart);
 
     if (!myStar || !theirStar) {
       return {

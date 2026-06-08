@@ -228,7 +228,7 @@ async function claimProfileAfterLogin({
 }: {
   owner: string;
   claimProfile: ClaimProfileMutation;
-}): Promise<boolean> {
+}): Promise<string | null> {
   try {
     const result = await claimProfile();
     const failure = getClaimProfileFailure(result);
@@ -236,11 +236,12 @@ async function claimProfileAfterLogin({
       throw new Error(`Profile claim failed: ${failure}`);
     }
 
-    trackEvent("score_step_completed", { owner, step: "claim_profile" });
-    return true;
+    const claimedOwner = isClaimProfileResult(result) && result.owner ? result.owner : owner;
+    trackEvent("score_step_completed", { owner: claimedOwner, step: "claim_profile" });
+    return claimedOwner;
   } catch (error) {
     captureUserActionError("claim_profile_after_login", error, { owner });
-    return false;
+    return null;
   }
 }
 
@@ -290,10 +291,12 @@ function usePostLoginRedirectFlow({
       if (profileClaimStartedRef.current && !profileClaimed) return;
 
       try {
+        let postLoginOwner = resolvedLogin;
         if (!profileClaimed) {
           profileClaimStartedRef.current = true;
-          await claimProfileAfterLogin({ owner: resolvedLogin, claimProfile });
-          await queueProfileScanAfterLogin(resolvedLogin);
+          postLoginOwner =
+            (await claimProfileAfterLogin({ owner: resolvedLogin, claimProfile })) ?? resolvedLogin;
+          await queueProfileScanAfterLogin(postLoginOwner);
           if (cancelled) return;
           setProfileClaimed(true);
         }
@@ -301,7 +304,7 @@ function usePostLoginRedirectFlow({
         if (cancelled) return;
         processPendingReferral(referralProcessed, setReferralProcessed, redeemInviteCode);
         await processPendingStarFlow(
-          resolvedLogin,
+          postLoginOwner,
           returnTo,
           pendingStarProcessed,
           setPendingStarProcessed,

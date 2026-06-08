@@ -51,8 +51,8 @@ export const claimProfile = mutation({
     }
 
     try {
-      await claimProfileForLogin(ctx, login, { name: user.name, image: user.image });
-      return { ok: true, owner: login };
+      const claim = await claimProfileForLogin(ctx, login, { name: user.name, image: user.image });
+      return { ok: true, owner: claim.owner };
     } catch (error) {
       await reportProfileClaimFailure(ctx, { stage: "claim", owner: login, error });
       return { ok: false, code: "claim_failed" as const, owner: login };

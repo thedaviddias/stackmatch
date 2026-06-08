@@ -24,6 +24,7 @@ interface GitHubRepoResponse {
 }
 
 interface GitHubOwnerResponse {
+  login?: string;
   avatar_url?: string;
   bio?: string | null;
   blog?: string | null;
@@ -36,6 +37,7 @@ interface GitHubOwnerResponse {
 }
 
 export interface GitHubOwnerProfile {
+  login?: string;
   name?: string;
   avatarUrl: string;
   followers: number;
@@ -258,7 +260,7 @@ export async function fetchTopPublicRepos(owner: string): Promise<ScanUserRepoIn
 
   const repos = topRepos
     .map((repo) => ({
-      owner: normalizedOwner,
+      owner: repo.owner?.login ?? normalizedOwner,
       name: repo.name,
       ...(repo.pushed_at ? { pushedAt: new Date(repo.pushed_at).getTime() } : {}),
     }))
@@ -280,6 +282,7 @@ export async function fetchGitHubOwnerProfile(owner: string): Promise<GitHubOwne
 
     const data = (await response.json()) as GitHubOwnerResponse;
     return {
+      ...(data.login ? { login: data.login } : {}),
       ...(data.name ? { name: data.name } : {}),
       avatarUrl: data.avatar_url ?? `https://github.com/${normalizedOwner}.png?size=200`,
       followers: data.followers ?? 0,

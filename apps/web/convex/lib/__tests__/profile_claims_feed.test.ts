@@ -69,6 +69,9 @@ function makeQueryBuilder(tables: Tables, table: string) {
     async take(limit: number) {
       return rows().slice(0, limit);
     },
+    async first() {
+      return rows()[0] ?? null;
+    },
     async unique() {
       return rows()[0] ?? null;
     },
@@ -119,7 +122,7 @@ describe("claimProfileForLogin feed events", () => {
         { name: "Alice", image: null },
         NOW
       )
-    ).resolves.toEqual({ newlyClaimed: true });
+    ).resolves.toEqual({ newlyClaimed: true, owner: "alice" });
 
     expect(ctx.runMutation.mock.calls[0]?.[1]).toMatchObject({
       owner: "alice",
@@ -132,5 +135,44 @@ describe("claimProfileForLogin feed events", () => {
       targetOwner: "alice",
       claimedAt: NOW,
     });
+  });
+
+  it("claims an existing public profile matched by avatar instead of creating a blank duplicate", async () => {
+    const avatarUrl = "https://avatars.githubusercontent.com/u/42?v=4";
+    const ctx = makeCtx({
+      profiles: [
+        {
+          _id: "profiles_legacy",
+          _creationTime: NOW - 1000,
+          owner: "octocat",
+          name: "The Octocat",
+          avatarUrl,
+          followers: 42,
+          followersCount: 0,
+          followingCount: 0,
+          starsReceivedCount: 0,
+          lastUpdated: NOW - 1000,
+        },
+      ],
+    });
+
+    await expect(
+      claimProfileForLogin(
+        ctx as unknown as Parameters<typeof claimProfileForLogin>[0],
+        "OctoCat",
+        { name: "Octo Cat", image: avatarUrl },
+        NOW
+      )
+    ).resolves.toEqual({ newlyClaimed: true, owner: "octocat" });
+
+    expect(ctx.tables.profiles).toHaveLength(1);
+    expect(ctx.tables.profiles?.[0]).toMatchObject({
+      owner: "octocat",
+      name: "The Octocat",
+      avatarUrl,
+      isClaimed: true,
+      claimedAt: NOW,
+    });
+    expect(ctx.db.insert).not.toHaveBeenCalledWith("profiles", expect.anything());
   });
 });

@@ -9,6 +9,7 @@ import { resolveGitHubLogin } from "../lib/auth_helpers";
 import { getWeekStart } from "../lib/date_helpers";
 import { refreshOwnerDirectoryCacheForOwner } from "../lib/directory_cache";
 import { buildOwnerProfileNotificationUrl } from "../lib/notification_urls";
+import { areSameOwner, findProfileByOwnerOrCaseVariant } from "../lib/owners";
 import { touchOwnerPresence } from "../lib/presence";
 
 function requireModule<T>(value: T | undefined, name: string): T {
@@ -57,22 +58,49 @@ async function reportBackgroundFailure(
 }
 
 async function syncTargetStarCounter(ctx: MutationCtx, targetOwner: string): Promise<void> {
-  const [targetProfile, allTargetStars] = await Promise.all([
-    ctx.db
-      .query("profiles")
-      .withIndex("by_owner", (q) => q.eq("owner", targetOwner))
-      .unique(),
-    ctx.db
-      .query("stars")
-      .withIndex("by_target", (q) => q.eq("targetOwner", targetOwner))
-      .collect(),
-  ]);
+  const targetProfile = await findProfileByOwnerOrCaseVariant(ctx, targetOwner);
 
   if (!targetProfile) return;
 
+  const allTargetStars = await ctx.db
+    .query("stars")
+    .withIndex("by_target", (q) => q.eq("targetOwner", targetProfile.owner))
+    .collect();
+  const legacyTargetStars =
+    targetProfile.owner === targetOwner
+      ? []
+      : await ctx.db
+          .query("stars")
+          .withIndex("by_target", (q) => q.eq("targetOwner", targetOwner))
+          .collect();
+
   await ctx.db.patch(targetProfile._id, {
-    starsReceivedCount: allTargetStars.length,
+    starsReceivedCount: allTargetStars.length + legacyTargetStars.length,
   });
+}
+
+async function findWeeklyStars(
+  ctx: MutationCtx,
+  starrerLogin: string,
+  targetOwner: string,
+  weekStart: number
+) {
+  const exactStars = await ctx.db
+    .query("stars")
+    .withIndex("by_starrer_target_week", (q) =>
+      q.eq("starrerLogin", starrerLogin).eq("targetOwner", targetOwner).eq("weekStart", weekStart)
+    )
+    .take(STAR_DUPLICATE_CLEANUP_LIMIT);
+  if (exactStars.length > 0) return exactStars;
+
+  const weeklyStars = await ctx.db
+    .query("stars")
+    .withIndex("by_week", (q) => q.eq("weekStart", weekStart))
+    .collect();
+  return weeklyStars.filter(
+    (star) =>
+      areSameOwner(star.starrerLogin, starrerLogin) && areSameOwner(star.targetOwner, targetOwner)
+  );
 }
 
 /**
@@ -99,18 +127,13 @@ export const toggleStar = mutation({
     }
     await touchOwnerPresence(ctx, githubLogin);
 
-    if (githubLogin === targetOwner) {
+    if (areSameOwner(githubLogin, targetOwner)) {
       throw new ConvexError("You cannot star yourself.");
     }
 
     const weekStart = getWeekStart();
 
-    const existingStars = await ctx.db
-      .query("stars")
-      .withIndex("by_starrer_target_week", (q) =>
-        q.eq("starrerLogin", githubLogin).eq("targetOwner", targetOwner).eq("weekStart", weekStart)
-      )
-      .take(STAR_DUPLICATE_CLEANUP_LIMIT);
+    const existingStars = await findWeeklyStars(ctx, githubLogin, targetOwner, weekStart);
 
     if (existingStars.length > 0) {
       for (const star of existingStars) {
@@ -136,12 +159,7 @@ export const toggleStar = mutation({
       owner: targetOwner,
     });
 
-    const reciprocal = await ctx.db
-      .query("stars")
-      .withIndex("by_starrer_target_week", (q) =>
-        q.eq("starrerLogin", targetOwner).eq("targetOwner", githubLogin).eq("weekStart", weekStart)
-      )
-      .take(1);
+    const reciprocal = await findWeeklyStars(ctx, targetOwner, githubLogin, weekStart);
     const isMatch = reciprocal.length > 0;
 
     try {

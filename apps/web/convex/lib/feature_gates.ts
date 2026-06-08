@@ -7,6 +7,7 @@ import {
 } from "@stackmatch/utils";
 import { ConvexError } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { findProfileByOwnerOrCaseVariant } from "./owners";
 
 /**
  * Computes the Stack Score for a given owner by gathering all
@@ -20,18 +21,16 @@ export async function computeStackScore(
   owner: string,
   opts?: { isClaimed?: boolean }
 ): Promise<number> {
-  const profile = await ctx.db
-    .query("profiles")
-    .withIndex("by_owner", (q) => q.eq("owner", owner))
-    .first();
+  const profile = await findProfileByOwnerOrCaseVariant(ctx, owner);
 
   if (!profile) return 0;
+  const scoreOwner = profile.owner;
 
   const isClaimed = opts?.isClaimed ?? profile.isClaimed ?? false;
 
   const repos = await ctx.db
     .query("repos")
-    .withIndex("by_owner", (q) => q.eq("owner", owner))
+    .withIndex("by_owner", (q) => q.eq("owner", scoreOwner))
     .collect();
 
   const syncedCount = repos.filter((r) => r.syncStatus === "synced").length;
@@ -39,12 +38,12 @@ export async function computeStackScore(
 
   const packages = await ctx.db
     .query("ownerPackages")
-    .withIndex("by_owner", (q) => q.eq("owner", owner))
+    .withIndex("by_owner", (q) => q.eq("owner", scoreOwner))
     .collect();
 
   const privateSyncStatus = await ctx.db
     .query("userPrivateStackSyncStatus")
-    .withIndex("by_login", (q) => q.eq("githubLogin", owner))
+    .withIndex("by_login", (q) => q.eq("githubLogin", scoreOwner))
     .first();
 
   const starsReceived =
@@ -52,7 +51,7 @@ export async function computeStackScore(
     (
       await ctx.db
         .query("stars")
-        .withIndex("by_target", (q) => q.eq("targetOwner", owner))
+        .withIndex("by_target", (q) => q.eq("targetOwner", scoreOwner))
         .collect()
     ).length;
 

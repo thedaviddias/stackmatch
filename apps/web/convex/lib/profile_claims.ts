@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { refreshOwnerDirectoryCacheForOwner } from "./directory_cache";
+import { findProfileByOwnerOrAvatar } from "./owners";
 import { touchOwnerPresence } from "./presence";
 
 const CLAIMED_PROFILE_AVATAR_SIZE = 200;
@@ -45,10 +46,7 @@ export async function claimProfileForLogin(
 ) {
   await touchOwnerPresence(ctx, login, now);
 
-  const existing = await ctx.db
-    .query("profiles")
-    .withIndex("by_owner", (q) => q.eq("owner", login))
-    .unique();
+  const existing = await findProfileByOwnerOrAvatar(ctx, login, source.image);
 
   const wasClaimed = isClaimedProfile(existing);
   const memberNumber = await resolveMemberNumber(ctx, existing);
@@ -76,18 +74,20 @@ export async function claimProfileForLogin(
     });
   }
 
-  await refreshOwnerDirectoryCacheForOwner(ctx, login);
+  const claimedOwner = existing?.owner ?? login;
+
+  await refreshOwnerDirectoryCacheForOwner(ctx, claimedOwner);
   await ctx.scheduler.runAfter(0, internal.stack.owner_page_cache.refreshOwnerPageDataCache, {
-    owner: login,
+    owner: claimedOwner,
   });
 
   if (!wasClaimed && isPublicFeedProfile(existing)) {
     try {
       await ctx.runMutation(internal.mutations.feed_events.createFeedEvent, {
-        owner: login,
+        owner: claimedOwner,
         type: FEED_EVENT_TYPE_JOINED,
-        actorOwner: login,
-        dedupeKey: `joined:${login}`,
+        actorOwner: claimedOwner,
+        dedupeKey: `joined:${claimedOwner}`,
         createdAt: now,
       });
     } catch (error) {
@@ -96,7 +96,7 @@ export async function claimProfileForLogin(
 
     try {
       await ctx.scheduler.runAfter(0, internal.mutations.follows.notifyProfileClaimWatchers, {
-        targetOwner: login,
+        targetOwner: claimedOwner,
         claimedAt: now,
       });
     } catch (error) {
@@ -104,7 +104,7 @@ export async function claimProfileForLogin(
     }
   }
 
-  return { newlyClaimed: !wasClaimed };
+  return { newlyClaimed: !wasClaimed, owner: claimedOwner };
 }
 
 export function isClaimedProfile(profile: Doc<"profiles"> | null | undefined) {

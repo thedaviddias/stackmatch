@@ -202,6 +202,7 @@ describe("POST /api/scan/user", () => {
       "scan-user request queued zero repositories",
       undefined,
       {
+        canonicalOwner: "octocat",
         owner: "octocat",
         requestedRepoCount: 1,
         submitterScope: "anonymous",
@@ -356,6 +357,7 @@ describe("POST /api/scan/user", () => {
       error: "Failed to request scan. Please try again.",
     });
     expect(loggerErrorMock).toHaveBeenCalledWith("requestUserScan mutation failed", mutationError, {
+      canonicalOwner: "octocat",
       owner: "octocat",
       repoCount: 1,
     });
