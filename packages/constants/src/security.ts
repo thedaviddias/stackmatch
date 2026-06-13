@@ -1,3 +1,8 @@
+export const CONTENT_SECURITY_POLICY_HEADER = "Content-Security-Policy";
+export const CONTENT_SECURITY_POLICY_FRAME_ANCESTORS_SELF = "frame-ancestors 'self'";
+export const X_FRAME_OPTIONS_HEADER = "X-Frame-Options";
+export const X_FRAME_OPTIONS_SAMEORIGIN = "SAMEORIGIN";
+
 export const BOT_ID_PROTECTED_POST_PATHS = [
   "/api/analyze/repo",
   "/api/analyze/user",

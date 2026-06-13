@@ -1,6 +1,12 @@
 import createMDX from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs";
 import {
+  CONTENT_SECURITY_POLICY_FRAME_ANCESTORS_SELF,
+  CONTENT_SECURITY_POLICY_HEADER,
+  X_FRAME_OPTIONS_HEADER,
+  X_FRAME_OPTIONS_SAMEORIGIN,
+} from "@stackmatch/constants/security";
+import {
   stackmatchToolbarCspSources,
   withStackmatchVercelToolbar,
 } from "@stackmatch/vercel/toolbar";
@@ -93,12 +99,16 @@ const nextConfig: NextConfig = {
       `connect-src 'self' https://*.convex.cloud https://*.convex.site wss://*.convex.cloud https://api.openpanel.dev https://api.github.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io ${toolbarConnectSrc} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*`,
       `frame-src 'self' ${toolbarFrameSrc}`,
       "worker-src 'self' blob:",
+      CONTENT_SECURITY_POLICY_FRAME_ANCESTORS_SELF,
     ].join("; ");
 
     return [
       {
         source: "/(.*)",
-        headers: [{ key: "Content-Security-Policy", value: csp }],
+        headers: [
+          { key: CONTENT_SECURITY_POLICY_HEADER, value: csp },
+          { key: X_FRAME_OPTIONS_HEADER, value: X_FRAME_OPTIONS_SAMEORIGIN },
+        ],
       },
     ];
   },
